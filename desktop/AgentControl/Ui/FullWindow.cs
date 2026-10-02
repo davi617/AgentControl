@@ -284,7 +284,7 @@ public sealed class FullWindow : Window
         await LoadChat();
     }
 
-    static Control Padded(Control e) => new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, Content = new Border { Padding = new Thickness(24, 4, 24, 24), Child = e } };
+    static Control Padded(Control e) => new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, Content = new Border { Padding = new Thickness(24, 4, 24, 24), Child = e } };
 
     // ---------- Comandos (J-xxx): mandar, aprovar, recusar ----------
     async Task LoadCommands() { cmds = await host.Api.CommandsAsync(); sig = ""; Refresh(); }

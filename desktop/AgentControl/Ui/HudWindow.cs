@@ -272,6 +272,9 @@ public sealed class HudWindow : Window
         }
         if (goal) islandAgents.Children.Add(K.Pill("GOAL", K.Ok).Also(p => p.Margin = new Thickness(4, 0, 0, 0)));
         if (s.Pending > 0) islandAgents.Children.Add(K.Pill(s.Pending == 1 ? "1 APROVAÇÃO" : $"{s.Pending} APROVAÇÕES", K.Warn).Also(p => p.Margin = new Thickness(6, 0, 0, 0)));
+        // O tamanho inicial da janela não acompanha sempre o time carregado depois do primeiro GET.
+        island.Measure(Size.Infinity);
+        MinWidth = Math.Max(448, island.DesiredSize.Width);
     }
 
     public void Select(int i, bool animate = true)
