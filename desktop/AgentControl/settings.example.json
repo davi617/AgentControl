@@ -1,0 +1,15 @@
+{
+  "NodePath": "node",
+  "RouterCli": "",
+  "RouterPort": 20128,
+  "GatePort": 20129,
+  "JarvisDir": "",
+  "JarvisPort": 20150,
+  "JarvisProject": "main",
+  "ObsidianVault": "MEU_VAULT",
+  "SalaNote": "20-Operations/CHAT/SALA",
+  "LoopAgents": ["claude", "codex", "droid", "hermes", "openclaw", "opencode", "qwen"],
+  "Apps": [
+    { "Name": "Obsidian", "ProcessName": "Obsidian", "ExecutablePath": "", "Arguments": "", "AlwaysLaunch": false }
+  ]
+}

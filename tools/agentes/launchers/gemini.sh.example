@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Exemplo (Linux/macOS). Copie para ~/.config/dw-agents/launchers/gemini.sh e ajuste.
+# O agent-loop.sh já entrega: $WORKTREE (pasta do agente), $PROMPT (ordem padrão) e as funções de comum.sh.
+set -e
+cd "$WORKTREE"
+# Gemini CLI no login do Google. auto_edit deixa editar arquivos da worktree; comandos de shell continuam pedindo.
+exec gemini -p "$PROMPT" --approval-mode auto_edit

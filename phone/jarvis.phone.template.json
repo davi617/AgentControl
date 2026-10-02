@@ -1,0 +1,40 @@
+{
+  "host": "127.0.0.1",
+  "port": 20150,
+  "db": "~/jarvis-phone/jarvis.sqlite",
+  "remote": {
+    "enabled": true,
+    "host": "__TAILSCALE_IP__",
+    "tokenFile": "~/jarvis-phone/remote-token.txt"
+  },
+  "summary": {
+    "enabled": false,
+    "routerUrl": "http://127.0.0.1:20128/v1",
+    "keyFile": "~/jarvis-phone/sem-chave.key",
+    "models": ["nvidia/moonshotai/kimi-k3"],
+    "allowedPrefixes": ["nvidia/", "gemini/"],
+    "minIntervalMinutes": 15,
+    "maxInputChars": 12000
+  },
+  "projects": [
+    {
+      "id": "main",
+      "name": "Agent Control",
+      "vault": "~/dw/vault",
+      "activeGoalFile": "00-System/ACTIVE_GOAL.md",
+      "goalsDir": "20-Operations/Goals",
+      "chatDir": "20-Operations/CHAT",
+      "orchestratorDir": "~/dw/orchestrator",
+      "agents": [
+        { "id": "CODEX", "worktree": "~/dw/agents/CODEX" },
+        { "id": "HERMES", "worktree": "~/dw/agents/HERMES" },
+        { "id": "OPENCODE", "worktree": "~/dw/agents/OPENCODE" },
+        { "id": "OPENCLAW", "worktree": "~/dw/agents/OPENCLAW" },
+        { "id": "CLAUDE", "worktree": "~/dw/agents/CLAUDE" },
+        { "id": "QWEN", "worktree": "~/dw/agents/QWEN" },
+        { "id": "DROID", "worktree": "~/dw/agents/DROID" },
+        { "id": "CHATGPT" }
+      ]
+    }
+  ]
+}

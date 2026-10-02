@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Exemplo (Linux/macOS). Copie para ~/.config/dw-agents/launchers/droid.sh e ajuste.
+# O agent-loop.sh já entrega: $WORKTREE (pasta do agente), $PROMPT (ordem padrão) e as funções de comum.sh.
+set -e
+cd "$WORKTREE"
+# Droid (Factory) num modelo custom da fila. --auto low deixa editar arquivos da worktree.
+exec droid exec --auto low --model custom:9Router-0 "$PROMPT"

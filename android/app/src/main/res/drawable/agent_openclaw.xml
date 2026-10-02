@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Foto do agente OPENCLAW (família de robôs do AgentC). Usada no app do celular e no HUD do PC (lida como recurso). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#2A1113" android:pathData="M24,0A24,24 0 1,1 24,48A24,24 0 1,1 24,0Z" />
+    <path android:fillColor="#E25555" android:pathData="M24,14A12,12 0 1,1 24,38A12,12 0 1,1 24,14Z" />
+    <path android:fillColor="#FFB3B3" android:pathData="M26.6,6.5L28.8,6.5L25.9,13.5L23.7,13.5Z" />
+    <path android:fillColor="#FFB3B3" android:pathData="M30.8,7.6L33,7.6L30.1,14.6L27.9,14.6Z" />
+    <path android:fillColor="#FFB3B3" android:pathData="M35,9.4L37.2,9.4L34.3,16.2L32.1,16.2Z" />
+    <path android:fillColor="#2A1113" android:pathData="M18.7,23H20.8A1.2,1.2 0 0,1 22.0,24.2V26.8A1.2,1.2 0 0,1 20.8,28H18.7A1.2,1.2 0 0,1 17.5,26.8V24.2A1.2,1.2 0 0,1 18.7,23Z" />
+    <path android:fillColor="#2A1113" android:pathData="M27.2,23H29.3A1.2,1.2 0 0,1 30.5,24.2V26.8A1.2,1.2 0 0,1 29.3,28H27.2A1.2,1.2 0 0,1 26,26.8V24.2A1.2,1.2 0 0,1 27.2,23Z" />
+</vector>

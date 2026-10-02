@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Foto do agente QWEN (família de robôs do AgentC). Usada no app do celular e no HUD do PC (lida como recurso). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#241330" android:pathData="M24,0A24,24 0 1,1 24,48A24,24 0 1,1 24,0Z" />
+    <path android:fillColor="#C66BD9" android:pathData="M24,12.5A12.5,12.5 0 1,1 24,37.5A12.5,12.5 0 1,1 24,12.5Z" />
+    <path android:fillColor="#241330" android:pathData="M16.8,25.5A3.2,3.2 0 0,1 23.2,25.5L21.6,25.5A1.6,1.6 0 0,0 18.4,25.5Z" />
+    <path android:fillColor="#241330" android:pathData="M24.8,25.5A3.2,3.2 0 0,1 31.2,25.5L29.6,25.5A1.6,1.6 0 0,0 26.4,25.5Z" />
+</vector>

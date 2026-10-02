@@ -1,0 +1,485 @@
+using System.Text.Json;
+using System.Text.RegularExpressions;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
+using Avalonia.Input;
+using Avalonia.Layout;
+using Avalonia.Media;
+using Avalonia.Threading;
+using AgentControl.Core;
+
+namespace AgentControl.Ui;
+
+/// <summary>
+/// HUD do topo da tela: fica SEMPRE no meio de cima. Recolhido é uma faixa fina com o AgentC piscando e
+/// cada agente só com a foto e o uso de hoje em %. Clique abre o painel (Início, Sala, Chamada, Goal, Saúde);
+/// puxar a alça de baixo abre a tela completa; arrastar muda de lugar; botão direito: menu.
+/// </summary>
+public sealed class HudWindow : Window
+{
+    static readonly (string Icon, string Name)[] Tabs = [(K.IHome, "Início"), (K.IChat, "Sala"), (K.IPhone, "Chamada"), (K.IGoal, "Goal"), (K.IHealth, "Saúde")];
+    readonly HudHost host;
+    readonly Border shell;
+    readonly TranslateTransform slide = new();
+    readonly ContentControl body = new();
+    readonly List<(Border Box, SolidColorBrush Bg, K.Ico Icon)> tabs = [];
+    readonly Ellipse liveDot = new() { Width = 7, Height = 7, Fill = K.Muted, VerticalAlignment = VerticalAlignment.Center };
+    readonly TextBlock liveText = K.T("conectando", 11.5, K.Muted);
+    readonly Border island;
+    readonly StackPanel islandAgents = new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+    readonly SolidColorBrush islandStroke = new(K.C("#F97316"));
+    readonly ScaleTransform islandBlink = new(1, 1);
+    readonly DispatcherTimer idle = new() { Interval = TimeSpan.FromSeconds(1) };
+    readonly DispatcherTimer blinkTimer = new();
+    readonly Popup menu = new() { Placement = PlacementMode.Bottom, IsLightDismissEnabled = true };
+    readonly Random rnd = new();
+    readonly SolidColorBrush gripBrush = new(K.C("#52525B"));
+    int tab, outside;
+    bool hovered, expanded;
+    string sig = "", islandSig = "";
+    double? centerX;
+    static string PosFile => System.IO.Path.Combine(Platform.DataDir, "topo.json");
+
+    public HudWindow(HudHost host)
+    {
+        this.host = host;
+        K.Floating(this);
+        Title = "Agent Control";
+
+        // Barra: 5 abas + status + recolher
+        var bar = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+        var tabRow = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2 };
+        for (var i = 0; i < Tabs.Length; i++)
+        {
+            var idx = i;
+            var bg = new SolidColorBrush(i == 0 ? K.C("#1A1A1A") : Colors.Transparent);
+            var ic = K.Icon(Tabs[i].Icon, 16, i == 0 ? K.BrandText : K.Muted);
+            var b = new Border { Width = 34, Height = 34, CornerRadius = new CornerRadius(10), Background = bg, Child = ic };
+            b.Tip(Tabs[i].Name);
+            K.Pressable(b, () => Select(idx), () => { if (tab != idx) K.AnimColor(bg, K.C("#151515"), 120); }, () => { if (tab != idx) K.AnimColor(bg, Colors.Transparent, 160); });
+            tabs.Add((b, bg, ic));
+            tabRow.Children.Add(b);
+        }
+        bar.Children.Add(tabRow);
+        var live = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 0, 10, 0), Children = { liveDot, liveText } };
+        Grid.SetColumn(live, 1); bar.Children.Add(live);
+        var close = new Border { Width = 30, Height = 30, CornerRadius = new CornerRadius(8), Background = Brushes.Transparent, Child = K.Icon(K.IUp, 14, K.Muted) };
+        close.Tip("Recolher (Esc)");
+        K.Pressable(close, Collapse);
+        Grid.SetColumn(close, 2); bar.Children.Add(close);
+        var barBox = new Border { Background = K.Surface, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Padding = new Thickness(5), Child = bar, Cursor = new Cursor(StandardCursorType.SizeAll) };
+
+        var panel = new Border { Background = K.Surface, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(16), Padding = new Thickness(16), Margin = new Thickness(0, 8, 0, 0), Child = body };
+        // Alça embaixo do painel: puxar para baixo (ou clicar) abre a tela completa.
+        var grip = new Border { Width = 44, Height = 5, CornerRadius = new CornerRadius(3), Background = gripBrush, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        var handle = new Border { Height = 22, Background = Brushes.Transparent, Cursor = new Cursor(StandardCursorType.SizeNorthSouth), Child = grip };
+        handle.Tip("Puxe para baixo: tela completa");
+        double? pullFrom = null;
+        handle.PointerPressed += (_, e) => { pullFrom = e.GetPosition(this).Y; e.Pointer.Capture(handle); e.Handled = true; };
+        handle.PointerMoved += (_, e) =>
+        {
+            if (pullFrom is not { } y0) return;
+            var dy = Math.Max(0, e.GetPosition(this).Y - y0);
+            slide.Y = Math.Min(36, dy * .35); grip.Width = 44 + Math.Min(40, dy * .5);
+        };
+        handle.PointerReleased += (_, e) =>
+        {
+            if (pullFrom is not { } y0) return;
+            var dy = e.GetPosition(this).Y - y0;
+            pullFrom = null; e.Pointer.Capture(null); e.Handled = true;
+            K.Anim(slide, "y", () => slide.Y, y => slide.Y = y, 0, 420, K.Spring);
+            K.Anim(grip, "w", () => grip.Width, w => grip.Width = w, 44, 420, K.Spring);
+            if (dy > 50 || Math.Abs(dy) < 3) { Collapse(); host.OpenFull(); }
+        };
+        handle.PointerEntered += (_, _) => K.AnimColor(gripBrush, K.C("#F97316"), 160);
+        handle.PointerExited += (_, _) => K.AnimColor(gripBrush, K.C("#52525B"), 200);
+
+        var stack = new StackPanel { Width = 420, Children = { barBox, panel, handle } };
+        shell = new Border { Child = stack, Margin = new Thickness(14, 8, 14, 14), RenderTransform = slide, BoxShadow = K.Shadow(28, 4, .55), IsVisible = false, Opacity = 0, CornerRadius = new CornerRadius(16) };
+        K.DragOrClick(this, barBox, null, SavePos);
+
+        // Faixa fina (recolhido): AgentC piscando + cada agente com a foto e o uso de hoje em %.
+        var strip = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        strip.Children.Add(MiniFace(20));
+        strip.Children.Add(new Border { Width = 1, Height = 14, Background = K.Line, Margin = new Thickness(10, 0, 12, 0) });
+        strip.Children.Add(islandAgents);
+        island = new Border
+        {
+            Background = K.Surface, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(19), Height = 38, Padding = new Thickness(8, 0, 12, 0),
+            Child = strip, Margin = new Thickness(14, 6, 14, 14), Cursor = new Cursor(StandardCursorType.Hand), BoxShadow = K.Shadow(16, 2, .45), HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        island.Tip("AgentC · clique para abrir · puxe o painel para baixo para a tela completa · arraste para mover");
+        K.DragOrClick(this, island, () => Expand(Math.Max(0, tab)), SavePos);
+        BuildMenu();
+        island.PointerReleased += (_, e) => { if (e.InitialPressMouseButton == MouseButton.Right) OpenMenu(island); };
+        barBox.PointerReleased += (_, e) => { if (e.InitialPressMouseButton == MouseButton.Right) OpenMenu(barBox); };
+
+        Content = new Grid { Children = { island, shell, menu } };
+        KeyDown += (_, e) => { if (e.Key == Key.Escape) Collapse(); };
+        // Mantém o centro no lugar quando troca de faixa para painel (larguras diferentes).
+        PropertyChanged += (_, e) => { if (e.Property == ClientSizeProperty && centerX is { } c) K.MoveTo(this, c - ClientSize.Width / 2, K.PosDip(this).Y); };
+        PointerEntered += (_, _) => hovered = true;
+        idle.Tick += (_, _) => { if (IsPointerOver || !hovered) outside = 0; else if (++outside >= 8) Collapse(); };
+        blinkTimer.Tick += (_, _) => Blink();
+    }
+
+    // ---------- menu do botão direito ----------
+    void BuildMenu()
+    {
+        var list = new StackPanel { MinWidth = 220 };
+        void Item(string icon, string text, Action go)
+        {
+            var row = new Grid { Height = 34, ColumnDefinitions = new ColumnDefinitions("30,*"), Background = Brushes.Transparent };
+            row.Children.Add(K.Icon(icon, 14, K.Muted));
+            var t = K.T(text, 13, K.Text); Grid.SetColumn(t, 1); row.Children.Add(t);
+            var hover = new SolidColorBrush(Colors.Transparent);
+            var b = new Border { Child = row, CornerRadius = new CornerRadius(8), Background = hover, Padding = new Thickness(4, 0, 10, 0) };
+            K.Pressable(b, () => { menu.IsOpen = false; go(); }, () => K.AnimColor(hover, K.C("#1E1E1E"), 120), () => K.AnimColor(hover, Colors.Transparent, 160));
+            list.Children.Add(b);
+        }
+        Item(K.IOpen, "Abrir a tela completa", () => { Collapse(); host.OpenFull(); });
+        Item(K.IChat, "Falar com os agentes", host.OpenMini);
+        Item(K.IHealth, "Abrir o Launcher", host.OpenLauncher);
+        list.Children.Add(new Border { Height = 1, Background = K.Line, Margin = new Thickness(6, 4) });
+        Item(K.IHide, "Esconder AgentC e a HUD", host.HideAll);
+        menu.Child = new Border { Background = K.Surface, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(5), Child = list, Margin = new Thickness(10), BoxShadow = K.Shadow(20, 3, .5) };
+    }
+
+    void OpenMenu(Control target)
+    {
+        menu.PlacementTarget = target;
+        menu.IsOpen = true;
+        if (menu.Child is { } m) K.EnterUp(m, 0, -6);
+    }
+
+    // ---------- faixa fina / painel ----------
+    public void ShowStrip()
+    {
+        UpdateStrip();
+        Show();
+        PlaceStart();
+        K.Fade(island, 1, 420, from: 0);
+        ScheduleBlink();
+    }
+
+    public void Expand(int startTab = 0)
+    {
+        if (!IsVisible) ShowStrip();
+        if (!expanded) tab = -1;
+        Select(startTab, animate: expanded);
+        if (expanded) return;
+        expanded = true; outside = 0; hovered = IsPointerOver;
+        island.IsVisible = false;
+        shell.IsVisible = true;
+        K.Fade(shell, 1, 380, from: 0);
+        K.Anim(slide, "y", () => slide.Y, y => slide.Y = y, 0, 620, K.OutExpo, -24);
+        Stagger();
+        idle.Start();
+        Activate();
+    }
+
+    public void Collapse()
+    {
+        if (!expanded) return;
+        expanded = false;
+        idle.Stop();
+        K.Anim(slide, "y", () => slide.Y, y => slide.Y = y, -14, 160, K.InQuad);
+        K.Fade(shell, 0, 160, K.InQuad, done: () =>
+        {
+            if (expanded) return;
+            shell.IsVisible = false;
+            island.IsVisible = true;
+            K.Fade(island, 1, 280, from: 0);
+        });
+    }
+
+    void PlaceStart()
+    {
+        var (wa, _) = K.WorkArea(this);
+        try
+        {
+            var p = JsonSerializer.Deserialize<double[]>(File.ReadAllText(PosFile));
+            if (p is { Length: 2 } && p[0] > wa.Left && p[0] < wa.Right && p[1] >= wa.Top - 10 && p[1] < wa.Bottom - 40) { centerX = p[0]; K.MoveTo(this, p[0] - ClientSize.Width / 2, p[1]); return; }
+        }
+        catch { }
+        centerX = wa.Left + wa.Width / 2;
+        K.MoveTo(this, centerX.Value - ClientSize.Width / 2, wa.Top);
+    }
+
+    void SavePos()
+    {
+        var (x, y) = K.PosDip(this);
+        centerX = x + ClientSize.Width / 2;
+        try { File.WriteAllText(PosFile, JsonSerializer.Serialize(new[] { centerX.Value, y })); } catch { }
+    }
+
+    Grid MiniFace(double size)
+    {
+        var g = new Grid { Width = size, Height = size, VerticalAlignment = VerticalAlignment.Center };
+        g.Children.Add(K.Hex(size, K.Surface, islandStroke, 1.8));
+        var eyes = new Canvas { Width = size, Height = size, RenderTransformOrigin = RelativePoint.Center, RenderTransform = islandBlink };
+        foreach (var x in new[] { size * .31, size * .56 })
+        {
+            var w = size * .13;
+            var e = new Rectangle { Width = w, Height = size * .26, RadiusX = w / 2, RadiusY = w / 2, Fill = K.Text };
+            Canvas.SetLeft(e, x); Canvas.SetTop(e, size * .37); eyes.Children.Add(e);
+        }
+        g.Children.Add(eyes);
+        return g;
+    }
+
+    void ScheduleBlink() { blinkTimer.Interval = TimeSpan.FromMilliseconds(rnd.Next(2400, 5600)); blinkTimer.Start(); }
+
+    void Blink()
+    {
+        blinkTimer.Stop();
+        if (host.Snap.Online && !K.Reduced)
+            K.Anim(islandBlink, "b", () => islandBlink.ScaleY, y => islandBlink.ScaleY = y, .1, 70, K.InQuad,
+                done: () => K.Anim(islandBlink, "b", () => islandBlink.ScaleY, y => islandBlink.ScaleY = y, 1, 130, K.OutExpo));
+        ScheduleBlink();
+    }
+
+    static Dictionary<string, double> UsageOf(HudSnapshot s) => s.Usage.GroupBy(u => u.Agent).ToDictionary(g => g.Key, g => g.Sum(x => x.Share));
+    static int Pct(Dictionary<string, double> share, string id) => share.TryGetValue(id, out var v) ? (int)Math.Round(v * 100) : 0;
+
+    /// <summary>Faixa fina: cada agente com a foto no anel de uso e a % de hoje; Goal rodando e aprovações.</summary>
+    void UpdateStrip()
+    {
+        var s = host.Snap;
+        var agents = s.Agents.Where(a => a.Id != "CHATGPT").ToList();
+        var goal = s.CallActive && s.CallModo == "goal";
+        var share = UsageOf(s);
+        var newSig = $"{s.Online}|{s.Pending}|{goal}|{string.Join(",", agents.Select(a => a.Id + a.Status + Pct(share, a.Id)))}";
+        if (newSig == islandSig) return;
+        islandSig = newSig;
+        K.AnimColor(islandStroke, !s.Online ? K.C("#52525B") : s.Pending > 0 ? K.C("#F59E0B") : K.C("#F97316"), 400);
+        K.Stop(islandBlink, "b");
+        islandBlink.ScaleY = s.Online ? 1 : .16;
+        islandAgents.Children.Clear();
+        if (!s.Online) { islandAgents.Children.Add(K.T("servidor desligado", 11.5, K.Muted)); return; }
+        var marks = K.Marks(agents.Select(a => a.Id));
+        foreach (var a in agents)
+        {
+            var pct = Pct(share, a.Id);
+            var req = s.Usage.FirstOrDefault(u => u.Agent == a.Id).Req;
+            var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 0, 12, 0), Background = Brushes.Transparent };
+            item.Tip($"{K.Nice(a.Id)} · {K.StatusText(a.Status)} · {req} pedidos hoje ({pct}% do uso do time)");
+            item.Children.Add(K.UsageRing(a.Id, 26, pct / 100.0, K.StatusBrush(a.Status), marks[a.Id]));
+            item.Children.Add(K.T($"{pct}%", 11.5, pct > 0 ? K.Text2 : K.Faint, FontWeight.SemiBold, K.Mono));
+            islandAgents.Children.Add(item);
+        }
+        if (goal) islandAgents.Children.Add(K.Pill("GOAL", K.Ok).Also(p => p.Margin = new Thickness(4, 0, 0, 0)));
+        if (s.Pending > 0) islandAgents.Children.Add(K.Pill(s.Pending == 1 ? "1 APROVAÇÃO" : $"{s.Pending} APROVAÇÕES", K.Warn).Also(p => p.Margin = new Thickness(6, 0, 0, 0)));
+    }
+
+    public void Select(int i, bool animate = true)
+    {
+        if (i == tab) return;
+        tab = i;
+        for (var t = 0; t < tabs.Count; t++)
+        {
+            var on = t == i;
+            K.AnimColor(tabs[t].Bg, on ? K.C("#1A1A1A") : Colors.Transparent, 220);
+            tabs[t].Icon.Color = on ? K.BrandText : K.Muted;
+        }
+        sig = "";
+        Render(animate);
+    }
+
+    public void Refresh() { if (!IsVisible) return; UpdateStrip(); if (expanded) Render(false); }
+
+    void Stagger()
+    {
+        if (body.Content is Panel p) { var d = 60; foreach (var c in p.Children) { K.EnterUp(c, d); d += 45; } }
+    }
+
+    void Render(bool animate)
+    {
+        var s = host.Snap;
+        liveDot.Fill = !s.Online ? K.Err : s.Working ? K.Brand : K.Ok;
+        liveText.Text = !s.Online ? "servidor desligado" : s.Paused ? "agentes pausados" : s.Working ? "trabalhando" : "online";
+        var newSig = tab + "|" + Sig(s);
+        if (newSig == sig) return;
+        sig = newSig;
+        var view = new StackPanel();
+        if (!s.Online) Offline(view);
+        else switch (tab)
+        {
+            case 0: Home(view, s, animate); break;
+            case 1: Sala(view, s); break;
+            case 2: Chamada(view, s); break;
+            case 3: Goal(view, s, animate); break;
+            default: Saude(view, s); break;
+        }
+        body.Content = view;
+        if (animate) Stagger();
+    }
+
+    static Control Gap(double h = 12) => new Border { Height = h };
+
+    void Offline(StackPanel v)
+    {
+        v.Children.Add(new StackPanel
+        {
+            Orientation = Orientation.Horizontal, Spacing = 14,
+            Children = { K.Face(52, K.Faint, .16), new StackPanel { VerticalAlignment = VerticalAlignment.Center, Children = { K.T("Servidor desligado", 16, K.Text, FontWeight.SemiBold, K.Display), K.T("Abra o Launcher para ligar os serviços.", 12.5, K.Muted) } } },
+        });
+        v.Children.Add(Gap(14));
+        v.Children.Add(K.Button("Abrir o Launcher", K.IPlay, host.OpenLauncher));
+    }
+
+    void Home(StackPanel v, HudSnapshot s, bool animate)
+    {
+        var top = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+        top.Children.Add(K.Face(62, s.Pending > 0 ? K.Warn : K.Brand));
+        var col = new StackPanel { Margin = new Thickness(14, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
+        col.Children.Add(K.T(s.Paused ? "AGENT CONTROL · AGENTES PAUSADOS" : "AGENT CONTROL · ONLINE", 10.5, s.Paused ? K.Warn : K.Muted, FontWeight.SemiBold));
+        var working = s.Agents.Count(a => K.StatusBrush(a.Status) == K.Brand);
+        col.Children.Add(K.T($"{s.Agents.Count} agentes · {working} trabalhando", 15.5, K.Text, FontWeight.SemiBold, K.Display).Also(t => t.Margin = new Thickness(0, 2, 0, 9)));
+        col.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.Button("Falar", K.IMic, host.OpenWeb, height: 34), K.Button("Escrever", K.IChat, host.OpenMini, primary: false, height: 34) } });
+        Grid.SetColumn(col, 1); top.Children.Add(col);
+        v.Children.Add(top);
+
+        if (s.Pending > 0)
+        {
+            v.Children.Add(Gap(12));
+            var chip = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(28, 245, 158, 11)), BorderBrush = new SolidColorBrush(Color.FromArgb(70, 245, 158, 11)), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 9),
+                Child = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.Icon(K.IWarn, 14, K.Warn), K.T($"{s.Pending} aprovação esperando você", 13, K.Warn, FontWeight.SemiBold) } },
+            };
+            K.Pressable(chip, host.OpenFull);
+            v.Children.Add(chip);
+        }
+
+        v.Children.Add(Gap(16));
+        var head = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
+        var tot = K.T($"{s.Usage.Sum(u => u.Req)} pedidos hoje", 10.5, K.Faint); DockPanel.SetDock(tot, Dock.Right); head.Children.Add(tot);
+        head.Children.Add(K.Label("Agentes · uso hoje").Also(l => l.Margin = new Thickness(0)));
+        v.Children.Add(head);
+        var share = UsageOf(s);
+        var rows = s.Agents.Where(a => a.Id != "CHATGPT").Select(a => (a.Id, (string?)a.Status)).ToList();
+        foreach (var extra in new[] { "CHAMADA", "OUTRO" }) if (Pct(share, extra) > 0) rows.Add((extra, null));
+        foreach (var (id, status) in rows.OrderByDescending(r => Pct(share, r.Id)))
+        {
+            var p = Pct(share, id);
+            var row = new Grid { Margin = new Thickness(0, 5), ColumnDefinitions = new ColumnDefinitions("26,84,*,44") };
+            row.Children.Add(status is null ? new Border() : K.Avatar(id, 18));
+            var name = K.T(K.Nice(id), 12.5, status is null ? K.Muted : K.Text, FontWeight.SemiBold); Grid.SetColumn(name, 1); row.Children.Add(name);
+            var bar = K.Bar(p / 100.0, fill: status is null ? K.Faint : K.Brand, animate: animate); Grid.SetColumn(bar, 2); row.Children.Add(bar);
+            var pct = K.T($"{p}%", 12, p > 0 ? K.BrandText : K.Faint, FontWeight.SemiBold, K.Mono); pct.HorizontalAlignment = HorizontalAlignment.Right; Grid.SetColumn(pct, 3); row.Children.Add(pct);
+            row.Tip($"{K.Nice(id)} · {s.Usage.FirstOrDefault(u => u.Agent == id).Req} pedidos hoje" + (status is null ? "" : $" · {K.StatusText(status)}"));
+            v.Children.Add(row);
+        }
+    }
+
+    void Sala(StackPanel v, HudSnapshot s)
+    {
+        v.Children.Add(K.Label("Últimas mensagens"));
+        if (s.Chat.Count == 0) v.Children.Add(K.T("A sala está vazia.", 12.5, K.Muted));
+        foreach (var m in s.Chat.Take(5))
+        {
+            var row = new Grid { Margin = new Thickness(0, 5), ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+            row.Children.Add(K.Avatar(m.Agent, 28).Also(a => a.VerticalAlignment = VerticalAlignment.Top));
+            var col = new StackPanel { Margin = new Thickness(10, 0, 0, 0) };
+            var head = new DockPanel();
+            var when = K.T(K.Ago(m.Ts), 11, K.Faint); DockPanel.SetDock(when, Dock.Right); head.Children.Add(when);
+            head.Children.Add(K.T(m.Agent == "DONO" ? "Você" : K.Nice(m.Agent), 12, K.Text, FontWeight.SemiBold));
+            col.Children.Add(head);
+            col.Children.Add(K.Wrap(m.Text, 12.5, K.Text2, maxLines: 2).Also(t => t.Margin = new Thickness(0, 1, 0, 0)));
+            Grid.SetColumn(col, 1); row.Children.Add(col);
+            v.Children.Add(row);
+        }
+        v.Children.Add(Gap(10));
+        v.Children.Add(new Cols().Add(K.Button("Escrever", K.IChat, host.OpenMini)).Add(K.Button("Tela completa", K.IOpen, host.OpenFull, primary: false)).Panel);
+    }
+
+    void Chamada(StackPanel v, HudSnapshot s)
+    {
+        if (s.CallActive)
+        {
+            v.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { K.Pill("AO VIVO", K.Ok), K.T($"modo {(s.CallModo == "goal" ? "Goal contínuo" : s.CallModo)} · {s.CallTurns} falas", 12, K.Muted) } });
+            v.Children.Add(new VoiceOrb(128) { Level = host.Pumping || host.LastCaption is not null ? .9 : .35, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) });
+            v.Children.Add(K.Wrap(s.CallTopic ?? "", 15.5, K.Text, 2, w: FontWeight.SemiBold, f: K.Display).Also(t => t.Margin = new Thickness(0, 10)));
+            if (host.LastCaption is { } c)
+                v.Children.Add(new Border
+                {
+                    Background = K.Raised, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 10),
+                    Child = new StackPanel { Spacing = 3, Children = { K.T(K.Nice(c.Speaker), 11, K.BrandText, FontWeight.SemiBold), K.Wrap(c.Text, 13, K.Text, 5, 19) } },
+                });
+            else v.Children.Add(K.Wrap(host.Pumping ? "Esperando a próxima fala…" : "Os agentes estão falando no celular ou no navegador.", 12.5, K.Muted));
+            v.Children.Add(Gap(14));
+            v.Children.Add(new Cols().Add(K.Button("Encerrar", K.IStop, host.EndCall, primary: false, danger: true)).Add(K.Button("Abrir no navegador", K.IOpen, host.OpenWeb, primary: false)).Panel);
+        }
+        else
+        {
+            v.Children.Add(new VoiceOrb(96) { Level = .12, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 8) });
+            v.Children.Add(K.T("Nenhuma chamada agora", 15.5, K.Text, FontWeight.SemiBold, K.Display));
+            v.Children.Add(K.Wrap("No Modo Goal os agentes tocam o Goal ativo de forma contínua, falando entre si. As falas aparecem aqui e no balão do AgentC.", 12.5, K.Muted, lineHeight: 18).Also(t => t.Margin = new Thickness(0, 4, 0, 14)));
+            v.Children.Add(K.Button("Iniciar Modo Goal", K.IPlay, host.StartGoal));
+            v.Children.Add(Gap(8));
+            v.Children.Add(K.Button("Chamada por voz no navegador", K.IMic, host.OpenWeb, primary: false));
+        }
+    }
+
+    void Goal(StackPanel v, HudSnapshot s, bool animate)
+    {
+        var running = s.CallActive && s.CallModo == "goal";
+        var head = new DockPanel { Margin = new Thickness(0, 0, 0, 6) };
+        if (running) { var p = K.Pill("EM EXECUÇÃO", K.Ok); DockPanel.SetDock(p, Dock.Right); head.Children.Add(p); }
+        head.Children.Add(K.T("GOAL ATIVO", 10.5, K.Muted, FontWeight.SemiBold));
+        v.Children.Add(head);
+        v.Children.Add(K.Wrap(string.IsNullOrWhiteSpace(s.Goal) ? "Nenhum Goal ativo no vault." : s.Goal, 14.5, K.Text, 5, 21, FontWeight.Medium, K.Display));
+        if (s.TasksTotal > 0)
+        {
+            v.Children.Add(Gap(14));
+            v.Children.Add(K.Bar((double)s.TasksDone / s.TasksTotal, animate: animate, height: 6));
+            v.Children.Add(K.T($"{s.TasksDone} de {s.TasksTotal} tarefas concluídas", 12, K.Muted).Also(t => t.Margin = new Thickness(0, 6, 0, 0)));
+        }
+        v.Children.Add(Gap(14));
+        v.Children.Add(running ? K.Button("Encerrar Modo Goal", K.IStop, host.EndCall, primary: false, danger: true) : K.Button("Iniciar Modo Goal", K.IPlay, host.StartGoal));
+    }
+
+    void Saude(StackPanel v, HudSnapshot s)
+    {
+        var working = s.Agents.Count(a => K.StatusBrush(a.Status) == K.Brand);
+        v.Children.Add(new Cols(3).Add(Tile("RAM livre", $"{s.RamFreeMb / 1024.0:0.0} GB".Replace('.', ','), s.RamFreeMb < 1500 ? K.Err : K.Text))
+            .Add(Tile("CPU", s.Cpu is { } c ? $"{c}%" : "—", s.Cpu > 85 ? K.Warn : K.Text)).Add(Tile("Trabalhando", $"{working}/{s.Agents.Count}", working > 0 ? K.BrandText : K.Text)).Panel);
+        v.Children.Add(Gap(14));
+        v.Children.Add(K.Label("Agentes"));
+        foreach (var a in s.Agents.Where(a => a.Id != "CHATGPT"))
+        {
+            var row = new Grid { Margin = new Thickness(0, 4), ColumnDefinitions = new ColumnDefinitions("18,96,*") };
+            row.Children.Add(new Ellipse { Width = 8, Height = 8, Fill = K.StatusBrush(a.Status), HorizontalAlignment = HorizontalAlignment.Left });
+            var name = K.T(K.Nice(a.Id), 12.5, K.Text, FontWeight.SemiBold); Grid.SetColumn(name, 1); row.Children.Add(name);
+            var code = a.Task is null ? null : Regex.Match(a.Task, @"[TJ]-\d+").Value;
+            var st = K.T((string.IsNullOrEmpty(code) ? "" : code + " · ") + K.StatusText(a.Status), 11, K.Muted, f: K.Mono);
+            st.HorizontalAlignment = HorizontalAlignment.Right; st.Tip(a.Task); Grid.SetColumn(st, 2); row.Children.Add(st);
+            v.Children.Add(row);
+        }
+        foreach (var al in s.Alerts.Take(3))
+        {
+            v.Children.Add(Gap(6));
+            v.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.Icon(K.IWarn, 12, K.Warn), K.Wrap(al, 12, K.Warn).Also(t => t.MaxWidth = 360) } });
+        }
+        v.Children.Add(Gap(14));
+        v.Children.Add(s.Paused ? K.Button("Retomar os agentes", K.IPlay, () => host.SetPause(false)) : K.Button("Pausar os agentes", K.IPause, () => host.SetPause(true), primary: false));
+    }
+
+    static Border Tile(string label, string value, IBrush tone) => new()
+    {
+        Background = K.Raised, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(10, 8),
+        Child = new StackPanel { Children = { K.T(label.ToUpperInvariant(), 9.5, K.Muted, FontWeight.SemiBold), K.T(value, 17, tone, FontWeight.SemiBold, K.Display) } },
+    };
+
+    string Sig(HudSnapshot s) => tab switch
+    {
+        0 => $"{s.Online}{s.Pending}{s.Working}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Usage.Select(u => u.Agent + u.Req))}",
+        1 => string.Join("|", s.Chat.Take(5).Select(c => c.Ts + c.Agent)),
+        2 => $"{s.CallStatus}{s.CallModo}{s.CallTurns}{host.LastCaption}",
+        3 => $"{s.Goal}{s.TasksDone}/{s.TasksTotal}{s.CallStatus}{s.CallModo}",
+        _ => $"{s.RamFreeMb / 100}{s.Cpu / 5}{s.Paused}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Alerts)}",
+    };
+}

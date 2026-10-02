@@ -1,0 +1,827 @@
+// JARVIS — UI. Todo dado do bus entra via textContent (nunca innerHTML).
+
+const $ = (s) => document.querySelector(s);
+const el = (tag, cls, text) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined && text !== null) n.textContent = String(text);
+  return n;
+};
+const store = {
+  get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch { /* modo privado */ } },
+};
+
+const state = { csrf: null, project: null, agent: '', oldest: null, es: null, taskFilter: 'abertas', agentsKnown: [] };
+const KIND = { command: 'comando', status: 'status', inbox: 'ordem', leader: 'líder', events: 'evento', decisions: 'decisão', goal: 'goal', handoff: 'handoff', meta: 'goal ativo' };
+
+// ---------- tema ----------
+const THEMES = ['system', 'dark', 'light'];
+function applyTheme(t) {
+  if (t === 'system') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = t;
+  $('#theme').textContent = `Tema: ${t === 'system' ? 'sistema' : t === 'dark' ? 'escuro' : 'claro'}`;
+}
+applyTheme(store.get('jarvis.theme', 'system'));
+$('#theme').addEventListener('click', () => {
+  const cur = store.get('jarvis.theme', 'system');
+  const next = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length];
+  store.set('jarvis.theme', next);
+  applyTheme(next);
+});
+
+// ---------- abas ----------
+const TAB_TITLE = { chat: 'Sala central', chamada: 'Chamada em grupo', sala: 'Sala (bus)', comandos: 'Comandos', agentes: 'Agentes', tarefas: 'Tarefas', resumos: 'Resumos' };
+function showTab(name) {
+  if (!TAB_TITLE[name]) name = 'chat';
+  $('#view-title').textContent = TAB_TITLE[name];
+  document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === name));
+  store.set('jarvis.tab', name);
+  if (name === 'resumos' && state.project) loadSummary();
+  if (name === 'chat') $('#thread').lastElementChild?.scrollIntoView({ block: 'end' });
+}
+document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+
+// ---------- util ----------
+const api = async (path) => {
+  const sep = path.includes('?') ? '&' : '?';
+  const r = await fetch(`${path}${sep}project=${encodeURIComponent(state.project)}`);
+  if (!r.ok) throw new Error(`${path}: ${r.status}`);
+  return r.json();
+};
+function fmtTime(ts) {
+  if (!ts) return '';
+  const d = new Date(ts);
+  if (Number.isNaN(d.getTime())) return ts;
+  const now = new Date();
+  const sameDay = d.toDateString() === now.toDateString();
+  const hm = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return sameDay ? hm : `${d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${hm}`;
+}
+function ago(ts) {
+  if (!ts) return '—';
+  const s = (Date.now() - new Date(ts).getTime()) / 1000;
+  if (s < 90) return 'agora';
+  if (s < 3600) return `${Math.round(s / 60)} min atrás`;
+  if (s < 86400) return `${Math.round(s / 3600)} h atrás`;
+  return `${Math.round(s / 86400)} d atrás`;
+}
+function badge(status) {
+  if (!status) return null;
+  const key = String(status).toUpperCase().replace(/[^A-Z_]/g, '').split('_').slice(0, 2).join('_');
+  const base = ['NOT_RUN', 'NEEDS_HUMAN'].some((k) => key.startsWith(k)) ? key : key.split('_')[0];
+  return el('span', `badge s-${base}`, status);
+}
+function initials(a) { return a.replace(/[^A-Z0-9]/gi, '').slice(0, 2).toUpperCase() || '?'; }
+function hue(a) { let h = 0; for (const c of a) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
+// Avatar do design: fundo escuro tingido + iniciais claras do mesmo tom.
+function paint(av, name) {
+  const h = hue(name);
+  av.style.background = `hsl(${h} 30% 18%)`;
+  av.style.color = `hsl(${h} 85% 80%)`;
+}
+function statusTone(s) {
+  const v = String(s ?? '').toUpperCase();
+  if (/^(DONE|APPROVED)/.test(v)) return 'ok';
+  if (/^(BLOCKED|FAILED|STOPPED|VIOLATION|REJECTED|AWAITING)/.test(v)) return 'err';
+  if (/^(WORKING|ACK)/.test(v)) return 'work';
+  if (/^(REVIEW|QUEUED|ASSIGNED|NOT_RUN|NEEDS)/.test(v)) return 'warn';
+  return 'none';
+}
+
+// ---------- sala ----------
+function renderEntry(e, fresh) {
+  const li = el('li', 'msg' + (fresh ? ' fresh' : ''));
+  li.dataset.id = e.id;
+  const av = el('div', 'avatar', initials(e.agent));
+  paint(av, e.agent);
+  const main = el('div');
+  const h = el('div', 'msg-h');
+  h.append(el('span', 'who', e.agent), el('span', 'kind', KIND[e.kind] ?? e.kind));
+  const b = badge(e.status);
+  if (b) h.append(b);
+  const t = el('time', null, fmtTime(e.ts));
+  t.dateTime = e.ts;
+  h.append(t);
+  main.append(h);
+  if (e.heading) main.append(el('h3', null, e.heading));
+  const meta = el('div', 'meta');
+  for (const [k, v] of [['task', e.task], ['modelo', e.model]]) {
+    if (!v) continue;
+    const s = el('span', null, `${k}: `);
+    s.append(el('b', null, v));
+    meta.append(s);
+  }
+  if (meta.childNodes.length) main.append(meta);
+  if (e.body) {
+    const pre = el('pre', 'body', e.body);
+    main.append(pre);
+    if (e.body.split('\n').length > 6 || e.body.length > 480) {
+      pre.classList.add('long');
+      const btn = el('button', 'more-btn', 'ver tudo');
+      btn.type = 'button';
+      btn.addEventListener('click', () => { const o = pre.classList.toggle('open'); btn.textContent = o ? 'recolher' : 'ver tudo'; });
+      main.append(btn);
+    }
+  }
+  li.append(av, main);
+  return li;
+}
+
+async function loadFeed(append = false) {
+  const q = new URLSearchParams({ limit: '60' });
+  if (state.agent) q.set('agent', state.agent);
+  if (append && state.oldest) q.set('before', state.oldest);
+  const rows = await api(`/api/feed?${q}`);
+  const feed = $('#feed');
+  if (!append) feed.replaceChildren();
+  const lastSeen = Number(store.get(`jarvis.seen.${state.project}`, '0'));
+  let dividerPlaced = append;
+  let sawNew = false;
+  for (const e of rows) {
+    if (e.id > lastSeen) sawNew = true;
+    if (!dividerPlaced && lastSeen && sawNew && e.id <= lastSeen) {
+      feed.append(el('li', 'divider', 'visto até aqui'));
+      dividerPlaced = true;
+    }
+    feed.append(renderEntry(e, false));
+  }
+  if (!append && !rows.length) feed.append(el('li', 'empty', 'Nenhuma mensagem ainda.'));
+  if (rows.length) state.oldest = Math.min(...rows.map((r) => r.id));
+  $('#more').hidden = rows.length < 60;
+  if (!append && rows.length) store.set(`jarvis.seen.${state.project}`, String(Math.max(...rows.map((r) => r.id))));
+}
+$('#more').addEventListener('click', () => loadFeed(true));
+
+function renderFilters(agents) {
+  const box = $('#filters');
+  box.replaceChildren();
+  const ids = ['', 'DONO', ...agents.map((a) => a.id), 'LEADER', 'EVENTS', 'DECISIONS'];
+  for (const id of ids) {
+    const c = el('button', 'chip' + (state.agent === id ? ' active' : ''), id || 'Todos');
+    c.type = 'button';
+    c.addEventListener('click', () => { state.agent = id; state.oldest = null; renderFilters(agents); loadFeed(); });
+    box.append(c);
+  }
+}
+
+// ---------- agentes ----------
+function renderAgents(s) {
+  const grid = $('#agent-grid');
+  grid.replaceChildren();
+  for (const a of s.agents) {
+    const c = el('article', 'card' + (statusTone(a.latest?.status) === 'err' ? ' blocked' : ''));
+    const h = el('header', 'card-h');
+    const av = el('div', 'avatar', initials(a.id));
+    paint(av, a.id);
+    h.append(av, el('h3', null, a.id));
+    const b = badge(a.latest?.status ?? 'SEM STATUS');
+    if (b) h.append(b);
+    c.append(h);
+    const dl = el('dl', 'kv');
+    const row = (k, v) => { dl.append(el('dt', null, k), el('dd', null, v ?? '—')); };
+    row('task', a.latest?.task);
+    row('modelo', a.model ?? a.latest?.model);
+    row('último', a.latest ? `${a.latest.heading || '(sem título)'}` : null);
+    row('STATUS', a.statusFileMtime ? ago(a.statusFileMtime) : 'sem arquivo');
+    c.append(dl);
+    if (a.vaultCopyStale) c.append(el('div', 'flag', '⚠ cópia no vault diferente da worktree (sync atrasado)'));
+    if (a.done) c.append(el('div', 'flag', 'wrapper do orquestrador terminou'));
+    if (a.lastLog?.length) c.append(el('pre', 'log', a.lastLog.join('\n')));
+    grid.append(c);
+  }
+  const lk = $('#locks');
+  lk.replaceChildren();
+  if (!s.locks.length) lk.append(el('span', 'muted', 'nenhum lock'));
+  for (const l of s.locks) {
+    lk.append(el('div', 'lock' + (l.alive ? '' : ' orphan'), `${l.name}: PID ${l.pid ?? '?'} ${l.alive ? '(ativo)' : '(órfão — processo não existe)'}`));
+  }
+}
+
+// ---------- tarefas ----------
+const TASK_GROUPS = {
+  abertas: (s) => /WORKING|ASSIGNED|QUEUED|WAIT|ACK/i.test(s),
+  bloqueadas: (s) => /BLOCKED|FAILED/i.test(s),
+  feitas: (s) => /DONE/i.test(s),
+  todas: () => true,
+};
+function renderTasks(tasks) {
+  const f = $('#task-filters');
+  f.replaceChildren();
+  for (const k of Object.keys(TASK_GROUPS)) {
+    const n = tasks.filter((t) => TASK_GROUPS[k](t.status)).length;
+    const c = el('button', 'chip' + (state.taskFilter === k ? ' active' : ''), `${k} ${n}`);
+    c.type = 'button';
+    c.addEventListener('click', () => { state.taskFilter = k; renderTasks(tasks); });
+    f.append(c);
+  }
+  const list = $('#task-list');
+  list.replaceChildren();
+  const rows = tasks.filter((t) => TASK_GROUPS[state.taskFilter](t.status));
+  if (!rows.length) list.append(el('div', 'empty', 'Nada aqui.'));
+  for (const t of rows) {
+    const d = el('div', 'task');
+    d.append(el('span', 'id', t.id), el('span', 't', t.task));
+    const r = el('div', 'row');
+    const b = badge(t.status);
+    if (b) r.append(b);
+    r.append(el('span', null, t.owner));
+    if (t.gate) r.append(el('span', null, `· ${t.gate}`));
+    d.append(r);
+    list.append(d);
+  }
+}
+
+// ---------- chat central ----------
+function chatMeta(body) {
+  const get = (k) => new RegExp(`^\\s*-\\s*${k}\\s*:\\s*(.+)$`, 'im').exec(body)?.[1]?.trim();
+  return {
+    para: get('para') ?? 'TODOS',
+    assunto: get('assunto'),
+    via: get('via'),
+    text: body.replace(/^\s*-\s*(para|assunto|via)\s*:.*$/gim, '').trim(),
+  };
+}
+function renderBubble(e, fresh) {
+  const m = chatMeta(e.body);
+  const li = el('li', 'bubble' + (e.agent === 'DONO' ? ' me' : '') + (m.via ? ' pasted' : '') + (fresh ? ' fresh' : ''));
+  const av = el('div', 'avatar', initials(e.agent));
+  paint(av, e.agent);
+  const b = el('div', 'b');
+  const h = el('div', 'b-h');
+  h.append(el('span', 'who', e.agent), el('span', null, `→ ${m.para}`));
+  if (m.via) h.append(el('span', null, '· colado do app'));
+  const t = el('time', null, fmtTime(e.ts));
+  t.dateTime = e.ts;
+  h.append(t);
+  b.append(h);
+  if (m.assunto) b.append(el('p', 'b-subject', m.assunto));
+  b.append(el('p', 'b-text', (m.text || e.heading).replace(/\*\*(.+?)\*\*/g, '$1')));
+  li.append(av, b);
+  return li;
+}
+let chatCache = [];
+async function loadChat() {
+  chatCache = await api('/api/chat');
+  const th = $('#thread');
+  th.replaceChildren();
+  if (!chatCache.length) th.append(el('li', 'empty', 'Sala vazia. Mande a primeira mensagem.'));
+  for (const e of chatCache) th.append(renderBubble(e, false));
+  if ($('#chat').classList.contains('active')) th.lastElementChild?.scrollIntoView({ block: 'end' });
+}
+function appendChat(entries) {
+  const th = $('#thread');
+  th.querySelector('.empty')?.remove();
+  for (const e of entries) { chatCache.push(e); th.append(renderBubble(e, true)); }
+  th.lastElementChild?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+}
+function fillChatTargets(agents) {
+  const sel = $('#chat-to');
+  const cur = sel.value;
+  sel.replaceChildren(Object.assign(el('option', null, 'Todos'), { value: 'TODOS' }));
+  for (const a of agents) sel.append(Object.assign(el('option', null, a.id), { value: a.id }));
+  sel.value = cur || 'TODOS';
+}
+$('#chat-as').addEventListener('change', () => {
+  $('#chat-text').placeholder = $('#chat-as').value === 'CHATGPT' ? 'Cole aqui a resposta do app do ChatGPT…' : 'Fale com todos os agentes…';
+});
+$('#chat-form').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const text = $('#chat-text').value.trim();
+  if (!text) return;
+  const reply = $('#chat-reply');
+  const btn = $('#chat-send');
+  btn.disabled = true;
+  reply.classList.remove('err');
+  reply.textContent = '';
+  try {
+    const r = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
+      body: JSON.stringify({ project: state.project, text, to: $('#chat-to').value, as: $('#chat-as').value, assunto: $('#chat-subject').value }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error ?? r.status);
+    $('#chat-text').value = '';
+    $('#chat-subject').value = '';
+    $('#chat-as').value = 'DONO';
+  } catch (e) {
+    reply.classList.add('err');
+    reply.textContent = `Não enviei: ${e.message}`;
+  } finally { btn.disabled = false; }
+});
+$('#chat-text').addEventListener('keydown', (ev) => {
+  if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) $('#chat-form').requestSubmit();
+});
+// Ponte com o app do ChatGPT: copia o fio em Markdown + instrução de formato.
+$('#copy-gpt').addEventListener('click', async () => {
+  const last = chatCache.slice(-25);
+  const md = [
+    'Você é o CHATGPT na sala central dos agentes do dono (JARVIS). Abaixo, as últimas mensagens em Markdown.',
+    'Responda no MESMO formato, uma mensagem só:',
+    '`## AAAA-MM-DD HH:mm — CHATGPT` + `- para: TODOS|AGENTE` + `- assunto: …` + texto.',
+    'Regras: sem segredos; sem PASS sem evidência; deploy/push/merge só com aprovação do dono.',
+    '',
+    ...last.map((e) => `## ${e.ts.replace('T', ' ').slice(0, 16)} — ${e.agent}\n${e.body.trim()}\n`),
+  ].join('\n');
+  const btn = $('#copy-gpt');
+  try { await navigator.clipboard.writeText(md); btn.textContent = 'Copiado ✓'; }
+  catch { btn.textContent = 'Não copiou'; }
+  setTimeout(() => { btn.textContent = 'Copiar pro ChatGPT'; }, 2000);
+});
+
+// ---------- comandos ----------
+const CMD_LABEL = { NEW: 'enviado', AWAITING_APPROVAL: 'aguarda sua aprovação', VIOLATION: 'executado SEM aprovação!', APPROVED: 'aprovado por você', REJECTED: 'recusado por você' };
+const lockIcon = () => {
+  const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  s.setAttribute('viewBox', '0 0 24 24');
+  s.setAttribute('aria-hidden', 'true');
+  for (const [tag, attrs] of [['rect', { x: 5, y: 10, width: 14, height: 10, rx: 2 }], ['path', { d: 'M8 10V7a4 4 0 0 1 8 0v3' }]]) {
+    const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, String(v));
+    s.append(n);
+  }
+  return s;
+};
+async function decide(code, decision, btns) {
+  if (decision === 'approve' && !confirm(`Aprovar ${code}? Vale só para este comando.`)) return;
+  btns.forEach((b) => { b.disabled = true; });
+  try {
+    const r = await fetch('/api/commands/decide', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
+      body: JSON.stringify({ project: state.project, code, decision }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error ?? r.status);
+    $('#cmd-reply').classList.remove('err');
+    $('#cmd-reply').textContent = data.reply;
+  } catch (e) {
+    $('#cmd-reply').classList.add('err');
+    $('#cmd-reply').textContent = `Não registrei: ${e.message}`;
+  } finally { btns.forEach((b) => { b.disabled = false; }); loadCommands(); }
+}
+// Fase 3: cartões de aprovação (um clique = um comando) + aviso no chat + contador na navegação.
+function renderApprovals(rows) {
+  const pending = rows.filter((c) => c.approval === 'pending');
+  const box = $('#approvals');
+  box.replaceChildren();
+  if (!pending.length) box.append(el('div', 'empty', 'Nada esperando você.'));
+  for (const c of pending) {
+    const a = el('article', 'appr');
+    const h = el('div', 'appr-h');
+    h.append(lockIcon(), el('code', null, c.code));
+    const b = el('span', 'badge s-AWAITING', 'AGUARDA VOCÊ');
+    b.style.marginLeft = 'auto';
+    h.append(b);
+    const dl = el('dl', 'kv');
+    dl.append(el('dt', null, 'para'), el('dd', null, c.target), el('dt', null, 'pedido'), el('dd', null, fmtTime(c.created_at)));
+    const acts = el('div', 'appr-actions');
+    const ok = el('button', 'primary', `Aprovar só ${c.code}`);
+    const no = el('button', 'ghost-btn', 'Recusar');
+    ok.type = no.type = 'button';
+    ok.addEventListener('click', () => decide(c.code, 'approve', [ok, no]));
+    no.addEventListener('click', () => decide(c.code, 'reject', [ok, no]));
+    acts.append(ok, no);
+    a.append(h, el('p', null, c.text), dl, acts, el('span', 'appr-note', 'Um clique vale para este comando, não para os próximos.'));
+    box.append(a);
+  }
+  const badgeEl = $('#pending-badge');
+  badgeEl.hidden = !pending.length;
+  badgeEl.textContent = String(pending.length);
+  const banner = $('#approval-banner');
+  banner.hidden = !pending.length;
+  if (pending.length) {
+    $('#approval-banner-title').textContent = pending.length === 1 ? '1 aprovação esperando você' : `${pending.length} aprovações esperando você`;
+    $('#approval-banner-sub').textContent = `${pending[0].code} · ${pending[0].text.slice(0, 70)}`;
+  }
+}
+$('#approval-banner').addEventListener('click', (ev) => { ev.preventDefault(); showTab('comandos'); });
+async function loadCommands() {
+  const rows = await api('/api/commands');
+  renderApprovals(rows);
+  const list = $('#cmd-list');
+  list.replaceChildren();
+  if (!rows.length) list.append(el('div', 'empty', 'Nenhum comando ainda.'));
+  for (const c of rows) {
+    const d = el('div', 'task');
+    d.append(el('span', 'id', c.code), el('span', 't', `para ${c.target}`));
+    d.append(el('div', 'cmd-text', c.text));
+    const r = el('div', 'row');
+    const b = badge(c.status);
+    if (b) r.append(b);
+    if (CMD_LABEL[c.status]) r.append(el('span', null, CMD_LABEL[c.status]));
+    r.append(el('span', null, `· ${c.updated_by ?? ''} ${fmtTime(c.updated_at)}`));
+    d.append(r);
+    list.append(d);
+  }
+}
+function fillTargets(agents) {
+  const sel = $('#cmd-to');
+  sel.replaceChildren(Object.assign(el('option', null, 'Líder (distribui)'), { value: 'LEADER' }));
+  for (const a of agents) sel.append(Object.assign(el('option', null, a.id), { value: a.id }));
+}
+$('#composer').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const text = $('#cmd-text').value.trim();
+  const reply = $('#cmd-reply');
+  if (!text) return;
+  const btn = $('#cmd-send');
+  btn.disabled = true;
+  reply.classList.remove('err');
+  reply.textContent = 'enviando…';
+  try {
+    const r = await fetch('/api/commands', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
+      body: JSON.stringify({ project: state.project, text, to: $('#cmd-to').value }),
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error ?? r.status);
+    reply.textContent = data.reply;
+    $('#cmd-text').value = '';
+    loadCommands();
+  } catch (e) {
+    reply.classList.add('err');
+    reply.textContent = `Não enviei: ${e.message}`;
+  } finally { btn.disabled = false; }
+});
+
+// ---------- coluna da direita do chat (design: Agentes · Alertas · Resumo) ----------
+function renderRail(s) {
+  const box = $('#rail-agents');
+  box.replaceChildren();
+  for (const a of s.agents) {
+    const st = a.latest?.status;
+    const tone = statusTone(st);
+    const row = el('div', 'ra');
+    const when = a.latest?.task || (a.statusFileMtime ? fmtTime(a.statusFileMtime) : '—');
+    row.append(el('span', `dot ${tone}`), el('strong', null, a.id), el('code', null, when), el('span', `st ${tone}`, st ?? 'sem status'));
+    box.append(row);
+  }
+  const alerts = [];
+  for (const l of s.locks) if (!l.alive) alerts.push(`Lock ${l.name} órfão: PID ${l.pid ?? '?'} não existe.`);
+  const byModel = new Map();
+  for (const a of s.agents) if (a.model?.startsWith('nvidia/')) byModel.set(a.model, (byModel.get(a.model) ?? 0) + 1);
+  for (const [m, n] of byModel) if (n > 1) alerts.push(`${n} agentes no mesmo modelo ${m} (limite NVIDIA = 1).`);
+  const stale = s.agents.filter((a) => a.vaultCopyStale).map((a) => a.id);
+  if (stale.length) alerts.push(`Cópia do STATUS no vault atrasada: ${stale.join(', ')}.`);
+  const ab = $('#rail-alerts');
+  ab.replaceChildren();
+  if (!alerts.length) ab.append(el('p', 'muted', 'Nenhum alerta.'));
+  for (const t of alerts) {
+    const d = el('div', 'alert');
+    const ic = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    ic.setAttribute('viewBox', '0 0 24 24');
+    ic.setAttribute('aria-hidden', 'true');
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', 'M12 4l9 16H3zM12 10v4M12 17.5v.01');
+    ic.append(p);
+    d.append(ic, el('span', null, t));
+    ab.append(d);
+  }
+}
+async function loadRailSummary() {
+  const s = await api('/api/summary');
+  const ok = s.llm.find((r) => r.status === 'OK');
+  $('#rail-summary').textContent = ok ? ok.text.replace(/\*\*(.+?)\*\*/g, '$1') : 'Sem resumo por IA ainda.';
+  $('#rail-summary-meta').textContent = ok ? `${(ok.model ?? '').split('/').pop()} · ${fmtTime(ok.created_at)}` : '';
+}
+
+// ---------- resumos ----------
+async function loadSummary() {
+  const s = await api('/api/summary');
+  $('#det').textContent = s.deterministic;
+  const box = $('#llm');
+  box.replaceChildren();
+  if (!s.llm.length) box.append(el('div', 'empty', 'Nenhum resumo por IA ainda.'));
+  for (const r of s.llm) {
+    const c = el('article', 'card');
+    const h = el('header', 'card-h');
+    h.append(el('h3', null, fmtTime(r.created_at)));
+    const b = badge(r.status);
+    if (b) h.append(b);
+    h.append(el('span', 'muted', r.model ?? 'sem modelo'));
+    c.append(h, el('pre', 'pre', r.text.replace(/\*\*(.+?)\*\*/g, '$1')));
+    box.append(c);
+  }
+}
+
+// ---------- chamada em grupo (voz) ----------
+// O servidor decide quem fala e gera o texto; aqui o navegador dá a voz (speechSynthesis) e ouve o dono (SpeechRecognition).
+const call = { data: null, paused: false, pumping: false, listening: false, rec: null, heard: '', voices: [], since: 0, clock: null, logged: 0 };
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const PITCH = [1, 0.8, 1.22, 0.92, 1.1, 0.74, 1.3, 0.86];
+
+async function callPost(path, body = {}) {
+  const r = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
+    body: JSON.stringify({ project: state.project, ...body }),
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
+  return data;
+}
+function callNote(text, err = false) { const n = $('#call-note'); n.textContent = text; n.classList.toggle('err', err); }
+function caption(who, text, thinking = false) {
+  $('#call-cap-who').textContent = who ?? '';
+  const t = $('#call-cap-text');
+  t.textContent = text ?? '';
+  t.className = thinking ? 'thinking' : '';
+}
+
+function loadVoices() {
+  if (!('speechSynthesis' in window)) return;
+  const all = speechSynthesis.getVoices();
+  const br = all.filter((v) => /^pt[-_]BR/i.test(v.lang));
+  const pt = br.length ? br : all.filter((v) => /^pt/i.test(v.lang));
+  // Vozes "Natural/Online" (Edge) primeiro: soam bem mais humanas.
+  call.voices = pt.sort((a, b) => Number(/Natural|Online|Neural/i.test(b.name)) - Number(/Natural|Online|Neural/i.test(a.name)));
+}
+if ('speechSynthesis' in window) { loadVoices(); speechSynthesis.addEventListener('voiceschanged', loadVoices); }
+
+function voiceOf(id) {
+  const i = Math.max(0, call.data?.participants.findIndex((p) => p.id === id) ?? 0);
+  const n = call.voices.length;
+  return { voice: n ? call.voices[i % n] : null, pitch: PITCH[i % PITCH.length] };
+}
+
+function tileState(id, cls) {
+  document.querySelectorAll('.tile').forEach((t) => {
+    const on = t.dataset.id === id;
+    t.classList.toggle('speaking', on && cls === 'speaking');
+    t.classList.toggle('listening', on && cls === 'listening');
+    const st = t.querySelector('.state');
+    st.replaceChildren();
+    if (on && cls) { const b = el('span', 'bars'); for (let k = 0; k < 4; k++) b.append(el('i')); st.append(b); }
+  });
+}
+
+function speak(turn) {
+  return new Promise((resolve) => {
+    if (!('speechSynthesis' in window)) { caption(turn.speaker, turn.text); setTimeout(resolve, 1500 + turn.text.length * 45); return; }
+    const u = new SpeechSynthesisUtterance(turn.text);
+    const v = voiceOf(turn.speaker);
+    if (v.voice) u.voice = v.voice;
+    u.lang = v.voice?.lang ?? 'pt-BR';
+    u.pitch = v.pitch;
+    u.rate = Number($('#call-speed').value) || 1;
+    let done = false;
+    const finish = () => { if (done) return; done = true; clearTimeout(guard); tileState(null); resolve(); };
+    // Alguns navegadores esquecem o onend: um relógio de segurança pelo tamanho do texto.
+    const guard = setTimeout(finish, 4000 + turn.text.length * 110 / u.rate);
+    u.onstart = () => { tileState(turn.speaker, 'speaking'); caption(turn.speaker, turn.text); };
+    u.onend = finish;
+    u.onerror = finish;
+    speechSynthesis.speak(u);
+  });
+}
+
+function renderStage() {
+  const stage = $('#call-stage');
+  stage.replaceChildren();
+  if (!call.data) return;
+  const people = [{ id: 'DONO', papel: 'Você' }, ...call.data.participants];
+  // Iniciais únicas: OPENCODE e OPENCLAW não podem virar os dois "OP".
+  const used = new Set(['DW']);
+  const mark = (id) => {
+    const s = id.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+    for (let i = 1; i < s.length; i++) { const m = s[0] + s[i]; if (!used.has(m)) { used.add(m); return m; } }
+    return s.slice(0, 2);
+  };
+  for (const p of people) {
+    const t = el('div', 'tile' + (p.id === 'DONO' ? ' me' : ''));
+    t.dataset.id = p.id;
+    const face = el('div', 'face', p.id === 'DONO' ? 'DW' : mark(p.id));
+    paint(face, p.id);
+    t.append(el('span', 'state'), face, el('span', 'who', p.id === 'DONO' ? 'você (você)' : p.id), el('span', 'role', p.papel));
+    stage.append(t);
+  }
+}
+function logTurn(turn) {
+  if (turn.n <= call.logged) return;
+  call.logged = turn.n;
+  const li = el('li', turn.speaker === 'DONO' ? 'me' : '');
+  li.append(el('b', null, `${turn.speaker}: `), document.createTextNode(turn.text));
+  $('#call-log').append(li);
+  li.scrollIntoView({ block: 'nearest' });
+}
+function renderCall() {
+  const active = !!call.data && call.data.status !== 'ENCERRADA';
+  $('#call-start').hidden = active;
+  $('#call-bar').hidden = !active;
+  $('#call-timer').hidden = !active;
+  $('#call-live-dot').hidden = !active;
+  $('#call-pause').setAttribute('aria-pressed', String(call.paused));
+  $('#call-pause').title = call.paused ? 'Continuar o debate' : 'Pausar o debate';
+  if (call.data?.status === 'AGUARDANDO_DONO' && !call.listening) caption('', 'Eles estão esperando você. Aperte Falar (ou F) e responda.', true);
+}
+function tick() {
+  const s = Math.floor((Date.now() - call.since) / 1000);
+  $('#call-timer').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+async function pump() {
+  if (call.pumping) return;
+  call.pumping = true;
+  try {
+    while (call.data?.status === 'ATIVA' && !call.paused && !call.listening) {
+      caption('', 'pensando…', true);
+      const r = await callPost('/api/call/next');
+      if (r.call) call.data = r.call;
+      if (!r.turn) break;
+      logTurn(r.turn);
+      if (call.paused || call.listening) { caption(r.turn.speaker, r.turn.text); break; }
+      await speak(r.turn);
+    }
+  } catch (e) {
+    callNote(`A chamada travou: ${e.message}. Aperte Falar ou Continuar para tentar de novo.`, true);
+    call.paused = true;
+  } finally {
+    call.pumping = false;
+    if (call.data?.status === 'ATIVA' && !call.paused && !call.listening) caption('', '');
+    renderCall();
+  }
+}
+
+async function dono(text) {
+  if (!call.data || call.data.status === 'ENCERRADA') return;
+  text = text.trim();
+  if (!text) { pump(); return; }
+  try {
+    call.data = await callPost('/api/call/say', { text });
+    logTurn(call.data.turns.at(-1));
+    caption('DONO', text);
+    call.paused = false;
+    callNote('');
+  } catch (e) { callNote(`Não enviei sua fala: ${e.message}`, true); }
+  renderCall();
+  pump();
+}
+
+function listen() {
+  if (!SR) { callNote('Este navegador não escuta voz. Use o Edge ou o Chrome, ou digite a sua fala.', true); $('#call-text').focus(); return; }
+  if (call.listening) { call.listening = false; call.rec?.stop(); return; }
+  speechSynthesis.cancel(); // interromper quem está falando, como numa call
+  call.listening = true;
+  call.heard = '';
+  $('#call-mic').setAttribute('aria-pressed', 'true');
+  $('#call-mic').lastElementChild.textContent = 'Enviar';
+  tileState('DONO', 'listening');
+  caption('DONO', 'ouvindo…', true);
+  const rec = new SR();
+  call.rec = rec;
+  rec.lang = 'pt-BR';
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.onresult = (ev) => {
+    let fin = '', mid = '';
+    for (let i = 0; i < ev.results.length; i++) (ev.results[i].isFinal ? (fin += ev.results[i][0].transcript + ' ') : (mid += ev.results[i][0].transcript));
+    call.heard = fin;
+    caption('DONO', (fin + mid).trim() || 'ouvindo…', !(fin + mid).trim());
+  };
+  rec.onerror = (ev) => { if (ev.error === 'not-allowed') callNote('O navegador bloqueou o microfone. Libere no cadeado da barra de endereço.', true); };
+  rec.onend = () => {
+    call.listening = false;
+    $('#call-mic').setAttribute('aria-pressed', 'false');
+    $('#call-mic').lastElementChild.textContent = 'Falar';
+    tileState(null);
+    dono(call.heard);
+  };
+  rec.start();
+}
+
+$('#call-start').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const topic = $('#call-topic').value.trim();
+  if (!topic) { $('#call-topic').focus(); return; }
+  const btn = ev.submitter ?? $('.call-go');
+  btn.disabled = true;
+  callNote('');
+  try {
+    call.data = await callPost('/api/call/start', { text: topic });
+    call.logged = 0;
+    call.paused = false;
+    $('#call-log').replaceChildren();
+    call.data.turns.forEach(logTurn);
+    call.since = Date.now();
+    clearInterval(call.clock);
+    call.clock = setInterval(tick, 1000);
+    tick();
+    renderStage();
+    renderCall();
+    pump();
+  } catch (e) { callNote(`Não liguei: ${e.message}`, true); } finally { btn.disabled = false; }
+});
+$('#call-mic').addEventListener('click', listen);
+$('#call-type').addEventListener('submit', (ev) => { ev.preventDefault(); const t = $('#call-text'); speechSynthesis.cancel(); dono(t.value); t.value = ''; });
+$('#call-pause').addEventListener('click', () => {
+  call.paused = !call.paused;
+  if (call.paused) { speechSynthesis.cancel(); caption('', 'Debate pausado.', true); }
+  callNote('');
+  renderCall();
+  if (!call.paused) pump();
+});
+$('#call-end').addEventListener('click', async () => {
+  speechSynthesis.cancel();
+  call.rec?.abort();
+  call.listening = false;
+  try { call.data = await callPost('/api/call/end'); } catch { /* já encerrada */ }
+  clearInterval(call.clock);
+  caption('', `Chamada encerrada · ${call.data?.turns.length ?? 0} falas. A ata ficou no vault.`, true);
+  renderCall();
+});
+document.addEventListener('keydown', (ev) => {
+  if (ev.key.toLowerCase() !== 'f' || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  if (!$('#chamada').classList.contains('active') || $('#call-bar').hidden) return;
+  if (/INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName ?? '')) return;
+  ev.preventDefault();
+  listen();
+});
+/** Retoma uma chamada que já existe (ex.: aberta no celular) sem falar as falas antigas. */
+async function loadCall() {
+  const c = await api('/api/call').catch(() => null);
+  call.data = c && c.status !== 'ENCERRADA' ? c : null;
+  $('#call-log').replaceChildren();
+  call.logged = 0;
+  c?.turns?.forEach(logTurn);
+  if (call.data && !call.clock) { call.since = new Date(call.data.turns[0]?.ts ?? Date.now()).getTime(); call.clock = setInterval(tick, 1000); }
+  renderStage();
+  renderCall();
+}
+
+// ---------- ao vivo ----------
+let stateTimer;
+async function refreshState() {
+  const s = await api('/api/state');
+  $('#goal').textContent = s.goal ?? 'sem Goal ativo';
+  renderAgents(s);
+  renderRail(s);
+  renderTasks(s.tasks);
+  if (JSON.stringify(s.agents.map((a) => a.id)) !== JSON.stringify(state.agentsKnown)) {
+    state.agentsKnown = s.agents.map((a) => a.id);
+    renderFilters(s.agents);
+    fillTargets(s.agents);
+    fillChatTargets(s.agents);
+  }
+}
+function scheduleState() { clearTimeout(stateTimer); stateTimer = setTimeout(refreshState, 200); }
+
+function connect() {
+  state.es?.close();
+  const conn = $('#conn');
+  const setConn = (st, label) => { conn.dataset.state = st; conn.lastElementChild.textContent = label; };
+  setConn('wait', 'conectando');
+  const es = new EventSource(`/events?project=${encodeURIComponent(state.project)}`);
+  state.es = es;
+  es.onopen = () => setConn('on', 'ao vivo');
+  es.onerror = () => setConn('wait', 'reconectando');
+  es.addEventListener('entries', (m) => {
+    const { entries } = JSON.parse(m.data);
+    const feed = $('#feed');
+    feed.querySelector('.empty')?.remove();
+    for (const e of entries) {
+      if (state.agent && e.agent !== state.agent) continue;
+      feed.prepend(renderEntry(e, true));
+      store.set(`jarvis.seen.${state.project}`, String(e.id));
+    }
+  });
+  es.addEventListener('agents', scheduleState);
+  es.addEventListener('tasks', scheduleState);
+  es.addEventListener('commands', loadCommands);
+  es.addEventListener('chat', (m) => appendChat(JSON.parse(m.data).entries));
+  // Falas vindas de outro aparelho (ex.: o dono falou pelo celular) entram na transcrição.
+  es.addEventListener('call', (m) => { const ev = JSON.parse(m.data); if (ev.turn) logTurn(ev.turn); if (ev.status && call.data) { call.data.status = ev.status; renderCall(); } });
+  es.addEventListener('summary', () => { loadRailSummary(); if ($('#resumos').classList.contains('active')) loadSummary(); });
+}
+
+async function selectProject(id) {
+  state.project = id;
+  state.agent = '';
+  state.oldest = null;
+  state.agentsKnown = [];
+  store.set('jarvis.project', id);
+  await refreshState();
+  await loadFeed();
+  await loadCommands();
+  await loadChat();
+  await loadRailSummary();
+  await loadCall();
+  if ($('#resumos').classList.contains('active')) await loadSummary();
+  connect();
+}
+
+(async function boot() {
+  state.csrf = (await (await fetch('/api/session')).json()).csrf;
+  const projects = await (await fetch('/api/projects')).json();
+  const sel = $('#project');
+  for (const p of projects) { const o = el('option', null, p.name); o.value = p.id; sel.append(o); }
+  sel.addEventListener('change', () => selectProject(sel.value));
+  const saved = store.get('jarvis.project', '');
+  const first = projects.find((p) => p.id === saved)?.id ?? projects[0]?.id;
+  sel.value = first;
+  showTab(store.get('jarvis.tab', 'chat'));
+  await selectProject(first);
+})();

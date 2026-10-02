@@ -1,0 +1,44 @@
+{
+  "host": "127.0.0.1",
+  "port": 20150,
+  "db": "data/jarvis.sqlite",
+  "remote": {
+    "enabled": false,
+    "host": "100.x.y.z",
+    "tokenFile": "data/remote-token.txt"
+  },
+  "summary": {
+    "enabled": true,
+    "routerUrl": "http://127.0.0.1:20129/v1",
+    "keyFile": "~/.config/dw-agents/9router.key",
+    "models": [
+      "nvidia/moonshotai/kimi-k3",
+      "nvidia/z-ai/glm-5.3",
+      "nvidia/google/gemma-4-31b-it"
+    ],
+    "allowedPrefixes": ["nvidia/", "gemini/"],
+    "minIntervalMinutes": 15,
+    "maxInputChars": 12000
+  },
+  "projects": [
+    {
+      "id": "main",
+      "name": "Meu projeto",
+      "vault": "~/Obsidian/MEU_VAULT",
+      "activeGoalFile": "00-System/ACTIVE_GOAL.md",
+      "goalsDir": "20-Operations/Goals",
+      "modelsDir": "~/.config/dw-agents",
+      "agents": [
+        { "id": "CLAUDE", "worktree": "~/Documents/Codex/agent-claude" },
+        { "id": "CODEX", "worktree": "~/Documents/Codex/agent-codex" },
+        { "id": "DROID", "worktree": "~/Documents/Codex/agent-droid" },
+        { "id": "HERMES", "worktree": "~/Documents/Codex/agent-hermes" },
+        { "id": "OPENCLAW", "worktree": "~/Documents/Codex/agent-openclaw" },
+        { "id": "OPENCODE", "worktree": "~/Documents/Codex/agent-opencode" },
+        { "id": "QWEN", "worktree": "~/Documents/Codex/agent-qwen" },
+        { "id": "CHATGPT" }
+      ],
+      "chatDir": "20-Operations/CHAT"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  O JARVIS fala HTTP dentro do Tailscale: o túnel WireGuard já criptografa tudo entre o celular e o PC.
+  Fora do tailnet o app não tem para onde ir (o JARVIS remoto só escuta no IP 100.x do Tailscale).
+  Se usar MagicDNS com HTTPS (tailscale cert), dá para desligar o cleartext.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

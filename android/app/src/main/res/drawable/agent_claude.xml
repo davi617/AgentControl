@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Foto do agente CLAUDE (família de robôs do AgentC). Usada no app do celular e no HUD do PC (lida como recurso). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#2A1712" android:pathData="M24,0A24,24 0 1,1 24,48A24,24 0 1,1 24,0Z" />
+    <path android:fillColor="#F4B39F" android:pathData="M24,5.5A2.5,2.5 0 1,1 24,10.5A2.5,2.5 0 1,1 24,5.5Z" />
+    <path android:fillColor="#E07A5F" android:pathData="M24,9.5H24A1,1 0 0,1 25,10.5V13.5A1,1 0 0,1 24,14.5H24A1,1 0 0,1 23,13.5V10.5A1,1 0 0,1 24,9.5Z" />
+    <path android:fillColor="#E07A5F" android:pathData="M19,14H29A7,7 0 0,1 36,21V29A7,7 0 0,1 29,36H19A7,7 0 0,1 12,29V21A7,7 0 0,1 19,14Z" />
+    <path android:fillColor="#2A1712" android:pathData="M20,21.5A1.5,1.5 0 0,1 21.5,23.0V27.0A1.5,1.5 0 0,1 18.5,27.0V23.0A1.5,1.5 0 0,1 20,21.5Z" />
+    <path android:fillColor="#2A1712" android:pathData="M28,21.5A1.5,1.5 0 0,1 29.5,23.0V27.0A1.5,1.5 0 0,1 26.5,27.0V23.0A1.5,1.5 0 0,1 28,21.5Z" />
+</vector>
