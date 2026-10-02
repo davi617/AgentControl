@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { callPeople, callsFor } from './call.ts';
 import { health } from './health.ts';
+import { agentLimits } from './limits.ts';
 import type { Jarvis } from './jarvis.ts';
 import { replyToDono } from './reply.ts';
 import { readNote, searchNotes } from './vault.ts';
@@ -342,6 +343,9 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         return;
       case '/api/health':
         health(p, j.cfg.summary).then((h) => send(200, h)).catch((e) => send(500, { error: (e as Error).message }));
+        return;
+      case '/api/limits':
+        agentLimits(p, j.cfg.summary).then(l => send(200, l)).catch(() => send(503, { error: 'Cotas temporariamente indisponíveis.' }));
         return;
       case '/api/models':
         send(200, p.modelsDir ? modelChoices(p.modelsDir) : []);

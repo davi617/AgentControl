@@ -84,11 +84,28 @@ fun DayBars(values: List<Pair<String, Float>>, height: Int = 90) {
 
 /** Quem gasta quanto da NVIDIA: pedidos, tokens, erros, 429 e tempo médio; por dia e por modelo. */
 @Composable
-fun UsageScreen(u: UsageSnap?, load: (Int) -> Unit) {
+fun UsageScreen(u: UsageSnap?, limits: dev.agentcontrol.app.data.LimitsSnap?, load: (Int) -> Unit) {
     val k = Clay.c
     var dias by rememberSaveable { mutableIntStateOf(7) }
-    LaunchedEffect(dias) { load(dias) }
+    LaunchedEffect(dias) { while (true) { load(dias); kotlinx.coroutines.delay(10_000) } }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        item { SectionTitle("Cotas dos provedores") }
+        if (limits == null) item { Text("Cotas indisponíveis; confira a conexão com o PC.", color = k.muted, fontSize = 12.sp) }
+        limits?.agents?.forEach { q ->
+            item(key = "quota-" + q.agent) {
+                Column(Modifier.fillMaxWidth().clay(RoundedCornerShape(18.dp), elevation = 4.dp).padding(14.dp)) {
+                    val fresh = q.status == "live" && q.checkedAt?.let { runCatching { java.time.Instant.parse(it).plusSeconds(120).isAfter(java.time.Instant.now()) }.getOrDefault(false) } == true && q.windows.none { it.resetsAt != null && it.resetsAt <= System.currentTimeMillis() / 1000 }
+                    val badge = if (q.status == "limited") "limite atingido" else if (q.remainingPercent != null && fresh) "${q.remainingPercent.toInt()}% restantes" else if (q.remainingPercent != null) "leitura antiga" else "saldo não informado"
+                    Text("${q.agent} · $badge", color = k.text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                    Text(q.provider + " · " + q.detail, color = k.muted, fontSize = 12.sp)
+                    q.windows.forEach { w ->
+                        val reset = w.resetsAt?.let { java.time.Instant.ofEpochSecond(it).atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM HH:mm")) }
+                        Text("${w.name}: ${w.remainingPercent.toInt()}% restantes" + (reset?.let { " · renova $it" } ?: ""), color = k.text2, fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+        item { SectionTitle("Consumo na fila · independente do saldo de cota") }
         item { PeriodChips(dias, { dias = it }) }
         if (u == null) { item { Text("Carregando…", color = k.muted) }; return@LazyColumn }
         val totReq = u.agentes.sumOf { it.req }
@@ -129,7 +146,7 @@ fun UsageScreen(u: UsageSnap?, load: (Int) -> Unit) {
                     color = k.text2, fontSize = 11.sp, fontFamily = FontFamily.Monospace, maxLines = 2)
             }
         }
-        item { Text("CHAMADA = falas da chamada de voz · JARVIS = respostas no chat e resumos · OUTRO = sem nome.", color = k.muted, fontSize = 11.sp) }
+        item { Text("CHAMADA = falas da chamada de voz · AgentC = respostas no chat e resumos · OUTRO = sem nome.", color = k.muted, fontSize = 11.sp) }
     }
 }
 
@@ -198,12 +215,12 @@ fun AboutScreen(about: About?, appVersion: String, load: () -> Unit, checkUpdate
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             Column(Modifier.fillMaxWidth().clay(RoundedCornerShape(22.dp), elevation = 8.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("JARVIS", color = k.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Agent Control", color = k.text, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Text("App neste celular: $appVersion", color = k.text2, fontSize = 14.sp)
                 about?.app?.let { Text("Publicado no PC: ${it.versionName}", color = k.text2, fontSize = 14.sp) }
                 about?.let {
                     Text("Servidor: commit ${it.jarvis.commit.ifBlank { "?" }} · Node ${it.jarvis.node}", color = k.text2, fontSize = 14.sp)
-                    Text("JARVIS ligado há ${duration(it.jarvis.ligadoHaMin)}", color = k.text2, fontSize = 14.sp)
+                    Text("Servidor ligado há ${duration(it.jarvis.ligadoHaMin)}", color = k.text2, fontSize = 14.sp)
                     Text("PC ${it.pc.nome} ligado há ${duration(it.pc.ligadoHaMin)} · ${it.pc.nucleos} núcleos", color = k.text2, fontSize = 14.sp)
                 } ?: Text("Carregando…", color = k.muted)
                 Text("Verificar atualização agora", color = k.onBrand, fontWeight = FontWeight.Bold, fontSize = 14.sp,

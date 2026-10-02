@@ -21,7 +21,7 @@ O Agent Control junta tudo:
 - **App do PC** (C#/Avalonia, Windows/Linux/macOS):
   - **Launcher**: liga roteador → fila → servidor → agentes com um clique; abas Início, Agentes (ligar/parar cada um),
     Comandos (mandar, aprovar, recusar), Uso (7 dias), Logs e Ajustes (escolher o time).
-  - **HUD do topo**: faixa fina com a foto e o uso de hoje de cada agente; puxe para baixo para a tela completa.
+  - **HUD do topo**: faixa fina com a foto e o saldo de cota disponível de cada agente; puxe para baixo para a tela completa.
   - **AgentC**: o mascote no canto da tela. Pisca, olha em volta, fala (boca + onda) quando um agente responde,
     gira quando o time está trabalhando, comemora quando alguém termina, dorme com o servidor desligado.
   - **Tela completa**: conversa no estilo app de chat, agentes, comandos, uso, saúde do PC, modelos e força.
@@ -32,7 +32,39 @@ O Agent Control junta tudo:
 Tudo escuta só em `127.0.0.1`. Nada é exposto na rede.
 
 O acesso remoto é opcional: quando habilitado, abre um segundo listener somente no IP do Tailscale, com token.
-As porcentagens da HUD mostram a participação de cada agente nos pedidos de hoje; não são a cota restante do provedor.
+A HUD mostra **cota restante informada pelo provedor**. Para Codex, consulta a conta já autenticada no CLI por
+`account/rateLimits/read`: exibe as janelas disponíveis (por exemplo 5 horas e 7 dias), saldo e renovação.
+A consulta é somente leitura, não inicia tarefas e é compartilhada/cacheada por 60 segundos.
+
+Para NVIDIA e outros provedores sem leitura de saldo integrada, mostra **—**, com estado da fila e espera por 429,
+sem inventar uma porcentagem. Agentes na mesma conta NVIDIA compartilham o limite.
+Uma leitura vencida/indisponível aparece como **antigo**, e um bloqueio do provedor aparece como **limite**.
+A tela **Uso** mantém pedidos, tokens e erros separados das cotas da conta.
+
+## HUD e AgentC
+
+Capturas do aplicativo renderizadas com dados de demonstração; as cotas e tarefas abaixo não são uma promessa de saldo.
+
+![HUD com os sete agentes e indicação de cota](docs/images/hud-bar.png)
+
+| Painel do time | Saúde do PC |
+| --- | --- |
+| ![Painel expandido da HUD](docs/images/hud-panel.png) | ![Saúde em tempo real](docs/images/hud-health.png) |
+
+A interface consulta o estado do servidor continuamente, sem sobrepor consultas lentas. Cotas do Codex têm cache
+por 60 s, timestamp e indicação de leitura antiga. Para regenerar as capturas sem dados pessoais:
+`AgentControl --demo-print docs/images`.
+
+Fonte da integração de cotas: [documentação oficial do Codex App Server](https://learn.chatgpt.com/docs/app-server).
+
+## Atualizar o celular
+
+O app Android tem nome **Agent Control** e ícone **AgentC**. Na instalação pessoal existente, o pacote Android
+é preservado para atualizar por cima e manter as preferências; a cópia pública usa o pacote `dev.agentcontrol.app`.
+
+Compile/publice uma versão maior com `tools/publicar-app.ps1`. O celular conectado ao servidor recebe o aviso em
+**Sobre → Atualizar app**. O Android pede confirmação da instalação; a nova versão só está instalada após esse passo.
+O dispositivo deve alcançar o PC pelo Tailscale. Nenhum celular precisa ficar exposto na internet.
 
 ## Começo rápido
 
@@ -129,7 +161,7 @@ Para compilar o Android: JDK 17, Android SDK 35 e `cd android && ./gradlew assem
 O APK fica em `android/app/build/outputs/apk/debug/`. É uma versão de desenvolvimento; o release atual também usa
 a assinatura de debug. Defina sua própria assinatura antes de distribuir atualizações a terceiros.
 
-Validação local em 02/10/2026: 98 testes do servidor passaram; o desktop compilou no Windows; o cliente HUD foi
+Validação local em 02/10/2026: 100 testes do servidor passaram; o desktop compilou no Windows; o cliente HUD foi
 conferido com servidor de teste para projeto/porta, pausa, loop desligado e proporção de uso. Linux e macOS têm
 código e instaladores próprios, mas ainda precisam de execução e conferência visual nesses sistemas.
 

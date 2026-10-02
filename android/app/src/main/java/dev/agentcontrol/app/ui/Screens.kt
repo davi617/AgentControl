@@ -474,7 +474,7 @@ fun SalaScreen(ui: UiState, openApprovals: () -> Unit, send: (String, String, Bo
             if (who == null && ui.chat.lastOrNull()?.agent == "DONO") item(key = "pensando") {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Avatar("JARVIS")
-                    Text("JARVIS está pensando…", color = k.muted, fontSize = 14.sp)
+                    Text("AgentC está pensando…", color = k.muted, fontSize = 14.sp)
                 }
             }
         }

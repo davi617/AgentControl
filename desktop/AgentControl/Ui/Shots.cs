@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
+using AgentControl.Core;
 
 namespace AgentControl.Ui;
 
@@ -11,6 +12,7 @@ public static class Shots
     public static async Task RunAsync(IClassicDesktopStyleApplicationLifetime desk, string dir)
     {
         Directory.CreateDirectory(dir);
+        if (Program.DemoPrint) { await Demo(desk, dir); return; }
         try
         {
             var l = new LauncherWindow();
@@ -55,10 +57,36 @@ public static class Shots
         desk.Shutdown();
     }
 
+    static async Task Demo(IClassicDesktopStyleApplicationLifetime desk, string dir)
+    {
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var host = new HudHost(desk);
+            var ids = new[] { "CODEX", "HERMES", "OPENCODE", "OPENCLAW", "QWEN", "CLAUDE", "DROID" };
+            var agents = ids.Select(id => (id, id == "CODEX" ? "WORKING" : "IDLE", (string?)"Demonstração do Agent Control")).ToList();
+            var limits = ids.ToDictionary(id => id, id => id == "CODEX"
+                ? new AgentQuota(id, "OpenAI / ChatGPT", "live", 44, [new("5 horas", 44, 300, now.AddHours(2).ToUnixTimeSeconds()), new("7 dias", 76, 10080, now.AddDays(2).ToUnixTimeSeconds())], now.ToString("O"), "Dados de demonstração.")
+                : new AgentQuota(id, "NVIDIA / fila compartilhada", "unavailable", null, [], now.ToString("O"), "Saldo não disponibilizado pelo provedor."));
+            host.SetPreview(new HudSnapshot(true, "DEMO-GOAL", 3, 8, agents, [("CLAUDE", 12, .6), ("QWEN", 8, .4)], [("JARVIS", "Demonstração: o time está conectado.", now.ToString("O"))], 0, 4096, 27, false, [], null, null, null, 0) { Limits = limits });
+            host.Hud.ShowStrip();
+            await Task.Delay(2000);
+            Save(host.Hud, Path.Combine(dir, "hud-bar.png"));
+            host.Hud.Expand(0);
+            await Task.Delay(2200);
+            Save(host.Hud, Path.Combine(dir, "hud-panel.png"));
+            host.Hud.Select(4);
+            await Task.Delay(2000);
+            Save(host.Hud, Path.Combine(dir, "hud-health.png"));
+        }
+        catch (Exception ex) { await File.WriteAllTextAsync(Path.Combine(dir, "erro.txt"), ex.ToString()); }
+        desk.Shutdown();
+    }
+
     static void Save(Window w, string file)
     {
         if (w.Content is not Control c || c.Bounds.Width <= 0) return;
-        var scale = w.RenderScaling;
+        var scale = 1.0; // Exportação em pixels lógicos, independente do DPI do monitor.
         using var bmp = new RenderTargetBitmap(new PixelSize((int)(c.Bounds.Width * scale), (int)(c.Bounds.Height * scale)), new Vector(96 * scale, 96 * scale));
         bmp.Render(c);
         bmp.Save(file);

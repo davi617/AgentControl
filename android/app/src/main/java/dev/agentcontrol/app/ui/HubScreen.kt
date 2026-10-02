@@ -100,7 +100,7 @@ private data class HubItem(val screen: Screen, val title: String, val desc: Stri
 
 private val HUB = listOf(
     "Conversar" to listOf(
-        HubItem(Screen.VOZ, "Falar com o JARVIS", "Conversa por voz", Icons.Outlined.RecordVoiceOver),
+        HubItem(Screen.VOZ, "Falar com o AgentC", "Conversa por voz", Icons.Outlined.RecordVoiceOver),
         HubItem(Screen.SALA, "Sala", "Histórico da conversa", Icons.Outlined.ChatBubbleOutline),
         HubItem(Screen.RESUMOS, "Resumos", "O que aconteceu", Icons.Outlined.AutoAwesome),
         HubItem(Screen.CHAMADAS, "Chamadas", "Histórico e atas", Icons.Outlined.History),

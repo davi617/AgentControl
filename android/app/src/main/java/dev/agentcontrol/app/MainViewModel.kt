@@ -76,6 +76,7 @@ data class UiState(
     val update: AppVersion? = null, // versão mais nova publicada no PC
     val call: CallUi = CallUi(),
     val health: Health? = null,
+    val limits: dev.agentcontrol.app.data.LimitsSnap? = null,
     val reading: Boolean = false, // lendo o resumo em voz alta
     val offline: String? = null, // motivo de não alcançar o PC (ex.: Tailscale do celular desligado); some ao reconectar
     val brain: BrainUi = BrainUi(),
@@ -172,6 +173,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         _ui.update { it.copy(project = id) }
         sse?.cancel()
         viewModelScope.launch { refreshAll(); listen() }
+    }
+
+    suspend fun refreshLimits() {
+        val a = api ?: return
+        val p = _ui.value.project.ifEmpty { return }
+        runCatching { a.limits(p) }.onSuccess { q -> _ui.update { it.copy(limits = q) } }
+            .onFailure { _ui.update { it.copy(limits = null) } }
     }
 
     private suspend fun refreshAll() {
@@ -292,7 +300,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         null
     }
 
-    /** Botão "Perguntar ao JARVIS": manda a pergunta na sala; ele responde lá em segundos. */
+    /** Botão "Perguntar ao AgentC": manda a pergunta na sala; ele responde lá em segundos. */
     fun askJarvis(question: String) = sendChat(question, "JARVIS", false)
 
     fun sendCommand(text: String, to: String) = act { blockIfReadOnly(); api!!.sendCommand(_ui.value.project, text, to).reply }
@@ -327,7 +335,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Tela do Android para tirar o JARVIS da economia de bateria (senão a Infinix mata o serviço). */
     fun openBatterySettings() = runCatching {
         getApplication<Application>().startActivity(Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }.onFailure { _ui.update { it.copy(message = "Abra Configurações → Bateria → JARVIS → Sem restrições.") } }
+    }.onFailure { _ui.update { it.copy(message = "Abra Configurações → Bateria → AgentC → Sem restrições.") } }
 
     fun setReadOnly(on: Boolean) {
         appPrefs.edit().putBoolean("readOnly", on).apply()
@@ -481,7 +489,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val c = _ui.value.call.state ?: return
         val r = c.resumo
         val text = buildString {
-            appendLine("Chamada do JARVIS: ${c.topic}")
+            appendLine("Chamada do AgentC: ${c.topic}")
             appendLine()
             c.turns.forEach { appendLine("${it.speaker}: ${it.text}") }
             if (r != null && r.status == "ok") {
@@ -527,7 +535,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun voiceChoose(who: String, name: String) { voice.choose(who, name); voicePreview(who) }
     fun voicePreview(who: String) = viewModelScope.launch {
         voice.stopSpeaking()
-        voice.speak(who, if (who == "JARVIS") "Oi você, eu sou o JARVIS. Essa é a minha voz." else "Oi você, aqui é o $who. Essa é a minha voz na chamada.")
+        voice.speak(who, if (who == "JARVIS") "Oi você, eu sou o AgentC. Essa é a minha voz." else "Oi você, aqui é o $who. Essa é a minha voz na chamada.")
     }
     fun installVoices() = runCatching { getApplication<Application>().startActivity(voice.installVoicesIntent()) }
         .onFailure { _ui.update { it.copy(message = "Abra Configurações → Acessibilidade → Saída de texto para fala → Instalar dados de voz.") } }
@@ -639,7 +647,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (bytes == null || bytes.isEmpty()) { _ui.update { it.copy(message = "Não consegui ler o arquivo.") }; return@launch }
         if (bytes.size > 5 * 1024 * 1024) { _ui.update { it.copy(message = "Arquivo grande demais (máx. 5 MB).") }; return@launch }
         voice.stopSpeaking()
-        setCall { it.copy(captionWho = "DONO", caption = if (mime.startsWith("image/")) "Enviando a imagem… o JARVIS está olhando." else "Enviando $name…", thinking = true) }
+        setCall { it.copy(captionWho = "DONO", caption = if (mime.startsWith("image/")) "Enviando a imagem… o AgentC está olhando." else "Enviando $name…", thinking = true) }
         runCatching { a.callAttach(_ui.value.project, name, mime, bytes) }
             .onSuccess { c -> setCall { it.copy(state = c, paused = false, thinking = false, caption = "Anexo enviado: $name. Os agentes vão comentar.") }; pump() }
             .onFailure { e -> setCall { it.copy(thinking = false) }; _ui.update { it.copy(message = "Não anexei: ${e.message}") } }
@@ -840,7 +848,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 Intent(AndroidSettings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${app.packageName}"))
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
             )
-            _ui.update { it.copy(message = "Permita \"instalar apps desconhecidos\" para o JARVIS e toque em Atualizar de novo.") }
+            _ui.update { it.copy(message = "Permita \"instalar apps desconhecidos\" para o Agent Control e toque em Atualizar de novo.") }
             return@launch
         }
         _ui.update { it.copy(busy = true, message = "Baixando ${v.versionName}…") }

@@ -110,7 +110,7 @@ public sealed class HudWindow : Window
             Background = K.Surface, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(19), Height = 38, Padding = new Thickness(8, 0, 12, 0),
             Child = strip, Margin = new Thickness(14, 6, 14, 14), Cursor = new Cursor(StandardCursorType.Hand), BoxShadow = K.Shadow(16, 2, .45), HorizontalAlignment = HorizontalAlignment.Center,
         };
-        island.Tip("AgentC · clique para abrir · puxe o painel para baixo para a tela completa · arraste para mover");
+        island.Tip("AgentC · saldo de cota por agente · — = provedor não informa · clique para abrir · arraste para mover");
         K.DragOrClick(this, island, () => Expand(Math.Max(0, tab)), SavePos);
         BuildMenu();
         island.PointerReleased += (_, e) => { if (e.InitialPressMouseButton == MouseButton.Right) OpenMenu(island); };
@@ -251,7 +251,7 @@ public sealed class HudWindow : Window
         var agents = s.Agents.Where(a => a.Id != "CHATGPT").ToList();
         var goal = s.CallActive && s.CallModo == "goal";
         var share = UsageOf(s);
-        var newSig = $"{s.Online}|{s.Pending}|{goal}|{string.Join(",", agents.Select(a => a.Id + a.Status + Pct(share, a.Id)))}";
+        var newSig = $"{s.Online}|{s.Pending}|{goal}|{string.Join(",", agents.Select(a => a.Id + a.Status + (s.Limits.GetValueOrDefault(a.Id)?.Badge ?? "—") + (s.Limits.GetValueOrDefault(a.Id)?.CheckedAt ?? "")))}";
         if (newSig == islandSig) return;
         islandSig = newSig;
         K.AnimColor(islandStroke, !s.Online ? K.C("#52525B") : s.Pending > 0 ? K.C("#F59E0B") : K.C("#F97316"), 400);
@@ -262,12 +262,13 @@ public sealed class HudWindow : Window
         var marks = K.Marks(agents.Select(a => a.Id));
         foreach (var a in agents)
         {
-            var pct = Pct(share, a.Id);
+            var quota = s.Limits.GetValueOrDefault(a.Id);
+            var pct = quota is { Fresh: true, RemainingPercent: { } remaining } ? remaining : 0;
             var req = s.Usage.FirstOrDefault(u => u.Agent == a.Id).Req;
             var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 0, 12, 0), Background = Brushes.Transparent };
-            item.Tip($"{K.Nice(a.Id)} · {K.StatusText(a.Status)} · {req} pedidos hoje ({pct}% do uso do time)");
+            item.Tip($"{K.Nice(a.Id)} · {K.StatusText(a.Status)} · {req} pedidos hoje\n" + (quota?.Description ?? "Saldo de cota não informado."));
             item.Children.Add(K.UsageRing(a.Id, 26, pct / 100.0, K.StatusBrush(a.Status), marks[a.Id]));
-            item.Children.Add(K.T($"{pct}%", 11.5, pct > 0 ? K.Text2 : K.Faint, FontWeight.SemiBold, K.Mono));
+            item.Children.Add(K.T(quota?.Badge ?? "—", 11.5, quota?.Status == "limited" ? K.Warn : quota?.Fresh == true ? K.Text2 : K.Faint, FontWeight.SemiBold, K.Mono));
             islandAgents.Children.Add(item);
         }
         if (goal) islandAgents.Children.Add(K.Pill("GOAL", K.Ok).Also(p => p.Margin = new Thickness(4, 0, 0, 0)));

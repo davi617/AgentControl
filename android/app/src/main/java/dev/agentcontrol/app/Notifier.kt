@@ -19,7 +19,7 @@ class Notifier(private val context: Context) {
     init {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val nm = context.getSystemService(NotificationManager::class.java)
-            nm.createNotificationChannel(NotificationChannel(channel, "Aprovações do JARVIS", NotificationManager.IMPORTANCE_HIGH))
+            nm.createNotificationChannel(NotificationChannel(channel, "Aprovações do AgentC", NotificationManager.IMPORTANCE_HIGH))
         }
     }
 
@@ -67,6 +67,6 @@ class Notifier(private val context: Context) {
         return NotificationCompat.Action.Builder(0, label, pi).setAuthenticationRequired(true).build()
     }
     fun commandDone(code: String, agent: String, status: String, text: String) = show(("d" + code + status).hashCode(), "$code: $agent → $status", text.take(200))
-    fun jarvisReply(text: String) = show("jarvis-reply".hashCode(), "JARVIS respondeu", text.take(300))
+    fun jarvisReply(text: String) = show("jarvis-reply".hashCode(), "AgentC respondeu", text.take(300))
     fun violation(code: String, text: String) = show(("v" + code).hashCode(), "VIOLATION em $code", "Um agente executou sem aprovação: ${text.take(160)}")
 }

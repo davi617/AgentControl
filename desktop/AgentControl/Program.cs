@@ -25,6 +25,7 @@ public static class Program
     public enum Mode { Launcher, Hud, Print }
     public static Mode Current { get; private set; }
     public static string? PrintDir { get; private set; }
+    public static bool DemoPrint { get; private set; }
 
     [STAThread]
     public static int Main(string[] args)
@@ -51,7 +52,8 @@ public static class Program
         // Avisa o HUD aberto (full | hud | mini | show). Ex.: atalho de teclado do sistema chamando "AgentControl --send full".
         var si = Array.FindIndex(args, a => a.Equals("--send", StringComparison.OrdinalIgnoreCase));
         if (si >= 0 && si + 1 < args.Length) return Signal.Send(args[si + 1]) ? 0 : 1;
-        var pi = Array.FindIndex(args, a => a.Equals("--print", StringComparison.OrdinalIgnoreCase));
+        DemoPrint = Has("--demo-print");
+        var pi = Array.FindIndex(args, a => a.Equals(DemoPrint ? "--demo-print" : "--print", StringComparison.OrdinalIgnoreCase));
         if (pi >= 0 && pi + 1 < args.Length) { Current = Mode.Print; PrintDir = Path.GetFullPath(args[pi + 1]); }
         else if (Has("--hud"))
         {
