@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#090909">
+  <title>JARVIS</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Design: canvas "JARVIS — Design" (Claude Design, 2026-09-24). Backup da UI anterior: backup/ui-v1 e tag git ui-v1-backup. -->
+  <aside class="side" aria-label="Navegação">
+    <div class="brand"><span class="mark" aria-hidden="true"></span>JARVIS</div>
+    <label class="proj">Projeto<select id="project"></select></label>
+    <nav class="tabs" aria-label="Seções">
+      <button type="button" data-tab="chat" class="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg><span>Chat</span></button>
+      <button type="button" data-tab="chamada"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg><span>Chamada</span><b id="call-live-dot" class="live-dot" hidden></b></button>
+      <button type="button" data-tab="sala"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>Sala</span></button>
+      <button type="button" data-tab="comandos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h12M13 6l6 6-6 6"/></svg><span>Comandos</span><b id="pending-badge" class="count" hidden>0</b></button>
+      <button type="button" data-tab="agentes"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.6 3.4-5.5 6.5-5.5s5.7 1.9 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.9.7 3.1 2.4 3.5 5.2"/></svg><span>Agentes</span></button>
+      <button type="button" data-tab="tarefas"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3"/><path d="M8 12l3 3 5-6"/></svg><span>Tarefas</span></button>
+      <button type="button" data-tab="resumos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z"/></svg><span>Resumos</span></button>
+    </nav>
+    <div class="live">
+      <span id="conn" class="conn" data-state="off"><i></i><span>offline</span></span>
+      <code>só local · 127.0.0.1</code>
+      <button id="theme" class="link-btn" type="button">Tema: sistema</button>
+    </div>
+  </aside>
+
+  <header class="top">
+    <span class="brand small"><span class="mark" aria-hidden="true"></span>JARVIS</span>
+    <span id="view-title" class="view-title">Sala central</span>
+    <span class="spacer"></span>
+    <code id="goal" class="goal" title="Goal ativo"></code>
+  </header>
+
+  <main>
+    <section id="chat" class="view active">
+      <div class="chat-grid">
+        <div class="chat-col">
+          <div class="head">
+            <div>
+              <h1>Sala central</h1>
+              <p class="muted">Todos os agentes num fio só · <code>20-Operations/CHAT/SALA.md</code></p>
+            </div>
+            <button id="copy-gpt" class="btn" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>Copiar pro ChatGPT</button>
+          </div>
+          <a id="approval-banner" class="approval-banner" href="#comandos" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+            <span><strong id="approval-banner-title">Aprovação esperando você</strong><small id="approval-banner-sub"></small></span>
+          </a>
+          <ol id="thread" class="thread" aria-live="polite"></ol>
+          <form id="chat-form" class="composer chat-composer" autocomplete="off">
+            <label class="sr" for="chat-text">Mensagem</label>
+            <textarea id="chat-text" rows="2" maxlength="8000" placeholder="Fale com todos os agentes…"></textarea>
+            <div class="row">
+              <label class="muted" for="chat-as">como</label>
+              <select id="chat-as">
+                <option value="DONO">Eu </option>
+                <option value="CHATGPT">Resposta do ChatGPT</option>
+              </select>
+              <label class="muted" for="chat-to">para</label>
+              <select id="chat-to"><option value="TODOS">Todos</option></select>
+              <label class="sr" for="chat-subject">Assunto</label>
+              <input id="chat-subject" class="subject" maxlength="120" placeholder="assunto (opcional)">
+              <kbd class="hint">Ctrl+Enter</kbd>
+              <button id="chat-send" class="primary" type="submit">Enviar<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12l16-8-6 16-2.5-6.5z"/></svg></button>
+            </div>
+            <p id="chat-reply" class="reply" role="status"></p>
+          </form>
+        </div>
+        <aside class="rail" aria-label="Estado dos agentes">
+          <section><h2 class="sub">Agentes</h2><div id="rail-agents" class="rail-agents"></div></section>
+          <section><h2 class="sub">Alertas</h2><div id="rail-alerts" class="rail-alerts"></div></section>
+          <section class="card"><div class="card-h"><h2 class="sub">Resumo</h2><code id="rail-summary-meta" class="muted"></code></div><p id="rail-summary" class="rail-summary muted">Sem resumo por IA ainda.</p></section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="chamada" class="view">
+      <div class="call">
+        <div class="call-top">
+          <div>
+            <h1>Chamada em grupo</h1>
+            <p id="call-sub" class="muted">Você e os agentes numa call: cada um com a sua voz, todo mundo ouve todo mundo e eles debatem.</p>
+          </div>
+          <span id="call-timer" class="call-timer" hidden>00:00</span>
+        </div>
+        <form id="call-start" class="call-start" autocomplete="off">
+          <label class="sr" for="call-topic">Assunto da chamada</label>
+          <input id="call-topic" maxlength="300" placeholder="Sobre o que vamos falar? ex.: a beta está pronta para lançar?">
+          <button class="call-go" type="submit"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>Ligar</button>
+        </form>
+        <div id="call-stage" class="call-stage" aria-label="Participantes"></div>
+        <div class="call-caption" aria-live="polite"><b id="call-cap-who"></b><span id="call-cap-text"></span></div>
+        <div id="call-bar" class="call-bar" hidden>
+          <button id="call-mic" class="call-btn mic" type="button" aria-pressed="false" title="Falar (tecla F)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Falar</span></button>
+          <form id="call-type" class="call-type" autocomplete="off"><label class="sr" for="call-text">Digitar fala</label><input id="call-text" maxlength="2000" placeholder="…ou digite e aperte Enter"></form>
+          <button id="call-pause" class="call-btn" type="button" title="Pausar o debate"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5v14M15 5v14"/></svg></button>
+          <label class="sr" for="call-speed">Velocidade da fala</label>
+          <select id="call-speed" class="call-speed" title="Velocidade da fala"><option value="0.9">0,9×</option><option value="1" selected>1×</option><option value="1.15">1,15×</option><option value="1.3">1,3×</option><option value="1.5">1,5×</option></select>
+          <button id="call-end" class="call-btn end" type="button" title="Desligar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 14.5c5-5 13-5 18 0l-2 2.5-3.5-1.5v-3a12 12 0 0 0-7 0v3L5 17z"/></svg></button>
+        </div>
+        <p id="call-note" class="call-note muted small" role="status"></p>
+        <details class="call-log"><summary>Transcrição · a ata fica em <code>20-Operations/Calls/</code></summary><ol id="call-log"></ol></details>
+      </div>
+    </section>
+
+    <section id="sala" class="view">
+      <div class="head"><div><h1>Sala (bus)</h1><p class="muted">Tudo o que os agentes escrevem nos arquivos do Goal</p></div></div>
+      <div class="toolbar"><div id="filters" class="chips" role="toolbar" aria-label="Filtrar por agente"></div></div>
+      <ol id="feed" class="feed"></ol>
+      <button id="more" class="btn wide" type="button" hidden>Carregar mais antigas</button>
+    </section>
+
+    <section id="comandos" class="view">
+      <div class="cmd-grid">
+        <div>
+          <div class="head"><div><h1>Comandos</h1><p class="muted">Vira tarefa no bus <code>JARVIS-INBOX.md</code>; o líder dá ACK e distribui.</p></div></div>
+          <form id="composer" class="composer" autocomplete="off">
+            <label class="muted" for="cmd-text">Novo comando</label>
+            <textarea id="cmd-text" rows="3" maxlength="4000" placeholder="ex.: Codex, rode de novo os testes da T-022 e me diga o resultado"></textarea>
+            <div class="row">
+              <label class="muted" for="cmd-to">para</label>
+              <select id="cmd-to"><option value="LEADER">Líder (distribui)</option></select>
+              <span class="muted small grow">deploy, push, merge, release, apagar ou pagar ficam parados até você aprovar</span>
+              <button id="cmd-send" class="primary" type="submit">Enviar</button>
+            </div>
+            <p id="cmd-reply" class="reply" role="status" aria-live="polite"></p>
+          </form>
+          <h2 class="sub">Histórico</h2>
+          <div id="cmd-list" class="list"></div>
+        </div>
+        <aside aria-label="Aprovações">
+          <h2 class="section-title">Aprovações</h2>
+          <div id="approvals" class="approvals"></div>
+          <div class="violation-help">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.01"/></svg>
+            <span><strong>VIOLATION</strong> aparece se um agente marcar WORKING ou DONE num comando protegido sem a sua aprovação.</span>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="agentes" class="view">
+      <div class="head"><div><h1>Agentes</h1><p class="muted">Último STATUS lido direto de cada worktree</p></div></div>
+      <div id="agent-grid" class="grid"></div>
+      <h2 class="sub">Slots do orquestrador</h2>
+      <div id="locks" class="locks"></div>
+    </section>
+
+    <section id="tarefas" class="view">
+      <div class="head"><div><h1>Tarefas</h1><p class="muted"><code>TASKS.md</code> do Goal ativo</p></div></div>
+      <div id="task-filters" class="chips"></div>
+      <div id="task-list" class="list"></div>
+    </section>
+
+    <section id="resumos" class="view">
+      <div class="head"><div><h1>Resumos</h1></div></div>
+      <article class="card">
+        <div class="card-h"><h2>Agora</h2><span class="muted">calculado localmente, sem IA</span></div>
+        <pre id="det" class="pre"></pre>
+      </article>
+      <h2 class="sub">Resumos por IA (9Router)</h2>
+      <div id="llm" class="list"></div>
+    </section>
+  </main>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

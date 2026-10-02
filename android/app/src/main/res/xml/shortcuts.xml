@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Segurar o ícone do JARVIS na tela inicial do Android: atalhos direto para as telas mais usadas. -->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut android:shortcutId="voz" android:enabled="true" android:icon="@drawable/ic_jarvis"
+        android:shortcutShortLabel="@string/sc_voz" android:shortcutLongLabel="@string/sc_voz">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="dev.agentcontrol.app" android:targetClass="dev.agentcontrol.app.MainActivity">
+            <extra android:name="screen" android:value="VOZ" />
+        </intent>
+    </shortcut>
+    <shortcut android:shortcutId="nota" android:enabled="true" android:icon="@drawable/ic_jarvis"
+        android:shortcutShortLabel="@string/sc_nota" android:shortcutLongLabel="@string/sc_nota">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="dev.agentcontrol.app" android:targetClass="dev.agentcontrol.app.MainActivity">
+            <extra android:name="screen" android:value="NOTAS" />
+        </intent>
+    </shortcut>
+    <shortcut android:shortcutId="busca" android:enabled="true" android:icon="@drawable/ic_jarvis"
+        android:shortcutShortLabel="@string/sc_busca" android:shortcutLongLabel="@string/sc_busca">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="dev.agentcontrol.app" android:targetClass="dev.agentcontrol.app.MainActivity">
+            <extra android:name="screen" android:value="BUSCA" />
+        </intent>
+    </shortcut>
+    <shortcut android:shortcutId="saude" android:enabled="true" android:icon="@drawable/ic_jarvis"
+        android:shortcutShortLabel="@string/sc_saude" android:shortcutLongLabel="@string/sc_saude">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="dev.agentcontrol.app" android:targetClass="dev.agentcontrol.app.MainActivity">
+            <extra android:name="screen" android:value="SAUDE" />
+        </intent>
+    </shortcut>
+</shortcuts>

@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Exemplo (Linux/macOS). Copie para ~/.config/dw-agents/launchers/codex.sh e ajuste.
+# O agent-loop.sh já entrega: $WORKTREE (pasta do agente), $PROMPT (ordem padrão) e as funções de comum.sh.
+set -e
+cd "$WORKTREE"
+# Codex no login da OpenAI. "codex exec" escreve só dentro da worktree.
+MODEL="$(cat "$HOME/.config/dw-agents/codex-model.txt" 2>/dev/null || echo gpt-6-sol)"
+EFFORT="$(cat "$HOME/.config/dw-agents/codex-effort.txt" 2>/dev/null || echo medium)"
+exec codex exec -m "$MODEL" -c model_reasoning_effort="$EFFORT" -s workspace-write "$PROMPT"

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Foto do agente OPENCODE (família de robôs do AgentC). Usada no app do celular e no HUD do PC (lida como recurso). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#1A1230" android:pathData="M24,0A24,24 0 1,1 24,48A24,24 0 1,1 24,0Z" />
+    <path android:fillColor="#9B7BF0" android:pathData="M18,14H30A6,6 0 0,1 36,20V30A6,6 0 0,1 30,36H18A6,6 0 0,1 12,30V20A6,6 0 0,1 18,14Z" />
+    <path android:fillColor="#1A1230" android:pathData="M21.5,20.5L16.5,25L21.5,29.5L22.8,28L19.5,25L22.8,22Z" />
+    <path android:fillColor="#1A1230" android:pathData="M26.5,20.5L31.5,25L26.5,29.5L25.2,28L28.5,25L25.2,22Z" />
+</vector>

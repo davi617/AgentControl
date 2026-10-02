@@ -1,0 +1,25 @@
+node_modules/
+/data/
+*.log
+*.bak
+launcher/
+
+# Configuração privada, artefatos e credenciais locais
+/jarvis.config.json
+/jarvis.config.json.*
+!jarvis.config.example.json
+**/bin/
+**/obj/
+/desktop/dist/
+**/.gradle/
+**/build/
+**/local.properties
+.env
+.env.*
+*.key
+*.keystore
+*.jks
+*.pfx
+*.p12
+*.apk
+*.sqlite*

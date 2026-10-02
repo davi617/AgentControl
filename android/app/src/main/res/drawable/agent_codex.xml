@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Foto do agente CODEX (família de robôs do AgentC). Usada no app do celular e no HUD do PC (lida como recurso). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp" android:height="48dp" android:viewportWidth="48" android:viewportHeight="48">
+    <path android:fillColor="#0E2620" android:pathData="M24,0A24,24 0 1,1 24,48A24,24 0 1,1 24,0Z" />
+    <path android:fillColor="#2BB596" android:pathData="M15,13H33A4,4 0 0,1 37,17V31A4,4 0 0,1 33,35H15A4,4 0 0,1 11,31V17A4,4 0 0,1 15,13Z" />
+    <path android:fillColor="#0E2620" android:pathData="M16.5,19.5L22,23.5L16.5,27.5L15.2,25.7L18.3,23.5L15.2,21.3Z" />
+    <path android:fillColor="#0E2620" android:pathData="M24.6,26.5H30.4A0.6,0.6 0 0,1 31,27.1V28.2A0.6,0.6 0 0,1 30.4,28.8H24.6A0.6,0.6 0 0,1 24,28.2V27.1A0.6,0.6 0 0,1 24.6,26.5Z" />
+</vector>

@@ -1,0 +1,6 @@
+@echo off
+rem Copie para %%USERPROFILE%%\.config\dw-agents\launchers\codex-loop.cmd.
+rem Faça o login no Codex manualmente antes de ligar o loop.
+if not defined WORKTREE exit /b 1
+cd /d "%WORKTREE%" || exit /b 1
+call codex exec -s workspace-write "%PROMPT%"

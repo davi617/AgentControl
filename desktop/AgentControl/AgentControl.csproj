@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Agent Control para PC (Windows, Linux e macOS) em C# com Avalonia.
+    É o mesmo app do launcher/JarvisLauncher (WPF, só Windows), reescrito para rodar nos três sistemas:
+    Launcher, HUD do topo, AgentC (mascote), tela completa e ícone na bandeja/barra de menus.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>AgentControl</AssemblyName>
+    <RootNamespace>AgentControl</RootNamespace>
+    <ApplicationIcon>Assets\agentc.ico</ApplicationIcon>
+    <Version>1.0.0</Version>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+  </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\Fonts\*.ttf" />
+    <AvaloniaResource Include="Assets\agentc.ico" />
+    <!-- Fotos dos agentes: os mesmos vetores do app do celular (uma fonte só). -->
+    <EmbeddedResource Include="..\..\android\app\src\main\res\drawable\agent_*.xml" LogicalName="avatar.%(Filename).xml" />
+    <None Update="settings.example.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
