@@ -15,6 +15,8 @@ Windows · Linux · macOS · MIT</p>
 
 <p align="center"><img src="docs/gif/hero.gif" width="640" alt="AgentC falando e o título do Agent Control"></p>
 
+<p align="center"><img src="docs/gif/agents.gif" width="760" alt="Agentes: Claude Code, Codex, Gemini CLI, Qwen Code, OpenCode, OpenClaw, Hermes e Droid"></p>
+
 ## Baixar
 
 | Sistema | Arquivo |
@@ -42,6 +44,8 @@ No macOS, na primeira vez: botão direito no app → **Abrir** (o app não é as
 
 > As animações acima são da [página do projeto](https://davi617.github.io/AgentControl/), com dados de demonstração.
 > Capturas reais do HUD: [painel](docs/img/hud-panel.png) e [saúde do PC](docs/img/hud-health.png).
+
+> Os logos dos agentes são marcas dos respectivos donos, usados só para indicar compatibilidade. O Agent Control não é afiliado a eles.
 
 
 ## O que é
