@@ -79,7 +79,9 @@ h2{font-size:clamp(30px,4.4vw,48px);line-height:1.08;letter-spacing:-.035em;font
 .marquee{overflow:hidden;border-block:1px solid var(--line);background:var(--surface);padding:22px 0;mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent)}
 .track{display:flex;gap:14px;width:max-content}
 .chip{display:flex;align-items:center;gap:10px;padding:10px 18px 10px 10px;border:1px solid var(--line);border-radius:99px;background:var(--raised);font-weight:600;white-space:nowrap}
-.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px}
+.av{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+.av i{display:block}
+.hud .a{background:none}
 
 /* demo PC */
 .demo{margin-top:50px;display:grid;grid-template-columns:1.55fr 1fr;gap:26px;align-items:start}
@@ -88,7 +90,7 @@ h2{font-size:clamp(30px,4.4vw,48px);line-height:1.08;letter-spacing:-.035em;font
 .hud{position:absolute;top:12px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:99px;background:#0f0f0f;border:1px solid var(--line-hi);box-shadow:0 10px 30px rgba(0,0,0,.6);z-index:3}
 .hud .hex{width:22px;height:22px}
 .hud .a{position:relative;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font-size:10px;font-weight:800}
-.hud .a i{position:absolute;right:-1px;bottom:-1px;width:8px;height:8px;border-radius:50%;background:var(--faint);border:2px solid #0f0f0f}
+.hud .a i.st{position:absolute;right:-1px;bottom:-1px;width:8px;height:8px;border-radius:50%;background:var(--faint);border:2px solid #0f0f0f}
 .hud .pct{font-size:11px;font-weight:700;color:var(--muted);min-width:28px}
 .panel{position:absolute;top:56px;left:50%;width:min(330px,62%);transform:translateX(-50%);background:#111;border:1px solid var(--line-hi);border-radius:16px;padding:14px;z-index:2;opacity:0;box-shadow:0 30px 60px rgba(0,0,0,.6)}
 .panel h4{font-size:11px;color:var(--faint);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px}
@@ -345,11 +347,12 @@ footer .wrap a:hover{color:var(--text)}
 <footer><div class="wrap">
   <span class="logo"><img src="img/agentc.png" alt="" style="width:22px">Agent Control</span>
   <span>Licença MIT</span>
+  <span style="font-size:12px">Logos dos agentes são marcas dos donos, usados só para indicar compatibilidade.</span>
   <span style="margin-left:auto;display:flex;gap:18px"><a href="https://github.com/OWNER/AgentControl">Código</a><a href="https://github.com/OWNER/AgentControl/releases">Versões</a><a href="https://github.com/OWNER/AgentControl/issues">Problemas e ideias</a></span>
 </div></footer>
 
 <script type="module">
-import { animate, createTimeline, stagger, utils } from 'https://cdn.jsdelivr.net/npm/animejs@4/+esm';
+import { animate, createTimeline, stagger, utils } from './vendor/anime.esm.min.js';
 
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
@@ -364,15 +367,28 @@ document.querySelectorAll('.term pre').forEach(p => { p.innerHTML = p.innerHTML.
 const REL = PUBLIC_GITHUB + '/releases/latest/download/';
 
 /* ---------- dados ---------- */
-const AGENTS = [
-  ['Claude Code', 'CL', 24], ['Codex', 'CX', 150], ['Gemini CLI', 'GE', 215], ['Qwen Code', 'QW', 265],
-  ['OpenCode', 'OC', 190], ['OpenClaw', 'OW', 0], ['Hermes', 'HE', 45], ['Droid', 'DR', 330],
-];
+// Logos: SVG do Simple Icons (CC0; marcas dos donos) e avatares oficiais no GitHub (OpenClaw, Nous Research, Factory).
+const LOGO = {
+  claude:   { name: 'Claude Code', svg: 'claude',   color: '#D97757', bg: '#2a1a14' },
+  codex:    { name: 'Codex',       svg: 'codex',    color: '#F4F4F5', bg: '#1c1c1f' },
+  gemini:   { name: 'Gemini CLI',  svg: 'gemini',   color: '#8E9BFF', bg: '#161a2e' },
+  qwen:     { name: 'Qwen Code',   svg: 'qwen',     color: '#8B87FF', bg: '#1a1830' },
+  opencode: { name: 'OpenCode',    svg: 'opencode', color: '#F4F4F5', bg: '#1c1c1f' },
+  openclaw: { name: 'OpenClaw',    png: 'openclaw' },
+  hermes:   { name: 'Hermes',      png: 'hermes' },
+  droid:    { name: 'Droid',       png: 'droid' },
+};
+const AGENTS = Object.keys(LOGO);
 const hsl = (h, s, l) => `hsl(${h} ${s}% ${l}%)`;
-const avatar = (ini, h, size = 32) => `<span class="av" style="width:${size}px;height:${size}px;background:${hsl(h, 30, 18)};color:${hsl(h, 85, 80)}">${ini}</span>`;
+function avatar(key, size = 32) {
+  const l = LOGO[key], st = `width:${size}px;height:${size}px`;
+  if (l.png) return `<span class="av" style="${st};overflow:hidden;background:#fff"><img src="img/logos/${l.png}.png" alt="${l.name}" width="${size}" height="${size}" style="width:100%;height:100%;object-fit:cover"></span>`;
+  const m = `url(img/logos/${l.svg}.svg)`, i = Math.round(size * .56);
+  return `<span class="av" style="${st};background:${l.bg}" title="${l.name}"><i style="width:${i}px;height:${i}px;background:${l.color};-webkit-mask:${m} center/contain no-repeat;mask:${m} center/contain no-repeat"></i></span>`;
+}
 
 /* faixa de agentes */
-const chips = AGENTS.map(([n, i, h]) => `<span class="chip">${avatar(i, h)}${n}</span>`).join('');
+const chips = AGENTS.map(k => `<span class="chip">${avatar(k)}${LOGO[k].name}</span>`).join('');
 $('#track').innerHTML = chips + chips + chips;
 if (!reduce) animate('#track', { translateX: ['0%', '-33.333%'], duration: 32000, ease: 'linear', loop: true });
 
@@ -450,15 +466,15 @@ const io = new IntersectionObserver(es => es.forEach(e => {
 $$('.reveal').forEach(el => reduce ? (el.style.opacity = 1) : io.observe(el));
 
 /* ---------- demo do PC ---------- */
-const HUD = [['CL', 24], ['CX', 150], ['QW', 265], ['HE', 45], ['OC', 190], ['OW', 0], ['DR', 330]];
-$('#hudAgents').innerHTML = HUD.map(([i, h]) => `<span class="a" style="background:${hsl(h, 30, 18)};color:${hsl(h, 85, 80)}">${i}<i></i></span>`).join('');
+const HUD = ['claude', 'codex', 'qwen', 'hermes', 'opencode', 'openclaw', 'droid'];
+$('#hudAgents').innerHTML = HUD.map(k => `<span class="a">${avatar(k, 26)}<i class="st"></i></span>`).join('');
 const ROWS = [['Claude', 60], ['Qwen', 40], ['Codex', 28], ['Hermes', 12], ['OpenCode', 8]];
 $('#rows').innerHTML = ROWS.map(([n]) => `<div class="row"><span class="n">${n}</span><span class="bar"><b></b></span><span class="v">0%</span></div>`).join('');
 const LOGS = ['[roteador] escutando em 127.0.0.1:20128', '[fila] 4 vagas · 0 na espera', '[servidor] pronto em 127.0.0.1:20150', '[codex] ordem J-014 recebida', '[claude] rodada iniciada', '[qwen] STATUS → WORKING', '[claude] DONE · testes passando', '[fila] 429 → segurando todos 8 s', '[fila] liberada'];
 
 function runDesk() {
   if (reduce) { $('#panel').style.opacity = 1; return; }
-  const dots = $$('.hud .a i'), nodes = $$('.node[data-n]'), log = $('#log'), tabs = $$('#tabs span');
+  const dots = $$('.hud .a i.st'), nodes = $$('.node[data-n]'), log = $('#log'), tabs = $$('#tabs span');
   let k = 0;
   const pushLog = () => { const d = document.createElement('div'); d.textContent = LOGS[k++ % LOGS.length]; log.appendChild(d); if (log.children.length > 5) log.firstChild.remove(); animate(d, { opacity: [0, 1], translateX: [-10, 0], duration: 400 }); };
   const count = (el, to, ms = 900) => { const o = { v: 0 }; animate(o, { v: to, duration: ms, ease: 'outExpo', onUpdate: () => { el.textContent = Math.round(o.v) + '%'; } }); };
@@ -492,19 +508,19 @@ $('#desk').addEventListener('shown', runDesk, { once: true });
 
 /* ---------- demo do celular ---------- */
 const CHAT = [
-  ['them', 'CODEX', '#86efac', 'Peguei a ordem J-014: revisar o login.'],
+  ['them', 'CODEX', '#e4e4e7', 'Peguei a ordem J-014: revisar o login.', 'codex'],
   ['me', null, null, 'Claude, roda os testes depois do Codex.'],
   ['typing'],
-  ['them', 'CLAUDE', '#fdba74', 'Feito. 102 de 102 testes passando ✓'],
+  ['them', 'CLAUDE', '#fdba74', 'Feito. 102 de 102 testes passando ✓', 'claude'],
   ['approve'],
-  ['them', 'HERMES', '#93c5fd', 'Aprovado. Subindo agora.'],
+  ['them', 'HERMES', '#93c5fd', 'Aprovado. Subindo agora.', 'hermes'],
   ['call'],
 ];
 function runPhone() {
   const chat = $('#chat');
   const step = i => {
     if (i >= CHAT.length) { setTimeout(() => { chat.innerHTML = ''; step(0); }, 1200); return; }
-    const [kind, who, color, text] = CHAT[i];
+    const [kind, who, color, text, logo] = CHAT[i];
     let el;
     if (kind === 'typing') {
       el = document.createElement('div'); el.className = 'typing'; el.innerHTML = '<i></i><i></i><i></i>'; chat.appendChild(el);
@@ -531,7 +547,7 @@ function runPhone() {
       return setTimeout(() => { animate(call, { opacity: 0, duration: 500 }); step(i + 1); }, 5200);
     }
     el = document.createElement('div'); el.className = 'msg ' + kind;
-    el.innerHTML = (who ? `<b style="color:${color}">${who}</b>` : '') + text;
+    el.innerHTML = (who ? `<b style="color:${color};display:flex;align-items:center;gap:6px">${logo ? avatar(logo, 16) : ''}${who}</b>` : '') + text;
     chat.appendChild(el);
     while (chat.children.length > 5) chat.firstChild.remove();
     animate(el, { opacity: [0, 1], translateY: [16, 0], scale: [.96, 1], duration: 450, ease: 'outBack' });
