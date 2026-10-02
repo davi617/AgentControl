@@ -271,7 +271,7 @@ fun SettingsScreen(readOnly: Boolean, setReadOnly: (Boolean) -> Unit, alerts: Ma
         item {
             Column(Modifier.fillMaxWidth().clay(RoundedCornerShape(18.dp), elevation = 4.dp).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Economia de bateria", color = k.text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                Text("Celular Infinix fecha app em segundo plano para economizar. Na tela que abrir, procure Agent Control e escolha \"Não otimizar\" / \"Sem restrições\".", color = k.muted, fontSize = 12.sp, lineHeight = 17.sp)
+                Text("Alguns celulares Android fecham apps em segundo plano para economizar. Na tela que abrir, procure Agent Control e escolha \"Não otimizar\" / \"Sem restrições\".", color = k.muted, fontSize = 12.sp, lineHeight = 17.sp)
                 Text("Abrir ajuste de bateria", color = k.onBrand, fontWeight = FontWeight.Bold, fontSize = 14.sp,
                     modifier = Modifier.clay(RoundedCornerShape(16.dp), elevation = 5.dp, color = k.brand).clickable(onClick = battery).padding(horizontal = 16.dp, vertical = 10.dp))
             }
