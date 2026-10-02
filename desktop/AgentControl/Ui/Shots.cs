@@ -32,7 +32,7 @@ public static class Shots
             host.Hud.ShowStrip();
             await Task.Delay(1500);
             Save(host.Hud, Path.Combine(dir, "faixa.png"));
-            for (var t = 0; t < 5; t++)
+            for (var t = 0; t < 6; t++)
             {
                 if (t == 0) host.Hud.Expand(0); else host.Hud.Select(t);
                 await Task.Delay(1500);

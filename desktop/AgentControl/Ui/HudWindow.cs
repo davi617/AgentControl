@@ -19,7 +19,7 @@ namespace AgentControl.Ui;
 /// </summary>
 public sealed class HudWindow : Window
 {
-    static readonly (string Icon, string Name)[] Tabs = [(K.IHome, "Início"), (K.IChat, "Sala"), (K.IPhone, "Chamada"), (K.IGoal, "Goal"), (K.IHealth, "Saúde")];
+    static readonly (string Icon, string Name)[] Tabs = [(K.IHome, "Início"), (K.IChat, "Sala"), (K.IPhone, "Chamada"), (K.IGoal, "Goal"), (K.IHealth, "Saúde"), (K.ITerminal, "Comandos")];
     readonly HudHost host;
     readonly Border shell;
     readonly TranslateTransform slide = new();
@@ -38,6 +38,10 @@ public sealed class HudWindow : Window
     readonly SolidColorBrush gripBrush = new(K.C("#52525B"));
     int tab, outside;
     bool hovered, expanded;
+    // Aba Comandos e caixas de texto do painel (2026-10-02: "o painel tem pouca função").
+    List<HudApi.Cmd> cmds = [];
+    string cmdTo = "TODOS", replyTo = "TODOS", toast = "";
+    bool typing, loadingCmds;
     string sig = "", islandSig = "";
     double? centerX;
     static string PosFile => System.IO.Path.Combine(Platform.DataDir, "topo.json");
@@ -121,7 +125,7 @@ public sealed class HudWindow : Window
         // Mantém o centro no lugar quando troca de faixa para painel (larguras diferentes).
         PropertyChanged += (_, e) => { if (e.Property == ClientSizeProperty && centerX is { } c) K.MoveTo(this, c - ClientSize.Width / 2, K.PosDip(this).Y); };
         PointerEntered += (_, _) => hovered = true;
-        idle.Tick += (_, _) => { if (IsPointerOver || !hovered) outside = 0; else if (++outside >= 8) Collapse(); };
+        idle.Tick += (_, _) => { if (IsPointerOver || !hovered || typing) outside = 0; else if (++outside >= 8) Collapse(); };
         blinkTimer.Tick += (_, _) => Blink();
     }
 
@@ -289,10 +293,27 @@ public sealed class HudWindow : Window
             tabs[t].Icon.Color = on ? K.BrandText : K.Muted;
         }
         sig = "";
+        toast = "";
         Render(animate);
+        if (i == 5) _ = LoadCmds();
     }
 
-    public void Refresh() { if (!IsVisible) return; UpdateStrip(); if (expanded) Render(false); }
+    public void Refresh()
+    {
+        if (!IsVisible) return;
+        UpdateStrip();
+        if (!expanded) return;
+        if (tab == 5) _ = LoadCmds(); else Render(false);
+    }
+
+    async Task LoadCmds()
+    {
+        if (loadingCmds) return;
+        loadingCmds = true;
+        try { cmds = await host.Api.CommandsAsync(); } catch { }
+        finally { loadingCmds = false; }
+        Render(false);
+    }
 
     void Stagger()
     {
@@ -305,7 +326,7 @@ public sealed class HudWindow : Window
         liveDot.Fill = !s.Online ? K.Err : s.Working ? K.Brand : K.Ok;
         liveText.Text = !s.Online ? "servidor desligado" : s.Paused ? "agentes pausados" : s.Working ? "trabalhando" : "online";
         var newSig = tab + "|" + Sig(s);
-        if (newSig == sig) return;
+        if (newSig == sig || (typing && !animate)) return;
         sig = newSig;
         var view = new StackPanel();
         if (!s.Online) Offline(view);
@@ -315,7 +336,8 @@ public sealed class HudWindow : Window
             case 1: Sala(view, s); break;
             case 2: Chamada(view, s); break;
             case 3: Goal(view, s, animate); break;
-            default: Saude(view, s); break;
+            case 4: Saude(view, s); break;
+            default: Comandos(view, s); break;
         }
         body.Content = view;
         if (animate) Stagger();
@@ -354,9 +376,20 @@ public sealed class HudWindow : Window
                 Background = new SolidColorBrush(Color.FromArgb(28, 245, 158, 11)), BorderBrush = new SolidColorBrush(Color.FromArgb(70, 245, 158, 11)), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 9),
                 Child = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.Icon(K.IWarn, 14, K.Warn), K.T($"{s.Pending} aprovação esperando você", 13, K.Warn, FontWeight.SemiBold) } },
             };
-            K.Pressable(chip, host.OpenFull);
+            K.Pressable(chip, () => Select(5));
             v.Children.Add(chip);
         }
+
+        // Atalhos rápidos: o que mais se faz no dia a dia, sem abrir outra janela.
+        v.Children.Add(Gap(14));
+        var goalOn = s.CallActive && s.CallModo == "goal";
+        v.Children.Add(new Cols(3).Add(Quick(goalOn ? K.IStop : K.IGoal, goalOn ? "Parar Goal" : "Modo Goal", goalOn ? host.EndCall : host.StartGoal, goalOn ? K.Ok : null))
+            .Add(Quick(s.Paused ? K.IPlay : K.IPause, s.Paused ? "Retomar" : "Pausar", () => host.SetPause(!s.Paused), s.Paused ? K.Warn : null))
+            .Add(Quick(K.IPower, "Ligar agentes", host.StartAgents)).Panel);
+        v.Children.Add(Gap(8));
+        v.Children.Add(new Cols(3).Add(Quick(K.ITerminal, "Comandos", () => Select(5), badge: s.Pending > 0 ? $"{s.Pending}" : null))
+            .Add(Quick(K.IApps, "Tela completa", () => { Collapse(); host.OpenFull(); }))
+            .Add(Quick(K.IOpen, "Navegador", host.OpenWeb)).Panel);
 
         v.Children.Add(Gap(16));
         var head = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
@@ -397,7 +430,15 @@ public sealed class HudWindow : Window
             v.Children.Add(row);
         }
         v.Children.Add(Gap(10));
-        v.Children.Add(new Cols().Add(K.Button("Escrever", K.IChat, host.OpenMini)).Add(K.Button("Tela completa", K.IOpen, host.OpenFull, primary: false)).Panel);
+        v.Children.Add(Composer("Responder na sala", replyTo, t => replyTo = t, async (text, to) =>
+        {
+            var err = await host.Api.SendChat(text, to);
+            toast = err is null ? $"Enviado para {(to == "TODOS" ? "todos" : K.Nice(to))}." : $"Não enviei: {err}";
+            host.KickRefresh();
+        }, withLeader: false));
+        if (toast.Length > 0) v.Children.Add(Toast());
+        v.Children.Add(Gap(8));
+        v.Children.Add(K.Button("Abrir a sala completa", K.IOpen, () => { Collapse(); host.OpenFull(); }, primary: false, height: 34));
     }
 
     void Chamada(StackPanel v, HudSnapshot s)
@@ -472,6 +513,102 @@ public sealed class HudWindow : Window
         v.Children.Add(s.Paused ? K.Button("Retomar os agentes", K.IPlay, () => host.SetPause(false)) : K.Button("Pausar os agentes", K.IPause, () => host.SetPause(true), primary: false));
     }
 
+    void Comandos(StackPanel v, HudSnapshot s)
+    {
+        v.Children.Add(Composer("Comando para um agente", cmdTo, t => cmdTo = t, async (text, to) =>
+        {
+            var err = await host.Api.SendCommand(text, to);
+            toast = err is null ? $"Comando enviado para {(to == "TODOS" ? "todos" : to == "LEADER" ? "o líder" : K.Nice(to))}." : $"Não enviei: {err}";
+            await LoadCmds();
+        }, withLeader: true));
+        if (toast.Length > 0) v.Children.Add(Toast());
+
+        var pend = cmds.Where(c => c.Approval == "pending").ToList();
+        if (pend.Count > 0)
+        {
+            v.Children.Add(K.Label("Esperando você").Also(l => l.Margin = new Thickness(0, 14, 0, 6)));
+            foreach (var c in pend.Take(3))
+            {
+                var code = c.Code;
+                var g = new StackPanel { Spacing = 8 };
+                g.Children.Add(new StackPanel { Children = { K.T($"{c.Code} · {K.Nice(c.Target)}", 11.5, K.Warn, FontWeight.SemiBold, K.Mono), K.Wrap(c.Text, 12.5, K.Text, 3).Also(t => t.Margin = new Thickness(0, 3, 0, 0)) } });
+                g.Children.Add(new Cols().Add(K.Button("Recusar", K.IClose, async () => { var e = await host.Api.Decide(code, false); toast = e ?? $"{code} recusado."; host.KickRefresh(); await LoadCmds(); }, primary: false, danger: true, height: 32))
+                    .Add(K.Button("Aprovar", K.ICheck, async () => { var e = await host.Api.Decide(code, true); toast = e ?? $"{code} aprovado (só este comando)."; host.KickRefresh(); await LoadCmds(); }, height: 32)).Panel);
+                v.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(22, 245, 158, 11)), BorderBrush = new SolidColorBrush(Color.FromArgb(70, 245, 158, 11)), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12, 10), Margin = new Thickness(0, 0, 0, 8), Child = g });
+            }
+            if (pend.Count > 3) v.Children.Add(K.T($"+{pend.Count - 3} na tela completa", 11.5, K.Muted));
+        }
+
+        v.Children.Add(K.Label("Últimos comandos").Also(l => l.Margin = new Thickness(0, 14, 0, 6)));
+        var recent = cmds.Where(c => c.Approval != "pending").OrderByDescending(c => int.TryParse(c.Code.AsSpan(2), out var x) ? x : 0).Take(5).ToList();
+        if (recent.Count == 0) v.Children.Add(K.T(loadingCmds ? "Carregando…" : "Nenhum comando ainda.", 12.5, K.Muted));
+        foreach (var c in recent)
+        {
+            var row = new Grid { Margin = new Thickness(0, 4), ColumnDefinitions = new ColumnDefinitions("52,78,*,Auto") };
+            row.Children.Add(K.T(c.Code, 11.5, K.Muted, f: K.Mono));
+            var who = K.T(K.Nice(c.Target), 12, K.Text, FontWeight.SemiBold); Grid.SetColumn(who, 1); row.Children.Add(who);
+            var what = K.T(c.Text, 12, K.Text2); what.TextTrimming = TextTrimming.CharacterEllipsis; what.Margin = new Thickness(0, 0, 8, 0); Grid.SetColumn(what, 2); row.Children.Add(what);
+            var st = K.Pill(K.StatusText(c.Status), K.StatusBrush(c.Status)); Grid.SetColumn(st, 3); row.Children.Add(st);
+            row.Tip($"{c.Code} · {K.Nice(c.Target)} · {c.When}\n{c.Text}");
+            v.Children.Add(row);
+        }
+        v.Children.Add(Gap(10));
+        v.Children.Add(K.Button("Ver todos na tela completa", K.IOpen, () => { Collapse(); host.OpenFull(); }, primary: false, height: 34));
+    }
+
+    /// <summary>Caixa de texto do painel: destinatário (clique troca), texto e enviar. Enter envia.</summary>
+    Control Composer(string hint, string to, Action<string> setTo, Func<string, string, Task> send, bool withLeader)
+    {
+        string Label(string id) => id == "TODOS" ? "Todos" : id == "LEADER" ? "Líder" : K.Nice(id);
+        var box = new TextBox { Watermark = hint, FontSize = 13, FontFamily = K.Ui, Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0), Padding = new Thickness(0) };
+        box.GotFocus += (_, _) => typing = true;
+        box.LostFocus += (_, _) => typing = false;
+        var toTx = K.T(Label(to), 11.5, to == "TODOS" ? K.Muted : K.BrandText, FontWeight.SemiBold);
+        var toB = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(10, 5, 10, 6), Background = K.Raised, Child = toTx, VerticalAlignment = VerticalAlignment.Center };
+        toB.Tip("Para quem (clique para trocar)");
+        K.Pressable(toB, () =>
+        {
+            var ids = (withLeader ? new[] { "TODOS", "LEADER" } : ["TODOS"]).Concat(host.Snap.Agents.Select(a => a.Id).Where(i => i != "CHATGPT")).ToList();
+            to = ids[(ids.IndexOf(to) + 1) % ids.Count];
+            setTo(to);
+            toTx.Text = Label(to);
+            toTx.Foreground = to == "TODOS" ? K.Muted : K.BrandText;
+        });
+        async void Go()
+        {
+            var t = (box.Text ?? "").Trim();
+            if (t.Length == 0) return;
+            box.Text = "";
+            typing = false;
+            await send(t, to);
+            sig = "";
+            Render(false);
+        }
+        box.KeyDown += (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; Go(); } };
+        var sendB = new Border { Width = 32, Height = 32, CornerRadius = new CornerRadius(9), Background = K.Brand, Child = K.Icon(K.ISend, 14, K.OnBrand) };
+        sendB.Tip("Enviar (Enter)");
+        K.Pressable(sendB, Go);
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto") };
+        row.Children.Add(toB); Grid.SetColumn(box, 1); row.Children.Add(box); Grid.SetColumn(sendB, 2); row.Children.Add(sendB);
+        return new Border { Background = K.Raised, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(5), Child = row };
+    }
+
+    TextBlock Toast() => K.Wrap(toast, 12, toast.StartsWith("Não") ? K.Err : K.Ok).Also(t => t.Margin = new Thickness(4, 8, 0, 0));
+
+    /// <summary>Atalho quadrado do Início: ícone em cima, nome embaixo, mola no toque.</summary>
+    static Border Quick(string icon, string label, Action go, IBrush? tone = null, string? badge = null)
+    {
+        var bg = new SolidColorBrush(K.C("#161616"));
+        var col = new StackPanel { Spacing = 6, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        col.Children.Add(K.Icon(icon, 17, tone ?? K.BrandText).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center));
+        col.Children.Add(K.T(label, 11.5, K.Text2, FontWeight.SemiBold).Also(t => t.HorizontalAlignment = HorizontalAlignment.Center));
+        var g = new Grid { Children = { col } };
+        if (badge is not null) g.Children.Add(K.Pill(badge, K.Warn).Also(p => { p.HorizontalAlignment = HorizontalAlignment.Right; p.VerticalAlignment = VerticalAlignment.Top; p.Margin = new Thickness(0, 5, 5, 0); }));
+        var b = new Border { Height = 64, CornerRadius = new CornerRadius(12), Background = bg, BorderBrush = K.Line, BorderThickness = new Thickness(1), Child = g };
+        K.Pressable(b, go, () => K.AnimColor(bg, K.C("#1F1F1F"), 120), () => K.AnimColor(bg, K.C("#161616"), 160));
+        return b;
+    }
+
     static Border Tile(string label, string value, IBrush tone) => new()
     {
         Background = K.Raised, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(10, 8),
@@ -480,10 +617,11 @@ public sealed class HudWindow : Window
 
     string Sig(HudSnapshot s) => tab switch
     {
-        0 => $"{s.Online}{s.Pending}{s.Working}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Usage.Select(u => u.Agent + u.Req))}",
-        1 => string.Join("|", s.Chat.Take(5).Select(c => c.Ts + c.Agent)),
+        0 => $"{s.Online}{s.Pending}{s.Working}{s.Paused}{s.CallStatus}{s.CallModo}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Usage.Select(u => u.Agent + u.Req))}",
+        1 => replyTo + toast + string.Join("|", s.Chat.Take(5).Select(c => c.Ts + c.Agent)),
         2 => $"{s.CallStatus}{s.CallModo}{s.CallTurns}{host.LastCaption}",
         3 => $"{s.Goal}{s.TasksDone}/{s.TasksTotal}{s.CallStatus}{s.CallModo}",
-        _ => $"{s.RamFreeMb / 100}{s.Cpu / 5}{s.Paused}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Alerts)}",
+        4 => $"{s.RamFreeMb / 100}{s.Cpu / 5}{s.Paused}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Alerts)}",
+        _ => $"{s.Pending}|{toast}|{cmdTo}|{string.Join(",", cmds.Take(8).Select(c => c.Code + c.Status + c.Approval))}",
     };
 }
