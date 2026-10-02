@@ -352,7 +352,7 @@ public sealed class Services
         agent = agent.ToLowerInvariant();
         if (Platform.Win)
             Platform.Run("powershell.exe", "-NoProfile", "-Command",
-                $"Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" | Where-Object {{ $_.CommandLine -match '(?:night-)?agent-loop\\.ps1' -and $_.CommandLine -match '-Agent {agent}( |$)' }} | ForEach-Object {{ taskkill.exe /PID $_.ProcessId /T /F | Out-Null }}");
+                $"Get-CimInstance Win32_Process -Filter \"Name='powershell.exe'\" | Where-Object {{ $_.CommandLine -match 'night-agent-loop\\.ps1' -and $_.CommandLine -match '-Agent {agent}( |$)' }} | ForEach-Object {{ taskkill.exe /PID $_.ProcessId /T /F | Out-Null }}");
         else
             try { if (int.TryParse(File.ReadAllText(Path.Combine(Platform.AgentsDir, "night-logs", agent + ".pid")).Trim(), out var pid)) Platform.Kill(pid); } catch { }
         Log($"{K(agent)}: loop parado.");

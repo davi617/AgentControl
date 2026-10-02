@@ -212,6 +212,14 @@ public sealed class HudHost
         await Poll();
     }
 
+    public void StartAgents()
+    {
+        var svc = new Services();
+        try { svc.Load(); } catch (Exception ex) { Mascot.Say("AgentC", $"Não li os ajustes: {ex.Message}"); return; }
+        Mascot.Say("AgentC", svc.StartAgents() ? "Ligando os agentes. Em alguns segundos eles aparecem trabalhando." : "Não consegui ligar os agentes. Veja os logs no Launcher.");
+        DispatcherTimer.RunOnce(() => _ = Poll(), TimeSpan.FromSeconds(6));
+    }
+
     public async void SetPause(bool on)
     {
         var err = await Api.Pause(on);

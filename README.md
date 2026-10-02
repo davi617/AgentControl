@@ -6,7 +6,43 @@ Claude Code, Codex, Gemini CLI, Qwen Code, OpenCode, Hermes, Droid… trabalhand
 ordens com aprovação, HUD no PC, app no celular e o AgentC (o mascote) avisando tudo.<br>
 Windows · Linux · macOS · MIT</p>
 
-> *English summary below.*
+<p align="center">
+  <a href="docs/index.html"><b>Site</b></a> ·
+  <a href="../../releases/latest"><b>Baixar</b></a> ·
+  <a href="#começo-rápido">Começo rápido</a> ·
+  <a href="#english-summary">English</a>
+</p>
+
+<p align="center"><img src="docs/gif/hero.gif" width="640" alt="AgentC falando e o título do Agent Control"></p>
+
+## Baixar
+
+| Sistema | Arquivo |
+|---|---|
+| Windows 10/11 (64 bits) | [AgentControl-windows-x64.zip](../../releases/latest/download/AgentControl-windows-x64.zip) |
+| macOS Apple Silicon | [AgentControl-macos-arm64.zip](../../releases/latest/download/AgentControl-macos-arm64.zip) |
+| macOS Intel | [AgentControl-macos-x64.zip](../../releases/latest/download/AgentControl-macos-x64.zip) |
+| Linux x64 | [AgentControl-linux-x64.tar.gz](../../releases/latest/download/AgentControl-linux-x64.tar.gz) |
+| Linux ARM64 | [AgentControl-linux-arm64.tar.gz](../../releases/latest/download/AgentControl-linux-arm64.tar.gz) |
+| Android 8+ | [AgentControl-android.apk](../../releases/latest/download/AgentControl-android.apk) |
+
+O app do PC já vem com o .NET dentro (não precisa instalar nada). O servidor precisa do Node 24+ (veja o começo rápido).
+No macOS, na primeira vez: botão direito no app → **Abrir** (o app não é assinado pela Apple).
+
+## Veja funcionando
+
+<table>
+<tr>
+<td align="center" width="62%"><img src="docs/gif/pc.gif" alt="App do PC: HUD do topo, painel, Launcher e AgentC"><br><sub><b>PC</b>: HUD do topo, painel de uso, Launcher e o AgentC avisando</sub></td>
+<td align="center"><img src="docs/gif/android.gif" alt="App Android: sala, aprovação e chamada" width="260"><br><sub><b>Android</b>: sala, aprovação com um toque e chamada</sub></td>
+</tr>
+</table>
+
+<p align="center"><img src="docs/gif/moods.gif" width="760" alt="Humores do AgentC"><br><sub>O AgentC tranquilo, trabalhando, falando, comemorando e dormindo</sub></p>
+
+> As animações acima são da [página do projeto](docs/index.html), com dados de demonstração.
+> Capturas reais do HUD: [painel](docs/img/hud-panel.png) e [saúde do PC](docs/img/hud-health.png).
+
 
 ## O que é
 
@@ -182,3 +218,5 @@ runs in its own git worktree inside a loop that only wakes up on new orders and 
 Quick start: `bash tools/instalar.sh --agentes` (Linux/macOS) or `tools\publicar-pc.ps1` (Windows), copy
 `jarvis.config.example.json` to `jarvis.config.json`, choose your team and press **Ligar tudo** (Start everything).
 The UI is in Brazilian Portuguese. MIT licensed.
+
+Prebuilt apps for Windows, macOS, Linux and Android: [Releases](../../releases/latest). Website: <docs/index.html>.
