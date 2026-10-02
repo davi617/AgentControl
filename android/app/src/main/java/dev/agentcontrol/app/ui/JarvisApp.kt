@@ -81,7 +81,7 @@ import dev.agentcontrol.app.UiState
 import dev.agentcontrol.app.data.Command
 import kotlinx.coroutines.launch
 
-enum class Screen(val title: String) { HOME("Início"), VOZ("Falar com o JARVIS"), CHAMADA("Chamada em grupo"), SAUDE("Saúde do PC"), CEREBRO("Cérebro (Obsidian)"), TAREFAS("Tarefas"), MODELOS("Modelos e força"), VOZES("Vozes"), NOTAS("Notas rápidas"), BUSCA("Buscar em tudo"), STATS("Estatísticas do time"), AJUSTES("Ajustes e avisos"), USO("Uso dos agentes"), LINHA("Linha do tempo"), CHAMADAS("Histórico de chamadas"), SOBRE("Sobre"), SALA("Sala central"), COMANDOS("Comandos"), AGENTES("Agentes"), RESUMOS("Resumos"), MAIS("Mais") }
+enum class Screen(val title: String) { HOME("Início"), VOZ("Falar com o AgentC"), CHAMADA("Chamada em grupo"), SAUDE("Saúde do PC"), CEREBRO("Cérebro (Obsidian)"), TAREFAS("Tarefas"), MODELOS("Modelos e força"), VOZES("Vozes"), NOTAS("Notas rápidas"), BUSCA("Buscar em tudo"), STATS("Estatísticas do time"), AJUSTES("Ajustes e avisos"), USO("Uso dos agentes"), LINHA("Linha do tempo"), CHAMADAS("Histórico de chamadas"), SOBRE("Sobre"), SALA("Sala central"), COMANDOS("Comandos"), AGENTES("Agentes"), RESUMOS("Resumos"), MAIS("Mais") }
 
 @Composable
 fun JarvisApp(vm: MainViewModel) {
@@ -95,6 +95,10 @@ fun JarvisApp(vm: MainViewModel) {
             Box(Modifier.padding(pad).statusBarsPadding()) { SetupScreen(vm.savedUrl, ui.busy, vm::setup) }
         }
         return
+    }
+
+    LaunchedEffect(ui.project) {
+        while (true) { vm.refreshLimits(); kotlinx.coroutines.delay(10_000) }
     }
 
     var screen by rememberSaveable { mutableStateOf(Screen.HOME) }
@@ -142,7 +146,7 @@ fun JarvisApp(vm: MainViewModel) {
                         }
                     }
                     Screen.STATS -> StatsScreen(ui.stats) { vm.loadStats(it) }
-                    Screen.USO -> UsageScreen(ui.usage) { vm.loadUsage(it) }
+                    Screen.USO -> UsageScreen(ui.usage, ui.limits) { vm.loadUsage(it) }
                     Screen.LINHA -> FeedScreen(ui.feed, ui.feedAgent, ui.state.agents.map { it.id }) { vm.loadFeed(it) }
                     Screen.CHAMADAS -> CallsHistoryScreen(ui.calls, load = { vm.loadCalls() }) { openNote(it) }
                     Screen.SOBRE -> AboutScreen(ui.about, vm.appVersionName, load = { vm.loadAbout() }, checkUpdate = { vm.checkUpdateNow() })
@@ -222,7 +226,7 @@ private fun OfflineBanner(reason: String, openTailscale: () -> Unit, retry: () -
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Icon(Icons.Outlined.WifiOff, null, tint = k.warn)
             Column(Modifier.weight(1f)) {
-                Text(if (tailscale) "Sem conexão com o PC" else "Problema com o JARVIS", color = k.text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Text(if (tailscale) "Sem conexão com o PC" else "Problema com o AgentC", color = k.text, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 Text(
                     if (tailscale) "Ligue o Tailscale neste celular (o do PC está ligado). Dica: nas configurações de VPN do Android, deixe o Tailscale como \"VPN sempre ativa\"." else reason,
                     color = k.text2, fontSize = 13.sp, lineHeight = 18.sp,

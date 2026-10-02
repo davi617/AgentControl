@@ -25,7 +25,7 @@ public sealed class HudHost
     internal readonly HudWindow Hud;
     internal readonly MiniWindow Mini;
     internal readonly FullWindow Full;
-    readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(4) };
+    readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(2) };
     string lastChatKey = "";
     Dictionary<string, (string Status, string Ts)> prevReports = [];
     bool first = true, polling, hidden;
@@ -75,6 +75,8 @@ public sealed class HudHost
         timer.Start();
         _ = Poll();
     }
+
+    internal void SetPreview(HudSnapshot snapshot) => Snap = snapshot;
 
     public void KickRefresh() { _ = Poll(); }
 

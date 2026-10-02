@@ -346,7 +346,7 @@ private fun CallSummaryCard(s: dev.agentcontrol.app.data.CallSummary, sendTask: 
     Column(Modifier.fillMaxWidth().clay(RoundedCornerShape(22.dp), elevation = 8.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Resumo da chamada", color = k.text, fontWeight = FontWeight.Bold, fontSize = 16.sp)
         when (s.status) {
-            "gerando" -> Text("O JARVIS está montando o resumo…", color = k.muted, fontSize = 14.sp, fontStyle = FontStyle.Italic)
+            "gerando" -> Text("O AgentC está montando o resumo…", color = k.muted, fontSize = 14.sp, fontStyle = FontStyle.Italic)
             "erro" -> Text("Não consegui resumir (${s.erro}). A conversa inteira está na ata do vault.", color = k.warn, fontSize = 13.sp)
             else -> {
                 if (s.decisoes.isNotEmpty()) { Text("Decisões", color = k.muted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold); s.decisoes.forEach { Text("• $it", color = k.text2, fontSize = 14.sp, lineHeight = 20.sp) } }

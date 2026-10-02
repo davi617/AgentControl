@@ -30,6 +30,7 @@ public sealed record HudSnapshot(
     public Dictionary<string, (string Status, string Ts)> Reports { get; init; } = [];
     /// <summary>Há quantos minutos a rodada atual/última do loop começou.</summary>
     public Dictionary<string, int> LoopMinutes { get; init; } = [];
+    public Dictionary<string, AgentQuota> Limits { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 /// <summary>
@@ -87,10 +88,11 @@ public sealed class HudApi
         if (state is null) return HudSnapshot.Offline;
         var health = Get("/api/health");
         var usage = Get("/api/usage?dias=1");
+        var limits = Get("/api/limits");
         var chat = Get("/api/chat");
         var cmds = Get("/api/commands");
         var call = Get("/api/call");
-        await Task.WhenAll(health, usage, chat, cmds, call);
+        await Task.WhenAll(health, usage, chat, cmds, call, limits);
 
         var s = state.Value;
         // Estado AO VIVO de cada loop (servidor lê o log do loop; este PC confere se o processo está vivo).
@@ -165,7 +167,11 @@ public sealed class HudApi
         }
 
         var goal = s.TryGetProperty("goal", out var g) && g.ValueKind == JsonValueKind.String ? g.GetString() : null;
-        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin };
+        var quotas = new Dictionary<string, AgentQuota>(StringComparer.OrdinalIgnoreCase);
+        if (limits.Result is { } lim && lim.TryGetProperty("agents", out var la) && la.ValueKind == JsonValueKind.Array)
+            foreach (var row in la.EnumerateArray())
+                try { var q = JsonSerializer.Deserialize<AgentQuota>(row.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); if (q is not null) quotas[q.Agent] = q; } catch { }
+        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin, Limits = quotas };
     }
 
     /// <summary>Pede a próxima fala da chamada. Devolve (quem, texto) ou null se ninguém falou (fim, pausa, esperando o dono).</summary>

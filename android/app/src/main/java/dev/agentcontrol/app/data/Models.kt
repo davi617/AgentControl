@@ -3,6 +3,14 @@ package dev.agentcontrol.app.data
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
+@Serializable
+data class QuotaWindow(val name: String = "", val remainingPercent: Double = 0.0, val windowMinutes: Int = 0, val resetsAt: Long? = null)
+@Serializable
+data class AgentQuota(val agent: String, val provider: String = "", val status: String = "unavailable", val remainingPercent: Double? = null,
+    val windows: List<QuotaWindow> = emptyList(), val checkedAt: String? = null, val detail: String = "")
+@Serializable
+data class LimitsSnap(val agents: List<AgentQuota> = emptyList(), val updatedAt: String = "", val refreshSeconds: Int = 60)
+
 // Espelho das respostas da API do JARVIS (src/server.ts). Campos novos no servidor são ignorados.
 
 @Serializable

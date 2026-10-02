@@ -41,7 +41,8 @@ public sealed class FullWindow : Window
     List<HudApi.ModelInfo> modelOpts = [];
     string cmdTo = "TODOS", toast = "", to = "TODOS", sig = "", chatSig = "";
     View view = View.Chat;
-    bool closing, sending, loadingChat;
+    bool closing, sending, loadingChat, loadingUsage;
+    DateTime usageLoadedAt = DateTime.MinValue;
 
     public FullWindow(HudHost host)
     {
@@ -164,6 +165,7 @@ public sealed class FullWindow : Window
 
     public void Refresh()
     {
+        if (view == View.Usage && !loadingUsage && DateTime.UtcNow - usageLoadedAt >= TimeSpan.FromSeconds(10)) _ = LoadUsage();
         var s = host.Snap;
         liveDot.Fill = !s.Online ? K.Err : s.Paused ? K.Warn : K.Ok;
         live.Text = !s.Online ? "servidor desligado" : s.Paused ? "agentes pausados" : "online";
@@ -171,6 +173,7 @@ public sealed class FullWindow : Window
         if (!s.Online) { body.Content = OfflineView(); sig = "off"; return; }
         if (view == View.Chat) { body.Content = chatView; if (s.Chat.FirstOrDefault().Ts != chat.LastOrDefault().Ts) _ = LoadChat(); return; }
         var newSig = view + string.Join(",", s.Agents.Select(a => a.Id + a.Status + a.Task)) + string.Join(",", s.Usage.Select(u => u.Agent + u.Req))
+            + string.Join(",", s.Limits.Values.Select(q => q.Agent + q.Badge + q.CheckedAt))
             + $"{s.Pending}{s.Paused}{s.RamFreeMb / 100}{s.Cpu / 5}{s.Goal}{s.TasksDone}{s.CallStatus}{s.CallModo}{models.Count}|{string.Join(",", cmds.Select(c => c.Code + c.Status + c.Approval))}|{usage.Days.Sum(d => d.Req)}|{string.Join(",", modelOpts.Select(m => m.Id + m.Current + m.Effort))}|{toast}";
         if (newSig == sig) return;
         sig = newSig;
@@ -352,11 +355,29 @@ public sealed class FullWindow : Window
     }
 
     // ---------- Uso: gráfico de 7 dias + por agente ----------
-    async Task LoadUsage() { usage = await host.Api.UsageAsync(7); sig = ""; Refresh(); }
+    async Task LoadUsage()
+    {
+        if (loadingUsage) return;
+        loadingUsage = true;
+        try { usage = await host.Api.UsageAsync(7); usageLoadedAt = DateTime.UtcNow; sig = ""; }
+        finally { loadingUsage = false; }
+        Refresh();
+    }
 
     Control UsageView()
     {
         var v = new StackPanel();
+        var limits = new StackPanel { Spacing = 8 };
+        limits.Children.Add(K.Label("Cotas dos provedores · atualização automática"));
+        foreach (var a in host.Snap.Agents.Where(a => a.Id != "CHATGPT"))
+        {
+            var q = host.Snap.Limits.GetValueOrDefault(a.Id);
+            var row = new StackPanel { Spacing = 3 };
+            row.Children.Add(K.T(K.Nice(a.Id) + " · " + (q?.Badge ?? "—") + (q?.RemainingPercent is not null && q.Fresh ? " restantes" : ""), 13, q?.Status == "limited" ? K.Warn : K.Text, FontWeight.SemiBold));
+            row.Children.Add(K.Wrap(q?.Description ?? "Saldo de cota não informado pelo provedor.", 11.5, K.Muted));
+            limits.Children.Add(row);
+        }
+        v.Children.Add(K.Card(limits, 18, new Thickness(20, 16)).Also(c => c.Margin = new Thickness(0, 0, 0, 14)));
         var total = usage.Days.Sum(d => d.Req);
         var tokens = usage.Days.Sum(d => d.Tokens);
         var r429 = usage.Agents.Sum(a => a.R429);

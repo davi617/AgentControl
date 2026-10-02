@@ -39,13 +39,13 @@ class JarvisService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val nm = getSystemService(NotificationManager::class.java)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, "JARVIS em segundo plano", NotificationManager.IMPORTANCE_MIN).apply { setShowBadge(false) })
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, "AgentC em segundo plano", NotificationManager.IMPORTANCE_MIN).apply { setShowBadge(false) })
         }
         val open = PendingIntent.getActivity(this, 1, Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE)
         val n = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_jarvis)
-            .setContentTitle("JARVIS de olho no time")
-            .setContentText("Avisa aprovação, comando concluído e resposta do JARVIS.")
+            .setContentTitle("AgentC de olho no time")
+            .setContentText("Avisa aprovação, comando concluído e resposta do AgentC.")
             .setContentIntent(open)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_MIN)

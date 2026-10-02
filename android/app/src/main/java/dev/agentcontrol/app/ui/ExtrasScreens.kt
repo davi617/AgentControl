@@ -267,11 +267,11 @@ fun SettingsScreen(readOnly: Boolean, setReadOnly: (Boolean) -> Unit, alerts: Ma
             }
         }
         item { SectionTitle("Segundo plano") }
-        item { Toggle("JARVIS em segundo plano", "Fica conectado ao PC e avisa mesmo com o app fechado. Liga sozinho quando o celular reinicia.", background, setBackground) }
+        item { Toggle("Agent Control em segundo plano", "Fica conectado ao PC e avisa mesmo com o app fechado. Liga sozinho quando o celular reinicia.", background, setBackground) }
         item {
             Column(Modifier.fillMaxWidth().clay(RoundedCornerShape(18.dp), elevation = 4.dp).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Economia de bateria", color = k.text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                Text("Celular Infinix fecha app em segundo plano para economizar. Na tela que abrir, procure JARVIS e escolha \"Não otimizar\" / \"Sem restrições\".", color = k.muted, fontSize = 12.sp, lineHeight = 17.sp)
+                Text("Alguns celulares Android fecham apps em segundo plano para economizar. Na tela que abrir, procure Agent Control e escolha \"Não otimizar\" / \"Sem restrições\".", color = k.muted, fontSize = 12.sp, lineHeight = 17.sp)
                 Text("Abrir ajuste de bateria", color = k.onBrand, fontWeight = FontWeight.Bold, fontSize = 14.sp,
                     modifier = Modifier.clay(RoundedCornerShape(16.dp), elevation = 5.dp, color = k.brand).clickable(onClick = battery).padding(horizontal = 16.dp, vertical = 10.dp))
             }
@@ -279,7 +279,7 @@ fun SettingsScreen(readOnly: Boolean, setReadOnly: (Boolean) -> Unit, alerts: Ma
         item { SectionTitle("Avisos no celular") }
         item { Toggle("Aprovação esperando", "Comando protegido (push, deploy…) parado até você aprovar.", alerts["aprovacao"] != false) { setAlert("aprovacao", it) } }
         item { Toggle("Comando concluído ou travado", "Quando um agente termina ou trava um comando seu.", alerts["comando"] != false) { setAlert("comando", it) } }
-        item { Toggle("Resposta do JARVIS", "Quando o JARVIS responde e o app não está aberto.", alerts["jarvis"] != false) { setAlert("jarvis", it) } }
+        item { Toggle("Resposta do AgentC", "Quando o AgentC responde e o app não está aberto.", alerts["jarvis"] != false) { setAlert("jarvis", it) } }
         item { Text("VIOLATION (agente que agiu sem aprovação) sempre avisa: não dá para desligar.", color = k.muted, fontSize = 12.sp) }
     }
 }

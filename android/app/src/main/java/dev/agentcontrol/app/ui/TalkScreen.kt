@@ -80,8 +80,8 @@ fun TalkScreen(t: TalkUi, start: () -> Unit, stop: () -> Unit, continuous: (Bool
         Text(
             when (t.state) {
                 "ouvindo" -> t.partial.ifEmpty { "Ouvindo…" }
-                "pensando" -> "JARVIS pensando…"
-                "falando" -> "JARVIS falando"
+                "pensando" -> "AgentC pensando…"
+                "falando" -> "AgentC falando"
                 else -> "Toque para falar"
             },
             color = if (active) k.text else k.muted, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
@@ -96,7 +96,7 @@ fun TalkScreen(t: TalkUi, start: () -> Unit, stop: () -> Unit, continuous: (Bool
                     else if (ContextCompat.checkSelfPermission(ctx, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) start()
                     else mic.launch(Manifest.permission.RECORD_AUDIO)
                 }
-                .semantics { contentDescription = if (active) "Parar" else "Falar com o JARVIS" },
+                .semantics { contentDescription = if (active) "Parar" else "Falar com o AgentC" },
             contentAlignment = Alignment.Center,
         ) { Icon(if (active) Icons.Outlined.Stop else Icons.Outlined.Mic, null, tint = if (t.state == "parado") k.onBrand else k.text, modifier = Modifier.size(46.dp)) }
         Row(Modifier.padding(bottom = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
