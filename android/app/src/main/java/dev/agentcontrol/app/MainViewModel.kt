@@ -335,7 +335,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Tela do Android para tirar o JARVIS da economia de bateria (senão a Infinix mata o serviço). */
     fun openBatterySettings() = runCatching {
         getApplication<Application>().startActivity(Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-    }.onFailure { _ui.update { it.copy(message = "Abra Configurações → Bateria → AgentC → Sem restrições.") } }
+    }.onFailure { _ui.update { it.copy(message = "Abra Configurações → Bateria → Agent Control → Sem restrições.") } }
 
     fun setReadOnly(on: Boolean) {
         appPrefs.edit().putBoolean("readOnly", on).apply()
