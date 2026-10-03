@@ -119,6 +119,7 @@ public sealed class HudHost
             if (first && Snap.Online) Greet();
             first = false;
             if (tray is not null) tray.ToolTipText = TraySummary();
+            Chatter();
             Hud.Refresh();
             if (Mini.IsVisible) Mini.Refresh();
             if (Full.IsVisible) Full.Refresh();
@@ -225,6 +226,24 @@ public sealed class HudHost
         desk.Shutdown();
     }
 
+    // Puxar assunto (como um companheiro): de vez em quando, com tudo calmo, o AgentC comenta o estado do time.
+    DateTime nextChatter = DateTime.Now.AddMinutes(new Random().Next(20, 40));
+    void Chatter()
+    {
+        if (DateTime.Now < nextChatter || !Snap.Online || Pumping || Snap.CallActive) return;
+        nextChatter = DateTime.Now.AddMinutes(new Random().Next(25, 55));
+        var working = Snap.Agents.Count(a => a.Status == "WORKING");
+        var lines = new List<string>();
+        if (Snap.Paused) lines.Add("O time segue pausado. Quando quiser, toque em Retomar.");
+        if (Snap.Pending > 0) lines.Add($"Ainda tem {Snap.Pending} aprovação esperando você.");
+        if (working > 0) lines.Add(working == 1 ? "Um agente está trabalhando agora. Eu aviso quando terminar." : $"{working} agentes trabalhando agora. Eu aviso quando terminarem.");
+        if (Snap.TasksTotal > 0) lines.Add($"O Goal está em {100 * Snap.TasksDone / Snap.TasksTotal}%: {Snap.TasksDone} de {Snap.TasksTotal} tarefas.");
+        if (Snap.RamFreeMb is > 0 and < 1500) lines.Add("O PC está com pouca memória. Fechar umas abas ajuda os agentes.");
+        if (AgentControl.Core.Memory.Reminder() is { } m) lines.Add($"Não esqueci: {m}.");
+        lines.Add("Dica: diga \"lembra que…\" na janelinha e eu guardo para você.");
+        Mascot.Say("AgentC", lines[new Random().Next(lines.Count)]);
+    }
+
     void Greet()
     {
         var hour = DateTime.Now.Hour;
@@ -233,7 +252,8 @@ public sealed class HudHost
         var parts = new List<string> { $"{on} de {Snap.Agents.Count} agentes ligados" };
         if (Snap.Pending > 0) parts.Add(Snap.Pending == 1 ? "1 aprovação esperando você" : $"{Snap.Pending} aprovações esperando você");
         if (Snap.Paused) parts.Add("o time está pausado");
-        DispatcherTimer.RunOnce(() => Mascot.Say("AgentC", $"{hi}! {string.Join(", ", parts)}."), TimeSpan.FromSeconds(1.5));
+        var memo = AgentControl.Core.Memory.Reminder();
+        DispatcherTimer.RunOnce(() => Mascot.Say("AgentC", $"{hi}! {string.Join(", ", parts)}." + (memo is null ? "" : $" Lembrete: {memo}.")), TimeSpan.FromSeconds(1.5));
     }
 
     /// <summary>Texto do ícone na bandeja: o estado sem precisar abrir nada.</summary>

@@ -268,6 +268,10 @@ public sealed class Services
         ("OPENCLAW", "OpenClaw", "openclaw agent", true),
         ("HERMES", "Hermes", "hermes -z", true),
         ("DROID", "Droid", "Factory (droid exec)", true),
+        ("GROK", "Grok CLI", "CLI da xAI (grok -p)", true),
+        ("AIDER", "Aider", "aider --message", true),
+        ("CURSOR", "Cursor Agent", "cursor-agent -p", true),
+        ("AMP", "Amp", "CLI da Sourcegraph (amp -x)", true),
         ("CHATGPT", "ChatGPT", "app, sem loop: fala pela sala", false),
     ];
 
