@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Loop de um agente no Linux/macOS (o mesmo papel do night-agent-loop.ps1 no Windows).
 #   agent-loop.sh <agente> [lançador]
-# - Um loop por agente: o PID fica em ~/.config/dw-agents/night-logs/<agente>.pid (o Launcher lê para mostrar LIGADO).
+# - Um loop por agente: o PID fica em ~/.config/agent-control/night-logs/<agente>.pid (o Launcher lê para mostrar LIGADO).
 # - Só roda quando chega ORDEM NOVA (INBOX/TASKS/GOAL/LEADER/DECISIONS ou comando do JARVIS para ele mudou).
 # - Arquivo PAUSE na pasta dos agentes: nenhuma rodada nova começa; com a palavra "agora", corta a rodada atual.
 # - Pouca RAM (< 700 MB livres): espera. Rodada com mais de 45 min: corta.
@@ -9,7 +9,7 @@
 # Compatível com o bash 3.2 do macOS.
 set -u
 AGENT="${1:?uso: agent-loop.sh <agente> [lançador]}"
-ROOT="${DW_AGENTS_DIR:-$HOME/.config/dw-agents}"
+ROOT="${DW_AGENTS_DIR:-$HOME/.config/agent-control}"
 LOGS="$ROOT/night-logs"
 LAUNCHER="${2:-$ROOT/launchers/$AGENT.sh}"
 HERE="$(cd "$(dirname "$0")" && pwd)"

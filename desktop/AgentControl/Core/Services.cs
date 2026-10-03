@@ -70,7 +70,7 @@ public sealed class Services
             for (var i = 0; d is not null && i < 8; i++, d = d.Parent)
                 if (File.Exists(Path.Combine(d.FullName, "src", "main.ts")) && File.Exists(Path.Combine(d.FullName, "src", "gate.ts"))) return d.FullName;
         }
-        foreach (var guess in new[] { Path.Combine(Platform.Home, "Documents", "Codex", "jarvis"), Path.Combine(Platform.Home, "agent-control"), Path.Combine(Platform.Home, "src", "agent-control") })
+        foreach (var guess in new[] { Path.Combine(Platform.Home, "AgentControl", "jarvis"), Path.Combine(Platform.Home, "agent-control"), Path.Combine(Platform.Home, "src", "agent-control") })
             if (File.Exists(Path.Combine(guess, "src", "main.ts"))) return guess;
         return null;
     }
@@ -291,7 +291,7 @@ public sealed class Services
 
     /// <summary>
     /// Salva o time escolhido: agentes do projeto no jarvis.config.json (mantém a worktree de quem já estava; novos
-    /// ganham ~/Documents/Codex/agent-&lt;nome&gt;), loops no settings.json, para os loops de quem saiu
+    /// ganham ~/AgentControl/agent-&lt;nome&gt;), loops no settings.json, para os loops de quem saiu
     /// e reinicia o servidor para ele ler a lista nova. Devolve null ou o erro.
     /// </summary>
     public async Task<string?> SaveTeamAsync(List<string> team)
@@ -301,6 +301,9 @@ public sealed class Services
         try
         {
             var path = ConfigPath;
+            // Quem acabou de baixar ainda não tem jarvis.config.json: começa pelo exemplo (sem dados de ninguém).
+            var example = Path.Combine(Repo, "jarvis.config.example.json");
+            if (!File.Exists(path) && File.Exists(example)) { File.Copy(example, path); Log("Criei o jarvis.config.json a partir do exemplo. Ajuste a pasta do vault nele se precisar."); }
             var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!;
             var projects = root["projects"]!.AsArray();
             var proj = projects.FirstOrDefault(p => (string?)p!["id"] == Settings.JarvisProject) ?? projects.First()!;
@@ -310,7 +313,7 @@ public sealed class Services
             {
                 if (old.TryGetValue(id, out var keep)) { arr.Add(keep); continue; }
                 var node = new System.Text.Json.Nodes.JsonObject { ["id"] = id };
-                if (Catalog.FirstOrDefault(c => c.Id == id) is not { Loop: false }) node["worktree"] = "~/Documents/Codex/agent-" + id.ToLowerInvariant() + "";
+                if (Catalog.FirstOrDefault(c => c.Id == id) is not { Loop: false }) node["worktree"] = "~/AgentControl/agent-" + id.ToLowerInvariant() + "";
                 arr.Add(node);
             }
             proj["agents"] = arr;
@@ -364,8 +367,8 @@ public sealed class Services
 
     static string K(string agent) => AgentControl.Ui.K.Nice(agent);
 
-    /// <summary>Pasta (worktree) do agente: ~/Documents/Codex/agent-&lt;agente&gt;.</summary>
-    public static string Worktree(string agent) => Path.Combine(Platform.Home, "Documents", "Codex", $"agent-{agent.ToLowerInvariant()}");
+    /// <summary>Pasta (worktree) do agente: ~/AgentControl/agent-&lt;agente&gt;.</summary>
+    public static string Worktree(string agent) => Path.Combine(Platform.Home, "AgentControl", $"agent-{agent.ToLowerInvariant()}");
 
     /// <summary>Última linha do log do loop (RUN/EXIT/IDLE/PAUSED…) e o arquivo de saída da última rodada.</summary>
     public static (string State, DateTime? When, string? LastOut) LoopInfo(string agent)

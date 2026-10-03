@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Exemplo (Linux/macOS). Copie para ~/.config/agent-control/launchers/aider.sh e ajuste.
+# O agent-loop.sh já entrega: $WORKTREE (pasta do agente), $PROMPT (ordem padrão) e as funções de comum.sh.
+set -e
+cd "$WORKTREE"
+# Aider. Usa a fila anti-429 como servidor OpenAI-compatível.
+exec aider --yes-always --no-auto-commits --openai-api-base "${ROUTER_URL:-http://127.0.0.1:20129}/a/aider/v1" --openai-api-key "$(router_key)" --message "$PROMPT"

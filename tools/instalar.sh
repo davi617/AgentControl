@@ -24,7 +24,7 @@ command -v node >/dev/null || { echo "Instale o Node 24+ (https://nodejs.org ou 
 (cd "$REPO" && npm ci --omit=dev --no-audit --no-fund)
 ok "Servidor: dependências instaladas."
 [ -f "$REPO/jarvis.config.json" ] || { cp "$REPO/jarvis.config.example.json" "$REPO/jarvis.config.json"; aviso "Criei jarvis.config.json a partir do exemplo: ajuste o vault e as worktrees."; }
-command -v 9router >/dev/null || [ -f "$(npm root -g)/9router/cli.js" ] || aviso "9Router não encontrado. Para os modelos: npm i -g 9router (e configure a chave em ~/.config/dw-agents/9router.key)."
+command -v 9router >/dev/null || [ -f "$(npm root -g)/9router/cli.js" ] || aviso "9Router não encontrado. Para os modelos: npm i -g 9router (e configure a chave em ~/.config/agent-control/9router.key)."
 
 # 2) App do PC (Launcher + HUD + AgentC)
 if [ "$APP" = 1 ]; then
@@ -106,7 +106,7 @@ fi
 
 # 4) Lançadores dos agentes (só com --agentes; nunca sobrescreve)
 if [ "$AGENTES" = 1 ]; then
-  L="$HOME/.config/dw-agents/launchers"; mkdir -p "$L"
+  L="$HOME/.config/agent-control/launchers"; mkdir -p "$L"
   for f in "$REPO"/tools/agentes/launchers/*.sh.example; do
     n="$(basename "$f" .example)"
     [ -f "$L/$n" ] && { echo "$n: já existe, mantido."; continue; }
