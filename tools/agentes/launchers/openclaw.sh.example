@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Exemplo (Linux/macOS). Copie para ~/.config/dw-agents/launchers/openclaw.sh e ajuste.
+# Exemplo (Linux/macOS). Copie para ~/.config/agent-control/launchers/openclaw.sh e ajuste.
 # O agent-loop.sh já entrega: $WORKTREE (pasta do agente), $PROMPT (ordem padrão) e as funções de comum.sh.
 set -e
 cd "$WORKTREE"
-THINK="$(cat "$HOME/.config/dw-agents/effort-openclaw.txt" 2>/dev/null || true)"
+THINK="$(cat "$HOME/.config/agent-control/effort-openclaw.txt" 2>/dev/null || true)"
 exec openclaw agent --local ${THINK:+--thinking "$THINK"} --message "$PROMPT"

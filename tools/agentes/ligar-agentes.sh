@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Liga os loops de todos os agentes em segundo plano (Linux/macOS). Seguro rodar de novo: cada loop
-# tem trava própria (PID em ~/.config/dw-agents/night-logs/<agente>.pid) e o segundo sai sozinho.
-# Só liga quem tem lançador em ~/.config/dw-agents/launchers/<agente>.sh (exemplos em tools/agentes/launchers/).
+# tem trava própria (PID em ~/.config/agent-control/night-logs/<agente>.pid) e o segundo sai sozinho.
+# Só liga quem tem lançador em ~/.config/agent-control/launchers/<agente>.sh (exemplos em tools/agentes/launchers/).
 HERE="$(cd "$(dirname "$0")" && pwd)"
-ROOT="${DW_AGENTS_DIR:-$HOME/.config/dw-agents}"
+ROOT="${DW_AGENTS_DIR:-$HOME/.config/agent-control}"
 # Lista: argumentos (o Agent Control passa os escolhidos em Ajustes > Seu time), ou $AGENTES, ou os 7 de sempre.
 AGENTES="${*:-${AGENTES:-claude codex droid hermes openclaw opencode qwen}}"
 ligados=0

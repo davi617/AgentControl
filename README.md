@@ -138,7 +138,7 @@ Configure o 9Router separadamente, faça o login nos CLIs que vai usar e prepare
 O app não instala nem autentica os agentes automaticamente.
 
 No Windows, há um exemplo para o Codex em `tools/agentes/launchers/codex.cmd.example`.
-Copie para `%USERPROFILE%\.config\dw-agents\launchers\codex-loop.cmd`. O loop fornece `WORKTREE` e `PROMPT`.
+Copie para `%USERPROFILE%\.config\agent-control\launchers\codex-loop.cmd`. O loop fornece `WORKTREE` e `PROMPT`.
 Para outros agentes, crie `<agente>.cmd` ou `<agente>-loop.cmd` nessa pasta, usando o CLI já autenticado.
 No Linux/macOS, revise os exemplos `.sh` copiados pelo instalador antes de ativá-los.
 
@@ -157,7 +157,7 @@ Sua configuração (`jarvis.config.json`), bancos locais, chaves, artefatos de c
 | Hermes | `hermes -z` | `hermes.sh.example` |
 | Droid | `droid exec --auto low` | `droid.sh.example` |
 
-Os lançadores ficam em `~/.config/dw-agents/launchers/<agente>.sh` (Linux/macOS) ou `<agente>.cmd` (Windows).
+Os lançadores ficam em `~/.config/agent-control/launchers/<agente>.sh` (Linux/macOS) ou `<agente>.cmd` (Windows).
 Cada um recebe `$WORKTREE` (a pasta do agente) e `$PROMPT` (a ordem padrão). Nenhum faz push, merge ou deploy.
 
 O loop (`tools/agentes/agent-loop.sh` e `agent-loop.ps1`):

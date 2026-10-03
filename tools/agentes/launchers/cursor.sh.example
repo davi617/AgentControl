@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Exemplo (Linux/macOS). Copie para ~/.config/agent-control/launchers/cursor.sh e ajuste.
+# O agent-loop.sh já entrega: $WORKTREE (pasta do agente), $PROMPT (ordem padrão) e as funções de comum.sh.
+set -e
+cd "$WORKTREE"
+# Cursor Agent (cursor-agent), no login do Cursor.
+exec cursor-agent -p "$PROMPT" --output-format text

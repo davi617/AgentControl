@@ -10,7 +10,7 @@
   "summary": {
     "enabled": true,
     "routerUrl": "http://127.0.0.1:20129/v1",
-    "keyFile": "~/.config/dw-agents/9router.key",
+    "keyFile": "~/.config/agent-control/9router.key",
     "models": [
       "nvidia/moonshotai/kimi-k3",
       "nvidia/z-ai/glm-5.3",
@@ -27,15 +27,15 @@
       "vault": "~/Obsidian/MEU_VAULT",
       "activeGoalFile": "00-System/ACTIVE_GOAL.md",
       "goalsDir": "20-Operations/Goals",
-      "modelsDir": "~/.config/dw-agents",
+      "modelsDir": "~/.config/agent-control",
       "agents": [
-        { "id": "CLAUDE", "worktree": "~/Documents/Codex/agent-claude" },
-        { "id": "CODEX", "worktree": "~/Documents/Codex/agent-codex" },
-        { "id": "DROID", "worktree": "~/Documents/Codex/agent-droid" },
-        { "id": "HERMES", "worktree": "~/Documents/Codex/agent-hermes" },
-        { "id": "OPENCLAW", "worktree": "~/Documents/Codex/agent-openclaw" },
-        { "id": "OPENCODE", "worktree": "~/Documents/Codex/agent-opencode" },
-        { "id": "QWEN", "worktree": "~/Documents/Codex/agent-qwen" },
+        { "id": "CLAUDE", "worktree": "~/AgentControl/agent-claude" },
+        { "id": "CODEX", "worktree": "~/AgentControl/agent-codex" },
+        { "id": "DROID", "worktree": "~/AgentControl/agent-droid" },
+        { "id": "HERMES", "worktree": "~/AgentControl/agent-hermes" },
+        { "id": "OPENCLAW", "worktree": "~/AgentControl/agent-openclaw" },
+        { "id": "OPENCODE", "worktree": "~/AgentControl/agent-opencode" },
+        { "id": "QWEN", "worktree": "~/AgentControl/agent-qwen" },
         { "id": "CHATGPT" }
       ],
       "chatDir": "20-Operations/CHAT"
