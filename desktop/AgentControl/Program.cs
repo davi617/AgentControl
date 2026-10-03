@@ -36,6 +36,9 @@ public static class Program
             var s = new Services();
             try { s.Load(); s.AutostartAsync().GetAwaiter().GetResult(); }
             catch (Exception ex) { s.Log($"AUTOSTART falhou: {ex.Message}"); }
+            // Depois de reiniciar o PC os loops dos agentes não voltavam e o status deles ficava velho
+            // (2026-10-02). Ligar de novo é seguro: cada loop tem trava própria e o repetido sai sozinho.
+            try { s.StartAgents(); } catch (Exception ex) { s.Log($"AUTOSTART: agentes não ligaram: {ex.Message}"); }
             StartHud();
             return 0;
         }
