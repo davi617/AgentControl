@@ -40,6 +40,9 @@ public sealed class FullWindow : Window
     (List<(string Dia, int Req, long Tokens)> Days, List<(string Agent, int Req, long Tokens, int R429, int MsMedio)> Agents) usage = ([], []);
     List<HudApi.ModelInfo> modelOpts = [];
     string cmdTo = "TODOS", toast = "", to = "TODOS", sig = "", chatSig = "";
+    // Redesenhar a tela inteira a cada leitura do servidor fazia os cartões "piscarem" e a rolagem voltar ao topo.
+    View lastView = (View)(-1);
+    bool enterCards = true;
     View view = View.Chat;
     bool closing, sending, loadingChat, loadingUsage;
     DateTime usageLoadedAt = DateTime.MinValue;
@@ -172,12 +175,15 @@ public sealed class FullWindow : Window
         GoalFoot(s);
         if (!s.Online) { body.Content = OfflineView(); sig = "off"; return; }
         if (view == View.Chat) { body.Content = chatView; if (s.Chat.FirstOrDefault().Ts != chat.LastOrDefault().Ts) _ = LoadChat(); return; }
-        var newSig = view + string.Join(",", s.Agents.Select(a => a.Id + a.Status + a.Task)) + string.Join(",", s.Usage.Select(u => u.Agent + u.Req))
-            + string.Join(",", s.Limits.Values.Select(q => q.Agent + q.Badge + q.CheckedAt))
-            + $"{s.Pending}{s.Paused}{s.RamFreeMb / 100}{s.Cpu / 5}{s.Goal}{s.TasksDone}{s.CallStatus}{s.CallModo}{models.Count}|{string.Join(",", cmds.Select(c => c.Code + c.Status + c.Approval))}|{usage.Days.Sum(d => d.Req)}|{string.Join(",", modelOpts.Select(m => m.Id + m.Current + m.Effort))}|{toast}";
+        var newSig = Signature(s);
         if (newSig == sig) return;
         sig = newSig;
         if (view == View.Commands && cmds.Count(c => c.Approval == "pending") != s.Pending) _ = LoadCommands();
+        // Mesma tela atualizando: guarda onde a rolagem estava e não repete a animação de entrada.
+        var sameView = view == lastView;
+        var savedY = sameView && body.Content is ScrollViewer old ? old.Offset.Y : 0;
+        enterCards = !sameView;
+        lastView = view;
         body.Content = view switch
         {
             View.Agents => AgentsView(s),
@@ -186,6 +192,28 @@ public sealed class FullWindow : Window
             View.Health => Padded(HealthView(s)),
             View.Models => ModelsView(),
             _ => Padded(Overview(s)),
+        };
+        if (savedY > 0 && body.Content is ScrollViewer sv)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => sv.Offset = new Vector(0, savedY), Avalonia.Threading.DispatcherPriority.Background);
+    }
+
+    /// <summary>
+    /// O que muda a tela de cada view. Antes todas olhavam tudo (RAM, CPU, pedidos, "checado em"…) e a tela refazia a cada
+    /// poucos segundos. Agora cada uma só olha o que ela mostra, e porcentagem em passos inteiros.
+    /// </summary>
+    string Signature(HudSnapshot s)
+    {
+        string Agents() => string.Join(",", s.Agents.Select(a => a.Id + a.Status + a.Task));
+        string Pcts() => string.Join(",", s.Usage.GroupBy(u => u.Agent).Select(g => g.Key + (int)Math.Round(g.Sum(x => x.Share) * 100)));
+        var calls = $"{s.Pending}{s.Paused}{s.Goal}{s.TasksDone}{s.CallStatus}{s.CallModo}";
+        return view switch
+        {
+            View.Agents => $"{view}{Agents()}|{Pcts()}|{string.Join(",", models.Select(m => m.Key + m.Value.Model + m.Value.Effort))}|{string.Join(",", s.Limits.Values.Select(q => q.Agent + q.Badge))}",
+            View.Commands => $"{view}{s.Pending}|{string.Join(",", cmds.Select(c => c.Code + c.Status + c.Approval))}|{toast}",
+            View.Usage => $"{view}{usage.Days.Sum(d => d.Req)}|{usage.Agents.Sum(a => a.Req)}",
+            View.Models => $"{view}{string.Join(",", modelOpts.Select(m => m.Id + m.Current + m.Effort))}|{toast}",
+            View.Health => $"{view}{s.RamFreeMb / 200}{s.Cpu / 10}{s.Paused}|{Agents()}|{string.Join(",", s.Alerts)}",
+            _ => $"{view}{Agents()}|{Pcts()}|{calls}|{s.RamFreeMb / 200}",
         };
     }
 
@@ -287,7 +315,7 @@ public sealed class FullWindow : Window
         await LoadChat();
     }
 
-    static Control Padded(Control e) => new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, Content = new Border { Padding = new Thickness(24, 4, 24, 24), Child = e } };
+    static Control Padded(Control e) => new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, AllowAutoHide = true, Content = new Border { Padding = new Thickness(24, 4, 24, 24), Child = e } };
 
     // ---------- Comandos (J-xxx): mandar, aprovar, recusar ----------
     async Task LoadCommands() { cmds = await host.Api.CommandsAsync(); sig = ""; Refresh(); }
@@ -530,15 +558,27 @@ public sealed class FullWindow : Window
             var big = K.T($"{pct}%", 20, pct > 0 ? K.BrandText : K.Faint, FontWeight.SemiBold, K.Display); big.Tip("Uso de hoje (parte dos pedidos do time)");
             Grid.SetColumn(big, 2); top.Children.Add(big);
             var card = new StackPanel { Children = { top } };
-            card.Children.Add(K.Wrap(string.IsNullOrWhiteSpace(a.Task) ? "Esperando ordem" : a.Task, 12.5, K.Muted, 2).Also(t => t.Margin = new Thickness(0, 14, 0, 12)).Tip(a.Task));
+            // Status velho (loop desligado ou sem registro há mais de 2 h) não pode parecer trabalho de agora.
+            var age = s.Reports.TryGetValue(a.Id, out var r0) && DateTime.TryParse(r0.Ts, out var t0) ? DateTime.Now - t0 : TimeSpan.MaxValue;
+            var stale = age > TimeSpan.FromHours(2) || K.StatusText(a.Status).Contains("desligado");
+            var taskText = string.IsNullOrWhiteSpace(a.Task) ? "Esperando ordem" : stale ? $"Última tarefa: {a.Task}" : a.Task;
+            card.Children.Add(K.Wrap(taskText, 12.5, stale ? K.Faint : K.Muted, 2).Also(t => t.Margin = new Thickness(0, 14, 0, 12)).Tip(a.Task));
+            if (stale) card.Opacity = .72;
             card.Children.Add(K.Bar(pct / 100.0, height: 4));
             var model = models.TryGetValue(a.Id, out var md) && md.Model.Length > 0 ? $"{md.Model.Split('/').Last()} · {md.Effort}" : "modelo —";
             card.Children.Add(K.T(model, 11.5, K.Faint, f: K.Mono).Also(t => t.Margin = new Thickness(0, 10, 0, 0)));
+            // Mini-funções: quando o agente registrou a última coisa e atalho para mandar comando a ele.
+            var seen = s.Reports.TryGetValue(a.Id, out var rep) && !string.IsNullOrEmpty(rep.Ts) ? $"último registro há {K.Ago(rep.Ts)}" : "sem registro ainda";
+            card.Children.Add(K.T(seen, 11, K.Faint).Also(t => t.Margin = new Thickness(0, 4, 0, 0)));
+            var agentId = a.Id;
             var box = K.Card(card, 16, new Thickness(16)).Also(b => b.Margin = new Thickness(0, 0, 12, 12));
-            K.EnterUp(box, 40 * i++, 10);
+            box.Tip("Clique para mandar um comando a " + K.Nice(a.Id));
+            K.Pressable(box, () => { cmdTo = agentId; ShowView(View.Commands); });
+            if (enterCards) K.EnterUp(box, 40 * i, 10);
+            i++;
             grid.Children.Add(box);
         }
-        return new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, Content = new Border { Padding = new Thickness(24, 4, 12, 24), Child = grid } };
+        return new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, AllowAutoHide = true, Content = new Border { Padding = new Thickness(24, 4, 12, 24), Child = grid } };
     }
 
     Control OfflineView()

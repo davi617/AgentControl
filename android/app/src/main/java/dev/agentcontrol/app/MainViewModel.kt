@@ -332,7 +332,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (on) JarvisService.start(app) else JarvisService.stop(app)
     }
 
-    /** Tela do Android para tirar o JARVIS da economia de bateria (senão a Infinix mata o serviço). */
+    /** Tela do Android para tirar o JARVIS da economia de bateria (alguns celulares matam o serviço em segundo plano). */
     fun openBatterySettings() = runCatching {
         getApplication<Application>().startActivity(Intent(AndroidSettings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }.onFailure { _ui.update { it.copy(message = "Abra Configurações → Bateria → Agent Control → Sem restrições.") } }

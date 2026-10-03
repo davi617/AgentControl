@@ -36,6 +36,7 @@ public sealed class HudWindow : Window
     readonly Popup menu = new() { Placement = PlacementMode.Bottom, IsLightDismissEnabled = true };
     readonly Random rnd = new();
     readonly SolidColorBrush gripBrush = new(K.C("#52525B"));
+    ScrollViewer? panelScroll;
     int tab, outside;
     bool hovered, expanded;
     // Aba Comandos e caixas de texto do painel (2026-10-02: "o painel tem pouca função").
@@ -75,7 +76,10 @@ public sealed class HudWindow : Window
         Grid.SetColumn(close, 2); bar.Children.Add(close);
         var barBox = new Border { Background = K.Surface, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Padding = new Thickness(5), Child = bar, Cursor = new Cursor(StandardCursorType.SizeAll) };
 
-        var panel = new Border { Background = K.Surface, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(16), Padding = new Thickness(16), Margin = new Thickness(0, 8, 0, 0), Child = body };
+        // O painel rola quando o conteúdo é maior que a tela (antes cortava e não dava para ver o resto).
+        var bodyScroll = new ScrollViewer { HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled, VerticalScrollBarVisibility = ScrollBarVisibility.Auto, AllowAutoHide = true, Content = body };
+        panelScroll = bodyScroll;
+        var panel = new Border { Background = K.Surface, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(16), Padding = new Thickness(16, 16, 10, 16), Margin = new Thickness(0, 8, 0, 0), Child = bodyScroll };
         // Alça embaixo do painel: puxar para baixo (ou clicar) abre a tela completa.
         var grip = new Border { Width = 44, Height = 5, CornerRadius = new CornerRadius(3), Background = gripBrush, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         var handle = new Border { Height = 22, Background = Brushes.Transparent, Cursor = new Cursor(StandardCursorType.SizeNorthSouth), Child = grip };
@@ -179,6 +183,7 @@ public sealed class HudWindow : Window
         shell.IsVisible = true;
         K.Fade(shell, 1, 380, from: 0);
         K.Anim(slide, "y", () => slide.Y, y => slide.Y = y, 0, 620, K.OutExpo, -24);
+        LimitPanelHeight();
         Stagger();
         idle.Start();
         Activate();
@@ -252,7 +257,9 @@ public sealed class HudWindow : Window
     void UpdateStrip()
     {
         var s = host.Snap;
-        var agents = s.Agents.Where(a => a.Id != "CHATGPT").ToList();
+        var agents = s.Agents.ToList();
+        if (agents.Count == 0)
+            agents.AddRange(new LauncherSettings().LoopAgents.Select(id => (id.ToUpperInvariant(), "OFFLINE", (string?)null)));
         var goal = s.CallActive && s.CallModo == "goal";
         var share = UsageOf(s);
         var newSig = $"{s.Online}|{s.Pending}|{goal}|{string.Join(",", agents.Select(a => a.Id + a.Status + (s.Limits.GetValueOrDefault(a.Id)?.Badge ?? "—") + (s.Limits.GetValueOrDefault(a.Id)?.CheckedAt ?? "")))}";
@@ -262,7 +269,7 @@ public sealed class HudWindow : Window
         K.Stop(islandBlink, "b");
         islandBlink.ScaleY = s.Online ? 1 : .16;
         islandAgents.Children.Clear();
-        if (!s.Online) { islandAgents.Children.Add(K.T("servidor desligado", 11.5, K.Muted)); return; }
+        if (!s.Online) islandAgents.Children.Add(K.T("offline", 11.5, K.Muted).Also(t => t.Margin = new Thickness(0, 0, 10, 0)));
         var marks = K.Marks(agents.Select(a => a.Id));
         foreach (var a in agents)
         {
@@ -271,7 +278,7 @@ public sealed class HudWindow : Window
             var req = s.Usage.FirstOrDefault(u => u.Agent == a.Id).Req;
             var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 0, 12, 0), Background = Brushes.Transparent };
             item.Tip($"{K.Nice(a.Id)} · {K.StatusText(a.Status)} · {req} pedidos hoje\n" + (quota?.Description ?? "Saldo de cota não informado."));
-            item.Children.Add(K.UsageRing(a.Id, 26, pct / 100.0, K.StatusBrush(a.Status), marks[a.Id]));
+            item.Children.Add(K.UsageRing(a.Id, 32, pct / 100.0, K.StatusBrush(a.Status), marks[a.Id]));
             item.Children.Add(K.T(quota?.Badge ?? "—", 11.5, quota?.Status == "limited" ? K.Warn : quota?.Fresh == true ? K.Text2 : K.Faint, FontWeight.SemiBold, K.Mono));
             islandAgents.Children.Add(item);
         }
@@ -294,6 +301,8 @@ public sealed class HudWindow : Window
         }
         sig = "";
         toast = "";
+        panelScroll?.ScrollToHome();
+        LimitPanelHeight();
         Render(animate);
         if (i == 5) _ = LoadCmds();
     }
@@ -315,6 +324,14 @@ public sealed class HudWindow : Window
         Render(false);
     }
 
+    /// <summary>Altura máxima do conteúdo do painel = o que cabe na tela abaixo da barra (descontando barra, alça e margens).</summary>
+    void LimitPanelHeight()
+    {
+        if (panelScroll is null) return;
+        var (wa, _) = K.WorkArea(this);
+        panelScroll.MaxHeight = Math.Max(240, wa.Height - 170);
+    }
+
     void Stagger()
     {
         if (body.Content is Panel p) { var d = 60; foreach (var c in p.Children) { K.EnterUp(c, d); d += 45; } }
@@ -328,6 +345,7 @@ public sealed class HudWindow : Window
         var newSig = tab + "|" + Sig(s);
         if (newSig == sig || (typing && !animate)) return;
         sig = newSig;
+        var savedY = animate ? 0 : panelScroll?.Offset.Y ?? 0;
         var view = new StackPanel();
         if (!s.Online) Offline(view);
         else switch (tab)
@@ -341,6 +359,7 @@ public sealed class HudWindow : Window
         }
         body.Content = view;
         if (animate) Stagger();
+        if (!animate && savedY > 0) Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (panelScroll is { } ps) ps.Offset = new Vector(0, savedY); }, Avalonia.Threading.DispatcherPriority.Background);
     }
 
     static Control Gap(double h = 12) => new Border { Height = h };

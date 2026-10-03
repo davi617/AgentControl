@@ -54,6 +54,14 @@ public sealed class MascotWindow : Window
     readonly DispatcherTimer fx = new() { Interval = TimeSpan.FromMilliseconds(33) };
     readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
     DateTime talkUntil, happyUntil, nextAlertHop;
+    // Animações extras (2026-10-02): inclina ao passar o mouse, olhos arregalam, respira, boceja e solta faíscas.
+    readonly RotateTransform tilt = new();
+    readonly ScaleTransform breath = new(1, 1);
+    readonly ScaleTransform eyeGrow = new(1, 1);
+    readonly Ellipse[] sparks = new Ellipse[6];
+    readonly double[] sparkSeed = new double[6];
+    DateTime lastTouch = DateTime.Now, sparkUntil, yawnUntil, nextYawn = DateTime.Now.AddMinutes(2), nextWave = DateTime.Now.AddSeconds(25);
+    bool hover;
 
     public event Action? Clicked;
     public event Action<string>? MenuChosen;
@@ -66,9 +74,9 @@ public sealed class MascotWindow : Window
         Width = Box; Height = Box; Title = "AgentC";
 
         var root = new Grid { Width = Box, Height = Box, Background = Brushes.Transparent };
-        var face = new Grid { Width = S, Height = S, RenderTransformOrigin = RelativePoint.Center, RenderTransform = body };
+        var face = new Grid { Width = S, Height = S, RenderTransformOrigin = RelativePoint.Center, RenderTransform = new TransformGroup { Children = { body, breath, tilt } } };
         face.Children.Add(K.Hex(S, K.Surface, stroke, 3.4));
-        eyes = new Canvas { Width = S, Height = S, RenderTransformOrigin = RelativePoint.Center, RenderTransform = new TransformGroup { Children = { blink, look } } };
+        eyes = new Canvas { Width = S, Height = S, RenderTransformOrigin = RelativePoint.Center, RenderTransform = new TransformGroup { Children = { eyeGrow, blink, look } } };
         eyes.Children.Add(Eye(S / 2 - 12)); eyes.Children.Add(Eye(S / 2 + 4));
         face.Children.Add(eyes);
         // olhos felizes (^ ^) e boca (aparece quando fala)
@@ -93,6 +101,14 @@ public sealed class MascotWindow : Window
         };
         root.Children.Add(thinkArc);
         root.Children.Add(face);
+        var sparkLayer = new Canvas { Width = Box, Height = Box, IsHitTestVisible = false };
+        for (var i = 0; i < sparks.Length; i++)
+        {
+            sparks[i] = new Ellipse { Width = 5, Height = 5, Fill = i % 2 == 0 ? K.Brand : K.BrandText, Opacity = 0 };
+            sparkSeed[i] = rnd.NextDouble();
+            sparkLayer.Children.Add(sparks[i]);
+        }
+        root.Children.Add(sparkLayer);
         zzz.Opacity = 0; zzz.HorizontalAlignment = HorizontalAlignment.Right; zzz.VerticalAlignment = VerticalAlignment.Top; zzz.Margin = new Thickness(0, 18, 18, 0); zzz.RenderTransform = new TranslateTransform();
         root.Children.Add(zzz);
 
@@ -117,10 +133,12 @@ public sealed class MascotWindow : Window
         Content = root;
         root.Tip("AgentC · clique para falar com os agentes · arraste para mover · botão direito para opções");
 
-        K.DragOrClick(this, root, () => { Squish(); Clicked?.Invoke(); }, SavePos);
+        K.DragOrClick(this, root, () => { lastTouch = DateTime.Now; Squish(); Wiggle(); Clicked?.Invoke(); }, SavePos);
         root.PointerReleased += (_, e) => { if (e.InitialPressMouseButton == MouseButton.Right) { menu.IsOpen = true; if (menu.Child is { } m) K.EnterUp(m, 0, 6); } };
         root.PointerMoved += (_, e) => localMouse = e.GetPosition(root);
-        root.PointerExited += (_, _) => localMouse = null;
+        root.PointerExited += (_, _) => { localMouse = null; hover = false; };
+        root.PointerEntered += (_, _) => { hover = true; lastTouch = DateTime.Now; if (mood != Mood.Offline) Wave(); };
+        PointerPressed += (_, _) => lastTouch = DateTime.Now;
 
         eyeTimer.Tick += (_, _) => FollowMouse();
         fx.Tick += (_, _) => Effects();
@@ -164,13 +182,17 @@ public sealed class MascotWindow : Window
         // fala: a boca mexe e o anel de voz sai do AgentC pelo tempo de leitura (1,2 s a 6 s)
         talkUntil = DateTime.Now.AddMilliseconds(Math.Clamp(text.Length * 45, 1200, 6000));
         bubbleTimer.Stop(); bubbleTimer.Start();
+        lastTouch = DateTime.Now;
+        Perk();
     }
 
     /// <summary>Um agente terminou algo: olhos felizes (^ ^) e um pulo.</summary>
     public void Celebrate()
     {
         happyUntil = DateTime.Now.AddSeconds(2.4);
+        sparkUntil = DateTime.Now.AddSeconds(1.8);
         Hop();
+        Wiggle();
     }
 
     /// <summary>Quadro a quadro das expressões (só roda com animações ligadas).</summary>
@@ -181,6 +203,7 @@ public sealed class MascotWindow : Window
         var now = DateTime.Now;
         // falando
         var talking = now < talkUntil && mood != Mood.Offline;
+        if (!talking && now >= yawnUntil) mouth.Width = 14;
         mouth.Opacity = talking ? 1 : 0;
         if (talking)
         {
@@ -198,6 +221,43 @@ public sealed class MascotWindow : Window
         if (mood == Mood.Working) thinkRot.Angle = t * 220 % 360;
         // alerta: um pulinho a cada 4 s
         if (mood == Mood.Alert && now >= nextAlertHop) { nextAlertHop = now.AddSeconds(4); Hop(); }
+        // respira devagar (parado) — um pouco mais rápido quando os agentes trabalham
+        var sleepy = mood == Mood.Idle && now - lastTouch > TimeSpan.FromMinutes(3);
+        var rate = mood == Mood.Working ? 1.7 : sleepy ? .5 : 1.0;
+        var amp = mood == Mood.Offline ? .006 : .018;
+        breath.ScaleX = breath.ScaleY = 1 + amp * Math.Sin(t * rate * 1.9);
+        // passando o mouse: inclina de leve para o lado do mouse; senão volta
+        var tiltTarget = hover && mood != Mood.Offline ? Math.Clamp(lookX * 2.2, -9, 9) : 0;
+        if (now > wiggleUntil) tilt.Angle += (tiltTarget - tilt.Angle) * .15;
+        else tilt.Angle = 8 * Math.Sin((wiggleUntil - now).TotalSeconds * 28) * Math.Min(1, (wiggleUntil - now).TotalSeconds / .6);
+        // sono: depois de 3 min sem ninguém mexer, olhos meio fechados; boceja de vez em quando
+        if (sleepy && now >= nextYawn) { yawnUntil = now.AddSeconds(2.2); nextYawn = now.AddMinutes(rnd.Next(2, 5)); }
+        var yawning = now < yawnUntil;
+        if (yawning)
+        {
+            var p = 1 - (yawnUntil - now).TotalSeconds / 2.2;
+            var open = Math.Sin(Math.PI * p);
+            mouth.Opacity = 1; mouth.Height = 3 + 13 * open; mouth.Width = 14 + 4 * open; Canvas.SetTop(mouth, S / 2 + 11 - mouth.Height / 2 + 1.5);
+            eyeGrow.ScaleY = 1 - .55 * open;
+        }
+        else if (sleepy && mood == Mood.Idle) eyeGrow.ScaleY = .62;
+        else if (now > perkUntil) eyeGrow.ScaleY += (1 - eyeGrow.ScaleY) * .2;
+        if (now < perkUntil) eyeGrow.ScaleX = eyeGrow.ScaleY = 1 + .22 * Math.Sin(Math.PI * (perkUntil - now).TotalSeconds / .5);
+        else if (!yawning && !(sleepy && mood == Mood.Idle)) eyeGrow.ScaleX += (1 - eyeGrow.ScaleX) * .2;
+        // de vez em quando dá um tchauzinho (inclinação) para chamar atenção
+        if (mood == Mood.Idle && !sleepy && now >= nextWave) { nextWave = now.AddSeconds(rnd.Next(40, 110)); Wiggle(); }
+        // faíscas (comemorando): sobem em volta do corpo e somem
+        var sp = (sparkUntil - now).TotalSeconds;
+        for (var i = 0; i < sparks.Length; i++)
+        {
+            if (sp <= 0) { sparks[i].Opacity = 0; continue; }
+            var ph = (1 - sp / 1.8 + sparkSeed[i]) % 1;
+            var ang = sparkSeed[i] * Math.PI * 2 + i;
+            var r = S / 2 + 4 + 22 * ph;
+            Canvas.SetLeft(sparks[i], Box / 2 + Math.Cos(ang) * r - 2.5); Canvas.SetTop(sparks[i], Box / 2 + Math.Sin(ang) * r - 2.5 - 8 * ph);
+            sparks[i].Opacity = Math.Min(1, sp) * (1 - ph) * .95;
+            sparks[i].Width = sparks[i].Height = 3 + 4 * (1 - ph);
+        }
         // dormindo: z sobe e some
         if (mood == Mood.Offline)
         {
@@ -222,6 +282,15 @@ public sealed class MascotWindow : Window
             done: () => K.Anim(body, "s", () => body.ScaleX, x => { body.ScaleX = x; body.ScaleY = x; }, 1, 480, K.Spring));
         lookY = -4;
     }
+
+    DateTime wiggleUntil, perkUntil;
+    /// <summary>Balança de lado a lado (tchauzinho / comemoração).</summary>
+    void Wave() { if (!K.Reduced && now0 - lastWave > TimeSpan.FromSeconds(8)) { lastWave = now0; Wiggle(); } }
+    DateTime lastWave = DateTime.MinValue;
+    static DateTime now0 => DateTime.Now;
+    void Wiggle() { if (!K.Reduced) wiggleUntil = DateTime.Now.AddSeconds(.6); }
+    /// <summary>Olhos arregalam por meio segundo (chegou mensagem).</summary>
+    void Perk() { if (!K.Reduced) perkUntil = DateTime.Now.AddSeconds(.5); }
 
     void Squish()
     {
