@@ -130,7 +130,7 @@ export class Jarvis extends EventEmitter {
   }
 
   /** Mensagem da tela para a sala. O watcher traz de volta como entrada (fonte única: o .md). */
-  say(p: ProjectCfg, as: 'DONO' | 'CHATGPT', para: string, assunto: string, text: string) {
+  say(p: ProjectCfg, as: string, para: string, assunto: string, text: string) {
     return postChat(p, as, para, assunto, text);
   }
 

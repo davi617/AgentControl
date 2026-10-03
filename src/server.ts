@@ -14,7 +14,9 @@ import { setPause } from './control.ts';
 import { addNote, syncNotesFile } from './notes.ts';
 import { searchAll } from './search.ts';
 import { about, commandsPerDay, gateUsage, listCalls } from './extras.ts';
+import { OWNER, mentions, teamFor, type Role, type Who } from './team.ts';
 
+const TEAM_POSTS = ['/api/team/invite', '/api/team/remove', '/api/team/role'];
 const CALL_POSTS = ['/api/call/start', '/api/call/say', '/api/call/next', '/api/call/end', '/api/call/turn', '/api/call/round'];
 const WRITE_POSTS = [
   '/api/models', '/api/agents/pause', '/api/call/attach',
@@ -70,12 +72,22 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     ? new Set([`${remote.host}:${port}`])
     : new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
 
+  const team = teamFor(j.cfg.db === ':memory:' ? null : path.dirname(j.cfg.db));
   const handle = (req: http.IncomingMessage, res: http.ServerResponse) => {
-    // Remoto: sem o Bearer certo não responde nada (nem a página).
-    if (remote && !sameSecret(String(req.headers.authorization ?? ''), `Bearer ${remote.token}`)) {
-      res.writeHead(401, { ...SECURITY_HEADERS, 'WWW-Authenticate': 'Bearer' }).end('token obrigatório');
-      return;
+    // Quem está pedindo: no PC é o dono; no remoto, o token principal é o dono e um token de convite é a pessoa do time.
+    // Sem token válido no remoto não responde nada (nem a página).
+    let who: Who = OWNER;
+    if (remote) {
+      const auth = String(req.headers.authorization ?? '');
+      const guest = auth.startsWith('Bearer ') ? team.byToken(auth.slice(7)) : null;
+      if (sameSecret(auth, `Bearer ${remote.token}`)) who = OWNER;
+      else if (guest) who = guest;
+      else {
+        res.writeHead(401, { ...SECURITY_HEADERS, 'WWW-Authenticate': 'Bearer' }).end('token obrigatório');
+        return;
+      }
     }
+    team.touch(who, remote ? 'celular' : 'pc');
     // Anti DNS-rebinding: um site externo que aponte um domínio para 127.0.0.1 manda outro Host.
     const host = req.headers.host ?? '';
     const origin = req.headers.origin;
@@ -92,10 +104,34 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     // Escritas: comando, aprovação e mensagem na sala. JSON sempre.
     // Local (navegador): Origin da própria sala + token CSRF. Remoto (app): o Bearer já validado basta —
     // não é credencial automática do navegador, então não há CSRF.
-    const isPost = req.method === 'POST' && ['/api/commands', '/api/chat', '/api/commands/decide', ...WRITE_POSTS, ...CALL_POSTS].includes(url.pathname);
+    const isPost = req.method === 'POST' && ['/api/commands', '/api/chat', '/api/commands/decide', ...WRITE_POSTS, ...CALL_POSTS, ...TEAM_POSTS].includes(url.pathname);
     const browserOk = !!origin && req.headers['x-jarvis-csrf'] === csrf;
     if (isPost && (!(remote || browserOk) || !String(req.headers['content-type']).startsWith('application/json'))) {
       send(403, { error: 'requisição recusada' });
+      return;
+    }
+    // Papéis: "leitura" só vê; aprovar comando protegido e mexer no time é só do dono.
+    if (isPost && who.role === 'leitura') { send(403, { error: 'seu acesso é só de leitura' }); return; }
+    if (isPost && (url.pathname === '/api/commands/decide' || TEAM_POSTS.includes(url.pathname) || url.pathname === '/api/agents/pause' || url.pathname === '/api/models') && who.role !== 'dono') {
+      send(403, { error: 'só o dono do time pode fazer isso' });
+      return;
+    }
+    if (isPost && TEAM_POSTS.includes(url.pathname)) {
+      readBody(req, 2_048).then((raw) => {
+        let body: { name?: string; role?: string; id?: string };
+        try { body = JSON.parse(raw); } catch { send(400, { error: 'JSON inválido' }); return; }
+        try {
+          if (url.pathname === '/api/team/invite') {
+            const { person, token } = team.invite(String(body.name ?? ''), (String(body.role ?? 'membro')) as Role);
+            // O token sai só nesta resposta: quem convidou passa para a pessoa (QR/link no app).
+            send(201, { person, token, remote: j.cfg.remote?.enabled ? { host: j.cfg.remote.host, port: j.cfg.remote.port ?? j.cfg.port } : null });
+            return;
+          }
+          const id = String(body.id ?? '').toUpperCase();
+          if (url.pathname === '/api/team/remove') { send(team.remove(id) ? 200 : 404, { ok: true }); return; }
+          send(team.setRole(id, String(body.role) as Role) ? 200 : 404, { ok: true });
+        } catch (e) { send(400, { error: (e as Error).message }); }
+      }).catch(() => send(413, { error: 'pedido grande demais' }));
       return;
     }
     if (isPost && url.pathname === '/api/commands/decide') {
@@ -222,7 +258,7 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
               return;
             case '/api/call/say':
               if (!text) { send(400, { error: 'fala vazia' }); return; }
-              send(200, calls.say(p, text));
+              send(200, calls.say(p, text, who.owner ? undefined : who.id));
               return;
             case '/api/call/next':
               send(200, { turn: await calls.next(p), call: calls.get(p.id) ?? null });
@@ -248,15 +284,16 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         const p = j.project(body.project);
         if (!p) { send(404, { error: 'projeto desconhecido' }); return; }
         const text = String(body.text ?? '').trim();
-        const as = body.as === 'CHATGPT' ? 'CHATGPT' : 'DONO';
+        const as = body.as === 'CHATGPT' && who.owner ? 'CHATGPT' : who.id;
         const to = String(body.to ?? 'TODOS').toUpperCase();
         if (!text) { send(400, { error: 'mensagem vazia' }); return; }
         if (!/^[A-Z0-9_,\s-]{2,120}$/.test(to)) { send(400, { error: 'destino inválido' }); return; }
         try {
           j.say(p, as, to, String(body.assunto ?? ''), text);
-          send(201, { ok: true });
+          const tagged = mentions(text, [...team.ids(), ...p.agents.map((a) => a.id)]);
+          send(201, { ok: true, mentions: tagged });
           // O JARVIS responde o dono na sala (os agentes não leem o chat).
-          if (as === 'DONO') void replyToDono(j, p, text).catch((e) => console.error('[resposta]', (e as Error).message));
+          if (as !== 'CHATGPT') void replyToDono(j, p, text).catch((e) => console.error('[resposta]', (e as Error).message));
         } catch (e) { send(409, { error: (e as Error).message }); }
       }).catch(() => send(413, { error: 'mensagem grande demais' }));
       return;
@@ -273,7 +310,8 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         if (!text) { send(400, { error: 'comando vazio' }); return; }
         if (!known.has(to)) { send(400, { error: 'destino desconhecido' }); return; }
         try {
-          const cmd = j.command(p, text, to);
+          // Ordem de alguém do time leva o nome junto (o agente e o histórico sabem quem pediu).
+          const cmd = j.command(p, who.owner ? text : `[${who.name}] ${text}`, to);
           send(201, {
             command: cmd,
             reply: cmd.requires_approval
@@ -293,6 +331,8 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
       return;
     }
 
+    // Time: quem sou eu e quem mais está aqui (presença).
+    if (url.pathname === '/api/team') { send(200, { me: who, people: team.list() }); return; }
     if (url.pathname === '/api/session') {
       // Outro site não consegue ler esta resposta (sem CORS + checagem de Host), então o token não vaza.
       send(200, { csrf });

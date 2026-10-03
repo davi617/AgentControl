@@ -136,12 +136,13 @@ export class CallManager {
     return this.get(p.id)!;
   }
 
-  say(p: ProjectCfg, text: string): CallState {
+  /** who: pessoa do time que falou (Modo Time); sem who é o dono. */
+  say(p: ProjectCfg, text: string, who?: string): CallState {
     const c = this.calls.get(p.id);
     if (!c || c.status === 'ENCERRADA') throw new Error('nenhuma chamada ativa');
     c.status = 'ATIVA';
     c.auto = 0;
-    this.add(c, 'DONO', text);
+    this.add(c, who && /^[A-Z0-9_]{2,24}$/.test(who) ? who : 'DONO', text);
     return this.get(p.id)!;
   }
 

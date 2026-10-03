@@ -81,7 +81,7 @@ import dev.agentcontrol.app.UiState
 import dev.agentcontrol.app.data.Command
 import kotlinx.coroutines.launch
 
-enum class Screen(val title: String) { HOME("Início"), VOZ("Falar com o AgentC"), CHAMADA("Chamada em grupo"), SAUDE("Saúde do PC"), CEREBRO("Cérebro (Obsidian)"), TAREFAS("Tarefas"), MODELOS("Modelos e força"), VOZES("Vozes"), NOTAS("Notas rápidas"), BUSCA("Buscar em tudo"), STATS("Estatísticas do time"), AJUSTES("Ajustes e avisos"), USO("Uso dos agentes"), LINHA("Linha do tempo"), CHAMADAS("Histórico de chamadas"), SOBRE("Sobre"), SALA("Sala central"), COMANDOS("Comandos"), AGENTES("Agentes"), RESUMOS("Resumos"), MAIS("Mais") }
+enum class Screen(val title: String) { HOME("Início"), VOZ("Falar com o AgentC"), CHAMADA("Chamada em grupo"), SAUDE("Saúde do PC"), CEREBRO("Cérebro (Obsidian)"), TAREFAS("Tarefas"), MODELOS("Modelos e força"), VOZES("Vozes"), NOTAS("Notas rápidas"), BUSCA("Buscar em tudo"), STATS("Estatísticas do time"), AJUSTES("Ajustes e avisos"), USO("Uso dos agentes"), LINHA("Linha do tempo"), CHAMADAS("Histórico de chamadas"), SOBRE("Sobre"), SALA("Sala central"), COMANDOS("Comandos"), AGENTES("Agentes"), RESUMOS("Resumos"), MAIS("Mais"), TIME("Time") }
 
 @Composable
 fun JarvisApp(vm: MainViewModel) {
@@ -133,6 +133,7 @@ fun JarvisApp(vm: MainViewModel) {
                 ui.offline?.let { OfflineBanner(it, openTailscale = vm::openTailscale, retry = vm::retryNow) }
                 AnimatedContent(targetState = screen, transitionSpec = { screenTransition(reduced) }, label = "tela") { atual ->
                 Column(Modifier.fillMaxSize()) {
+                meId = ui.team?.me?.id ?: "DONO"
                 when (atual) {
                     Screen.HOME -> HomeScreen(ui, openSala = { screen = Screen.SALA }, openApprovals = openApprovals, send = vm::sendChat, onUpdate = { vm.installUpdate() }, openCall = { screen = Screen.CHAMADA }, startGoal = { vm.callStartGoal(); screen = Screen.CHAMADA }, resume = { vm.pauseAgents(false) }, openAgent = { openNote("20-Operations/Memoria/Agentes/Diario $it.md") })
                     Screen.MAIS -> MoreScreen(ui, forget = vm::forget) { screen = it }
@@ -145,6 +146,7 @@ fun JarvisApp(vm: MainViewModel) {
                             else -> openNote(h.ref)
                         }
                     }
+                    Screen.TIME -> TeamScreen(ui, { keep -> vm.watchTeam(keep) }, vm::inviteToTeam, vm::removeFromTeam)
                     Screen.STATS -> StatsScreen(ui.stats) { vm.loadStats(it) }
                     Screen.USO -> UsageScreen(ui.usage, ui.limits) { vm.loadUsage(it) }
                     Screen.LINHA -> FeedScreen(ui.feed, ui.feedAgent, ui.state.agents.map { it.id }) { vm.loadFeed(it) }

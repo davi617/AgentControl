@@ -740,6 +740,7 @@ public sealed class LauncherWindow : Window
         }
         v.Children.Add(K.Card(TeamPicker(), 18, new Thickness(20, 16)));
         v.Children.Add(K.Card(CallSettings(), 18, new Thickness(20, 16)));
+        v.Children.Add(K.Card(TeamCard(), 18, new Thickness(20, 16)));
         var info = new StackPanel();
         info.Children.Add(K.Label("Este PC"));
         info.Children.Add(Row("Sistema", $"{Platform.Name} · {System.Runtime.InteropServices.RuntimeInformation.OSDescription}"));
@@ -902,6 +903,75 @@ public sealed class LauncherWindow : Window
             var list = await api.CallPeopleAsync();
             Dispatcher.UIThread.Post(() => { people = list; loadingPeople = false; Draw(); });
         });
+        return col;
+    }
+
+    /// <summary>
+    /// Modo Time: pessoas que trabalham junto com você e os agentes. Convidar gera um acesso só da pessoa
+    /// (aparece uma vez, para copiar e mandar); tirar do time faz o acesso parar de valer na hora.
+    /// </summary>
+    Control TeamCard()
+    {
+        var col = new StackPanel { Spacing = 10 };
+        col.Children.Add(K.Label("Pessoas do time").Also(l => l.Margin = new Thickness(0)));
+        col.Children.Add(K.Wrap("Gente trabalhando junto com os agentes: cada pessoa entra pelo app do celular com um acesso só dela e fala com o próprio nome na sala e na chamada. Membro fala e manda ordem; Só leitura acompanha; aprovar continua sendo só seu.", 12.5, K.Muted));
+        var list = new StackPanel { Spacing = 6 };
+        var toast = K.T("", 12.5, K.Ok);
+        var tokenBox = new TextBox { IsReadOnly = true, IsVisible = false, FontFamily = K.Mono, FontSize = 12, Background = K.Raised, BorderThickness = new Thickness(0), Padding = new Thickness(10, 8) };
+        async Task Load()
+        {
+            var people = await api.TeamAsync();
+            list.Children.Clear();
+            if (people.Count == 0) { list.Children.Add(K.T(snap.Online ? "Atualize o servidor para usar o Modo Time." : "Ligue o servidor para ver o time.", 12.5, K.Muted)); return; }
+            foreach (var p in people)
+            {
+                var g = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"), MinHeight = 36 };
+                g.Children.Add(new Ellipse { Width = 9, Height = 9, Fill = p.Online ? K.Ok : K.Faint, Margin = new Thickness(2, 0, 10, 0) });
+                var seen = p.Online ? $"online agora{(p.Via is { } v ? " · " + v : "")}" : p.LastSeen is { } l ? $"visto {K.Ago(l)}" : "ainda não entrou";
+                var t = new StackPanel { Children = { K.T(p.Id == "DONO" ? "Você (dono)" : p.Name, 13, K.Text, FontWeight.SemiBold), K.T($"{p.Role} · {seen}", 11.5, p.Online ? K.Ok : K.Muted) } };
+                Grid.SetColumn(t, 1); g.Children.Add(t);
+                if (p.Id != "DONO")
+                {
+                    var id = p.Id; var nm = p.Name;
+                    var rm = Link("Tirar do time", K.IClose, () => Confirm($"Tirar {nm} do time?", "O acesso dessa pessoa para de valer na hora. Dá para convidar de novo depois.", "Tirar", () => _ = Task.Run(async () => { await api.RemovePerson(id); Dispatcher.UIThread.Post(() => _ = Load()); })), danger: true);
+                    Grid.SetColumn(rm, 2); g.Children.Add(rm);
+                }
+                list.Children.Add(g);
+            }
+        }
+        col.Children.Add(list);
+        var name = new TextBox { Watermark = "Nome da pessoa", FontSize = 13, Width = 240, Background = K.Raised, BorderThickness = new Thickness(0), CaretBrush = K.Brand, Padding = new Thickness(10, 8) };
+        var role = "membro";
+        var roles = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+        void DrawRoles()
+        {
+            roles.Children.Clear();
+            foreach (var (r, label) in new[] { ("membro", "Membro"), ("leitura", "Só leitura") })
+            {
+                var on = r == role; var rr = r;
+                var chip = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 6), Background = on ? K.Brand : K.Raised, BorderBrush = K.Line, BorderThickness = new Thickness(on ? 0 : 1), Child = K.T(label, 12.5, on ? K.OnBrand : K.Text2, FontWeight.SemiBold) };
+                K.Pressable(chip, () => { role = rr; DrawRoles(); });
+                roles.Children.Add(chip);
+            }
+        }
+        DrawRoles();
+        var invite = Action("Convidar", K.IAdd, async () =>
+        {
+            var n = (name.Text ?? "").Trim();
+            if (n.Length == 0) { toast.Text = "Escreva o nome da pessoa."; toast.Foreground = K.Warn; return; }
+            var (err, token, _) = await api.InviteAsync(n, role);
+            if (err is not null) { toast.Text = $"Não convidei: {err}"; toast.Foreground = K.Err; return; }
+            name.Text = "";
+            tokenBox.Text = token; tokenBox.IsVisible = true;
+            toast.Text = $"{n} convidado(a). Copie o acesso abaixo e mande só para essa pessoa: ele aparece uma vez. No app do celular ela usa o endereço do seu PC pelo Tailscale e este token.";
+            toast.Foreground = K.Ok;
+            svc.Log($"Time: {n} convidado(a) como {role}.");
+            await Load();
+        }, primary: true, height: 36);
+        col.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { new Border { CornerRadius = new CornerRadius(10), ClipToBounds = true, Child = name }, roles, invite } });
+        col.Children.Add(toast.Also(t => { t.TextWrapping = TextWrapping.Wrap; t.MaxWidth = 900; }));
+        col.Children.Add(tokenBox);
+        _ = Load();
         return col;
     }
 

@@ -362,6 +362,62 @@ test('remoto: só Tailscale na config, token obrigatório, app escreve sem CSRF'
   }
 });
 
+// ---------- Modo Time: várias pessoas com acesso próprio ----------
+test('time: dono convida, pessoa entra com token próprio, fala com o nome dela, papel limita o que pode', async () => {
+  const token = 'token-dono-remoto-0123456789abcdef';
+  const probe = createServer(j, { host: '127.0.0.1', token });
+  await new Promise<void>((r) => probe.listen(0, '127.0.0.1', r));
+  const rport = (probe.address() as AddressInfo).port;
+  await new Promise<void>((r) => probe.close(() => r()));
+  const rs = createServer(j, { host: '127.0.0.1', token, port: rport });
+  await new Promise<void>((r) => rs.listen(rport, '127.0.0.1', r));
+  const rb = `http://127.0.0.1:${rport}`;
+  const post = (auth: string, p: string, body: unknown) => fetch(`${rb}${p}`, { method: 'POST', headers: { Authorization: `Bearer ${auth}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  try {
+    // dono convida uma membro e uma pessoa só leitura
+    const inv = await (await post(token, '/api/team/invite', { name: 'Ana Júlia', role: 'membro' })).json();
+    assert.equal(inv.person.id, 'ANA_JULIA');
+    assert.equal(inv.person.tokenHash, undefined, 'hash não sai na resposta');
+    assert.match(inv.token, /^[0-9a-f]{48}$/);
+    const ro = await (await post(token, '/api/team/invite', { name: 'Beto', role: 'leitura' })).json();
+
+    // a membro entra com o token dela, se vê e vê o time
+    const me = await (await fetch(`${rb}/api/team`, { headers: { Authorization: `Bearer ${inv.token}` } })).json();
+    assert.equal(me.me.id, 'ANA_JULIA');
+    assert.equal(me.me.role, 'membro');
+    assert.ok(me.people.find((x: { id: string; online: boolean }) => x.id === 'ANA_JULIA').online, 'presença: online');
+
+    // fala na sala com o nome dela (arquivo próprio) e @menção é reconhecida
+    const said = await post(inv.token, '/api/chat', { project: 'test', text: 'oi @CODEX, eu revisei o login' });
+    assert.equal(said.status, 201);
+    assert.deepEqual((await said.json()).mentions, ['CODEX']);
+    assert.match(readFileSync(path.join(vault, 'CHAT', 'ANA_JULIA.md'), 'utf8'), /— ANA_JULIA[\s\S]*eu revisei o login/);
+
+    // ordem leva o nome; aprovar e convidar só o dono
+    const cmd = await (await post(inv.token, '/api/commands', { project: 'test', text: 'rode os testes', to: 'CODEX' })).json();
+    assert.match(cmd.command.text, /^\[Ana Júlia\] rode os testes/);
+    assert.equal((await post(inv.token, '/api/commands/decide', { project: 'test', code: cmd.command.code, decision: 'approve' })).status, 403);
+    assert.equal((await post(inv.token, '/api/team/invite', { name: 'Intruso', role: 'dono' })).status, 403);
+
+    // só leitura não escreve nada
+    assert.equal((await post(ro.token, '/api/chat', { project: 'test', text: 'oi' })).status, 403);
+    assert.equal((await fetch(`${rb}/api/projects`, { headers: { Authorization: `Bearer ${ro.token}` } })).status, 200, 'mas lê');
+
+    // dono remove: o token para de valer
+    assert.equal((await post(token, '/api/team/remove', { id: 'BETO' })).status, 200);
+    assert.equal((await fetch(`${rb}/api/projects`, { headers: { Authorization: `Bearer ${ro.token}` } })).status, 401);
+  } finally {
+    rs.closeAllConnections();
+    await new Promise<void>((r) => rs.close(() => r()));
+  }
+});
+
+test('time: @menções reconhecem pessoas e agentes, com acento e sem repetir', async () => {
+  const { mentions } = await import('../src/team.ts');
+  assert.deepEqual(mentions('@ana_julia e @Codex, cadê? @codex', ['ANA_JULIA', 'CODEX', 'HERMES']), ['ANA_JULIA', 'CODEX']);
+  assert.deepEqual(mentions('email@exemplo.com sem ninguém', ['EXEMPLO']), []);
+});
+
 test('config remoto: loopback aceito só para teste local, LAN recusada, porta validada', () => {
   return import('../src/config.ts').then(({ loadConfig }) => {
     const f = (remote: unknown) => {

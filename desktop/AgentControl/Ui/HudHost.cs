@@ -25,6 +25,8 @@ public sealed class HudHost
     public bool VoiceOn { get; private set; }
     public LauncherSettings Settings { get; private set; } = HudApi.ReadSettings();
     bool? lastVoiceSetting;
+    /// <summary>Modo Time: pessoas do time e quem está online (o dono é o primeiro).</summary>
+    public List<HudApi.Person> People { get; private set; } = [];
     CancellationTokenSource? voiceCts;
 
     readonly IClassicDesktopStyleApplicationLifetime desk;
@@ -129,6 +131,12 @@ public sealed class HudHost
             if (first && Snap.Online) Greet();
             first = false;
             if (tray is not null) tray.ToolTipText = TraySummary();
+            // Modo Time: AgentC avisa quando alguém do time entra.
+            var people = await Api.TeamAsync();
+            if (!first)
+                foreach (var p in people.Skip(1).Where(p => p.Online && People.FirstOrDefault(o => o.Id == p.Id) is { Online: false } or null && People.Count > 0))
+                    Mascot.Say("AgentC", $"{p.Name} entrou no time agora ({p.Via ?? "online"}).");
+            People = people;
             Chatter();
             Hud.Refresh();
             if (Mini.IsVisible) Mini.Refresh();

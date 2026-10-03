@@ -72,6 +72,9 @@ fun PhoneHud(ui: UiState, openSala: () -> Unit, openAgent: (String) -> Unit) {
                 }
             }
         }
+        // Modo Time: quem mais está online agora (você não aparece).
+        val others = ui.team?.people?.filter { it.online && it.id != ui.team.me.id }.orEmpty()
+        if (others.isNotEmpty()) Text("Online: " + others.joinToString(", ") { it.name }, color = k.ok, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
         if (ui.state.agents.isNotEmpty()) Row(
             Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically,

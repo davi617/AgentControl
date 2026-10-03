@@ -336,11 +336,14 @@ private fun GoalStrip(goal: String?, done: Int, total: Int, running: Boolean, ca
 }
 
 /** Uma mensagem: a sua num balão à direita; a dos agentes em texto corrido, com nome e hora. */
+/** Quem é "eu" neste celular (Modo Time: um convidado não é o DONO). O JarvisApp atualiza a cada tela. */
+var meId: String = "DONO"
+
 @Composable
 fun ChatItem(e: dev.agentcontrol.app.data.Entry, modifier: Modifier = Modifier) {
     val k = Clay.c
     val m = e.chatMeta()
-    if (e.agent == "DONO") {
+    if (e.agent == meId) {
         Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             Text(
                 m.text, color = k.text, fontSize = 15.5.sp, lineHeight = 23.sp,

@@ -308,6 +308,32 @@ public sealed class HudApi
     public Task<string?> EndCall() => Post("/api/call/end", new { project = Project });
     // Chamada direto no painel (antes só pelo navegador/celular).
     public Task<string?> StartCall(string topic, IEnumerable<string> who, string modo) => Post("/api/call/start", new { project = Project, text = topic, who = who.ToArray(), modo });
+    // ---------- Modo Time ----------
+    public sealed record Person(string Id, string Name, string Role, string Color, bool Online, string? LastSeen, string? Via);
+
+    /** Pessoas do time com presença (o dono vem primeiro). Servidor antigo: lista vazia. */
+    public async Task<List<Person>> TeamAsync()
+    {
+        var r = new List<Person>();
+        if (await Get("/api/team") is { } t && t.TryGetProperty("people", out var ps) && ps.ValueKind == JsonValueKind.Array)
+            foreach (var p in ps.EnumerateArray())
+                r.Add(new Person(Str(p, "id"), Str(p, "name"), Str(p, "role"), Str(p, "color"), p.TryGetProperty("online", out var o) && o.ValueKind == JsonValueKind.True,
+                    p.TryGetProperty("lastSeen", out var l) && l.ValueKind == JsonValueKind.String ? l.GetString() : null, p.TryGetProperty("via", out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null));
+        return r;
+    }
+
+    /** Convida: devolve (erro, token). O token aparece só agora. */
+    public async Task<(string? Error, string? Token, string? Id)> InviteAsync(string name, string role)
+    {
+        string? raw = null;
+        var err = await Post("/api/team/invite", new { name, role }, t => raw = t);
+        if (err is not null || raw is null) return (err ?? "sem resposta", null, null);
+        var j = JsonDocument.Parse(raw).RootElement;
+        return (null, Str(j, "token"), j.TryGetProperty("person", out var p) ? Str(p, "id") : null);
+    }
+
+    public Task<string?> RemovePerson(string id) => Post("/api/team/remove", new { id });
+
     public Task<string?> CallSay(string text) => Post("/api/call/say", new { project = Project, text });
     public Task<string?> CallRound() => Post("/api/call/round", new { project = Project });
     public Task<string?> CallTurn(string agent) => Post("/api/call/turn", new { project = Project, agent });

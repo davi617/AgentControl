@@ -101,6 +101,7 @@ data class UiState(
     val muteUntil: Long = 0, // não perturbe: avisos calados até esse horário
     val healthMs: Long? = null, // quanto o PC demorou para responder a Saúde (latência)
     val openScreen: String? = null, // atalho do ícone do app pediu uma tela
+    val team: dev.agentcontrol.app.data.TeamInfo? = null, // Modo Time: eu e as pessoas do time (presença)
 ) {
     val pending: List<Command> get() = commands.filter { it.pending }
 }
@@ -191,6 +192,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val cmds = a.commands(p)
             val sum = a.summary(p)
             _ui.update { it.copy(state = st, chat = chat, commands = cmds, summary = sum, offline = null) }
+            runCatching { a.team() }.onSuccess { t -> _ui.update { it.copy(team = t) } } // servidor antigo sem /api/team: segue sem
             AlertCenter.onChat(getApplication(), chat) // 1ª carga só marca onde parou (sem avisar o que é velho)
             notifyPending(cmds)
         }.onFailure { e -> _ui.update { it.copy(offline = e.message) } }
@@ -784,6 +786,35 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun speakLong(raw: String) {
         val text = raw.replace(Regex("[*#`_>|]"), " ").replace(Regex("\\s+"), " ").trim()
         for (part in text.split(Regex("(?<=[.!?])\\s+")).chunked(3).map { it.joinToString(" ") }) voice.speak("JARVIS", part)
+    }
+
+    // ---------- Modo Time ----------
+    /** Tela Time aberta: atualiza quem está online a cada 15 s. */
+    fun watchTeam(keep: () -> Boolean) = viewModelScope.launch {
+        while (keep()) {
+            api?.let { a -> runCatching { a.team() }.onSuccess { t -> _ui.update { it.copy(team = t) } } }
+            delay(15_000)
+        }
+    }
+
+    /** Convida alguém: o servidor devolve o acesso UMA vez e já abre o compartilhar (WhatsApp etc.). */
+    fun inviteToTeam(name: String, role: String) = viewModelScope.launch {
+        val a = api ?: return@launch
+        runCatching { a.teamInvite(name, role) }
+            .onSuccess { inv ->
+                val url = inv.remote?.let { "http://${it.host}:${it.port}" } ?: settings.baseUrl
+                shareText("Convite para o time", "Você foi convidado para o time no Agent Control.\n\n1. Instale o Tailscale e entre na mesma rede.\n2. Instale o app Agent Control.\n3. Em Conectar, use:\nEndereço: $url\nToken: ${inv.token}\n\nEsse token é só seu. Não repasse.")
+                _ui.update { it.copy(message = "${inv.person.name} convidado(a) como ${inv.person.role}. Mande o convite que abriu agora.") }
+                runCatching { a.team() }.onSuccess { t -> _ui.update { it.copy(team = t) } }
+            }
+            .onFailure { e -> _ui.update { it.copy(message = "Não convidei: ${e.message}") } }
+    }
+
+    fun removeFromTeam(id: String) = viewModelScope.launch {
+        val a = api ?: return@launch
+        runCatching { a.teamRemove(id); a.team() }
+            .onSuccess { t -> _ui.update { it.copy(team = t, message = "Removido do time. O acesso dele parou de valer.") } }
+            .onFailure { e -> _ui.update { it.copy(message = "Não removi: ${e.message}") } }
     }
 
     // ---------- Saúde, ditado e resumo falado ----------

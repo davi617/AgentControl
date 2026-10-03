@@ -397,6 +397,10 @@ public sealed class HudWindow : Window
         col.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.Button(s.CallActive ? "Na chamada" : "Chamada", K.IPhone, () => Select(2), height: 34), K.Button("Escrever", K.IChat, host.OpenMini, primary: false, height: 34) } });
         Grid.SetColumn(col, 1); top.Children.Add(col);
         v.Children.Add(top);
+        // Modo Time: quem mais está online agora.
+        var online = host.People.Skip(1).Where(p => p.Online).Select(p => p.Name).ToList();
+        if (online.Count > 0)
+            v.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7, Margin = new Thickness(2, 12, 0, 0), Children = { new Ellipse { Width = 8, Height = 8, Fill = K.Ok }, K.Wrap("Online: " + string.Join(", ", online), 12, K.Ok, 2).Also(t => t.MaxWidth = 360) } });
         // O que você pediu para o AgentC lembrar aparece no Início.
         if (AgentControl.Core.Memory.Reminder() is { } memo)
             v.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7, Margin = new Thickness(2, 12, 0, 0), Children = { K.Icon(K.IBook, 13, K.BrandText), K.Wrap($"Lembrete: {memo}", 12, K.Text2, 2).Also(t => t.MaxWidth = 360) } });
@@ -851,7 +855,7 @@ public sealed class HudWindow : Window
 
     string Sig(HudSnapshot s) => tab switch
     {
-        0 => $"{s.Online}{s.Pending}{s.Working}{s.Paused}{s.CallStatus}{s.CallModo}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Usage.Select(u => u.Agent + u.Req))}",
+        0 => $"{string.Join(",", host.People.Where(p => p.Online).Select(p => p.Id))}{s.Online}{s.Pending}{s.Working}{s.Paused}{s.CallStatus}{s.CallModo}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Usage.Select(u => u.Agent + u.Req))}",
         1 => replyTo + toast + string.Join("|", s.Chat.Take(5).Select(c => c.Ts + c.Agent)),
         2 => $"{s.CallStatus}{s.CallModo}{s.CallTurns}{string.Join(",", s.CallWho)}{host.Thinking}{host.VoiceOn}{host.Settings.CallAutoAdvance}|{toast}|{people.Count}{loadingPeople}{modo}{string.Join(",", pick ?? [])}",
         3 => $"{s.Goal}{s.TasksDone}/{s.TasksTotal}{s.CallStatus}{s.CallModo}",
