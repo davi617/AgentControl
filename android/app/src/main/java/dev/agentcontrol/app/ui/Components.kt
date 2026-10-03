@@ -91,7 +91,16 @@ fun shortTime(ts: String): String {
 
 /** Saudação do Início, como no app do Claude. */
 fun greeting(): String = when (java.time.LocalTime.now().hour) {
-    in 5..11 -> "Bom dia, você"
-    in 12..17 -> "Boa tarde, você"
-    else -> "Boa noite, você"
+    in 0..4 -> "Boa madrugada"
+    in 5..11 -> "Bom dia"
+    in 12..17 -> "Boa tarde"
+    else -> "Boa noite"
+}
+
+/** "2026-10-03T09:12:00" → "há 5 min", "há 2 h", "há 3 d" (vazio se não entender). */
+fun ago(ts: String?): String {
+    if (ts.isNullOrBlank()) return ""
+    val t = runCatching { java.time.LocalDateTime.parse(ts.take(19)) }.getOrNull() ?: return ""
+    val min = java.time.Duration.between(t, java.time.LocalDateTime.now()).toMinutes()
+    return when { min < 1 -> "agora"; min < 60 -> "há $min min"; min < 60 * 24 -> "há ${min / 60} h"; else -> "há ${min / 1440} d" }
 }

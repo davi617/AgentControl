@@ -36,6 +36,7 @@ public sealed class HudHost
     string lastChatKey = "";
     Dictionary<string, (string Status, string Ts)> prevReports = [];
     bool first = true, polling, hidden;
+    int prevDone;
     TrayIcon? tray;
 
     public HudHost(IClassicDesktopStyleApplicationLifetime desk)
@@ -59,6 +60,8 @@ public sealed class HudHost
             case "web": OpenHud(2); break; // chamada agora fica no painel (antes abria a página antiga no navegador)
             case "goal": StartGoal(); break;
             case "launcher": OpenLauncher(); break;
+            case "pausa": SetPause(!Snap.Paused); break;
+            case "silencio": ToggleQuiet(); break;
             case "full": OpenFull(); break;
             case "esconder": HideAll(); break;
             case "sair": Quit(); break;
@@ -114,6 +117,13 @@ public sealed class HudHost
                         Mascot.Say(id, string.IsNullOrWhiteSpace(task) ? "Terminei a tarefa." : $"Terminei: {task}");
                         break;
                     }
+            if (!first && prevDone < Snap.TasksTotal && Snap.TasksTotal > 0 && Snap.TasksDone == Snap.TasksTotal)
+            { Mascot.Celebrate(); Mascot.Say("AgentC!", "Goal concluído! Todas as tarefas estão DONE. 🎉"); }
+            if (!first)
+                foreach (var (id, rep) in Snap.Reports)
+                    if (prevReports.TryGetValue(id, out var was) && was.Ts != rep.Ts && System.Text.RegularExpressions.Regex.IsMatch(rep.Status, "^(FAIL|ERRO|BLOCK)", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
+                    { Mascot.Say(id, $"Travei: {rep.Status}. Dá uma olhada na tela de Agentes."); break; }
+            prevDone = Snap.TasksDone;
             prevReports = Snap.Reports;
             // Primeira leitura do dia: o AgentC dá um resumo curto (quem está ligado e o que espera você).
             if (first && Snap.Online) Greet();
@@ -231,6 +241,7 @@ public sealed class HudHost
     void Chatter()
     {
         if (DateTime.Now < nextChatter || !Snap.Online || Pumping || Snap.CallActive) return;
+        if (DateTime.Now.Hour is >= 23 or < 7) return; // de madrugada não puxa assunto
         nextChatter = DateTime.Now.AddMinutes(new Random().Next(25, 55));
         var working = Snap.Agents.Count(a => a.Status == "WORKING");
         var lines = new List<string>();
@@ -242,6 +253,13 @@ public sealed class HudHost
         if (AgentControl.Core.Memory.Reminder() is { } m) lines.Add($"Não esqueci: {m}.");
         lines.Add("Dica: diga \"lembra que…\" na janelinha e eu guardo para você.");
         Mascot.Say("AgentC", lines[new Random().Next(lines.Count)]);
+    }
+
+    void ToggleQuiet()
+    {
+        if (DateTime.Now < Mascot.QuietUntil) { Mascot.QuietUntil = DateTime.MinValue; Mascot.Say("AgentC", "Voltei a falar."); return; }
+        Mascot.Say("AgentC", "Tá bom, fico quieto por 1 hora. Aprovação esperando ainda aparece na faixa do topo.");
+        Mascot.QuietUntil = DateTime.Now.AddHours(1);
     }
 
     void Greet()
@@ -278,6 +296,8 @@ public sealed class HudHost
             Item("Esconder", HideAll);
             Item("Tela completa", OpenFull);
             Item("Abrir o Launcher", OpenLauncher);
+            Item("Pausar / retomar os agentes", () => SetPause(!Snap.Paused));
+            Item("Silenciar o AgentC por 1 h", ToggleQuiet);
             menu.Add(new NativeMenuItemSeparator());
             Item("Fechar o AgentC", Quit);
             tray = new TrayIcon { Icon = Program.AppIcon(), ToolTipText = "AgentC · Agent Control", Menu = menu, IsVisible = true };

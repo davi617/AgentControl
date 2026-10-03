@@ -258,7 +258,7 @@ fun LogoMark(size: Int) = AgentC(size.dp)
 // sugestões. O histórico inteiro fica na aba Sala; o resto das funções na aba Mais.
 
 @Composable
-fun HomeScreen(ui: UiState, openSala: () -> Unit, openApprovals: () -> Unit, send: (String, String, Boolean) -> Unit, onUpdate: () -> Unit = {}, openCall: () -> Unit = {}, startGoal: () -> Unit = {}) {
+fun HomeScreen(ui: UiState, openSala: () -> Unit, openApprovals: () -> Unit, send: (String, String, Boolean) -> Unit, onUpdate: () -> Unit = {}, openCall: () -> Unit = {}, startGoal: () -> Unit = {}, resume: () -> Unit = {}) {
     val k = Clay.c
     val today = java.time.LocalDate.now().toString()
     val chat = ui.chat.filter { it.ts.startsWith(today) }
@@ -268,6 +268,11 @@ fun HomeScreen(ui: UiState, openSala: () -> Unit, openApprovals: () -> Unit, sen
     Column(Modifier.fillMaxSize()) {
         if (ui.update != null) Box(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) { Chip("Nova versão do app (${ui.update.versionName}) · atualizar", onUpdate, accent = true) }
         if (ui.pending.isNotEmpty()) Box(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) { Chip("${ui.pending.size} aprovação esperando você", openApprovals, accent = true) }
+        // Avisos do PC no topo do Início (2026-10-03): pausado com Retomar, chamada ao vivo, pouca memória e sem conexão.
+        if (ui.offline != null) Box(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) { Chip("Sem conexão com o PC: ${ui.offline}", {}) }
+        if (ui.health?.pausa?.paused == true) Box(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) { Chip("Agentes pausados · tocar para retomar", resume, accent = true) }
+        if (ui.call.active && ui.call.state?.modo != "goal") Box(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) { Chip("Chamada ao vivo · entrar", openCall, accent = true) }
+        ui.health?.ram?.let { r -> if (r.livreMb in 1..1499) Box(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) { Chip("PC com pouca memória (${r.livreMb} MB): os agentes esperam", {}) } }
         GoalStrip(ui.state.goal, tasks.count { it.status.uppercase().startsWith("DONE") }, tasks.size,
             running = ui.call.active && ui.call.state?.modo == "goal", callActive = ui.call.active, start = startGoal, open = openCall)
         Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -296,6 +301,8 @@ fun HomeScreen(ui: UiState, openSala: () -> Unit, openApprovals: () -> Unit, sen
                 "Como está o time agora?" to { send("Como está o time agora? Quem está trabalhando, quem travou e o que falta.", "TODOS", false) },
                 "O que falta no Goal?" to { send("O que falta para terminar o Goal ativo? Liste em ordem.", "TODOS", false) },
                 "Resumo de hoje" to { send("Faça um resumo curto do que o time fez hoje.", "TODOS", false) },
+                "Quem está travado?" to { send("Algum agente está travado ou com erro agora? Diga quem e por quê.", "TODOS", false) },
+                "Próxima tarefa" to { send("Qual a próxima tarefa mais importante e quem deve pegar?", "LEADER", false) },
                 "Iniciar Modo Goal" to startGoal,
             ).forEach { (t, go) ->
                 Text(t, color = k.text, fontSize = 14.sp, modifier = Modifier.clay(RoundedCornerShape(18.dp), elevation = 2.dp).springClick(onClick = go).padding(horizontal = 14.dp, vertical = 10.dp))
@@ -318,6 +325,7 @@ private fun GoalStrip(goal: String?, done: Int, total: Int, running: Boolean, ca
         Box(Modifier.size(8.dp).background(if (running) k.ok else k.brand, CircleShape))
         Column(Modifier.weight(1f)) {
             Text(goal, color = k.text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (total > 0) Text("$done de $total tarefas · ${100 * done / total}%", color = k.muted, fontSize = 11.sp)
             if (total > 0) Box(Modifier.padding(top = 6.dp).fillMaxWidth().height(3.dp).background(k.well, RoundedCornerShape(2.dp))) {
                 Box(Modifier.fillMaxWidth(fillIn(done.toFloat() / total)).height(3.dp).background(k.brand, RoundedCornerShape(2.dp)))
             }
@@ -666,8 +674,10 @@ fun AgentsScreen(ui: UiState, openDiary: (String) -> Unit = {}) {
     val k = Clay.c
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item { Mono(ui.state.goal ?: "sem Goal ativo") }
-        item { Text("Toque num agente para ver o diário dele.", color = k.muted, fontSize = 12.sp) }
-        items(ui.state.agents, key = { it.id }) { a ->
+        val working = ui.state.agents.count { it.latest?.status?.uppercase()?.startsWith("WORK") == true }
+        item { Text("${ui.state.agents.size} no time · $working trabalhando · toque num agente para ver o diário", color = k.muted, fontSize = 12.sp) }
+        // Quem está com problema aparece primeiro.
+        items(ui.state.agents.sortedBy { if (statusColor(it.latest?.status, k) == k.err) 0 else 1 }, key = { it.id }) { a ->
             val st = a.latest?.status
             val bad = statusColor(st, k) == k.err
             Row(
@@ -679,7 +689,7 @@ fun AgentsScreen(ui: UiState, openDiary: (String) -> Unit = {}) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(a.id, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = k.text)
                     Text(
-                        listOfNotNull(a.latest?.task, (a.model ?: a.latest?.model)?.substringAfterLast('/'), a.statusFileMtime?.let { "STATUS ${shortTime(it)}" }).joinToString(" · "),
+                        listOfNotNull(a.latest?.task, (a.model ?: a.latest?.model)?.substringAfterLast('/'), a.statusFileMtime?.let { "registro ${ago(it).ifBlank { shortTime(it) }}" }).joinToString(" · "),
                         color = if (bad) k.err else k.muted, fontSize = 12.sp, maxLines = 2,
                     )
                     if (a.vaultCopyStale == true) Text("cópia no vault atrasada", color = k.warn, fontSize = 12.sp)

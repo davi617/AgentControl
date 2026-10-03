@@ -397,6 +397,9 @@ public sealed class HudWindow : Window
         col.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.Button(s.CallActive ? "Na chamada" : "Chamada", K.IPhone, () => Select(2), height: 34), K.Button("Escrever", K.IChat, host.OpenMini, primary: false, height: 34) } });
         Grid.SetColumn(col, 1); top.Children.Add(col);
         v.Children.Add(top);
+        // O que você pediu para o AgentC lembrar aparece no Início.
+        if (AgentControl.Core.Memory.Reminder() is { } memo)
+            v.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7, Margin = new Thickness(2, 12, 0, 0), Children = { K.Icon(K.IBook, 13, K.BrandText), K.Wrap($"Lembrete: {memo}", 12, K.Text2, 2).Also(t => t.MaxWidth = 360) } });
 
         if (s.Pending > 0)
         {
@@ -712,6 +715,8 @@ public sealed class HudWindow : Window
         var working = s.Agents.Count(a => K.StatusBrush(a.Status) == K.Brand);
         v.Children.Add(new Cols(3).Add(Tile("RAM livre", $"{s.RamFreeMb / 1024.0:0.0} GB".Replace('.', ','), s.RamFreeMb < 1500 ? K.Err : K.Text))
             .Add(Tile("CPU", s.Cpu is { } c ? $"{c}%" : "—", s.Cpu > 85 ? K.Warn : K.Text)).Add(Tile("Trabalhando", $"{working}/{s.Agents.Count}", working > 0 ? K.BrandText : K.Text)).Panel);
+        if (s.Cpu is > 85)
+            v.Children.Add(K.Wrap("CPU quase no máximo: as respostas podem demorar mais.", 11.5, K.Warn).Also(t => t.Margin = new Thickness(2, 8, 0, 0)));
         if (s.RamFreeMb is > 0 and < 1500)
             v.Children.Add(K.Wrap("Pouca memória livre: os agentes esperam abrir espaço antes de começar a próxima rodada.", 11.5, K.Warn).Also(t => t.Margin = new Thickness(2, 8, 0, 0)));
         v.Children.Add(Gap(14));

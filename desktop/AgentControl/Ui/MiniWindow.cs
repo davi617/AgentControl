@@ -148,7 +148,7 @@ public sealed class MiniWindow : Window
         if (text.Length == 0) { Flash("Escreva a mensagem primeiro.", K.Warn); return; }
         if (sending) return;
         // "lembra que…", "o que você lembra", "esquece": quem responde é o AgentC, sem ir para a sala.
-        if (AgentControl.Core.Memory.Handle(text) is { } reply) { input.Text = ""; host.Mascot.Say("AgentC", reply); Flash(reply, K.Ok); return; }
+        if (AgentControl.Core.Memory.Handle(text) is { } reply) { input.Text = ""; host.Mascot.Say("AgentC!", reply); Flash(reply, K.Ok); return; }
         sending = true;
         status.Text = "Enviando…"; status.Foreground = K.Muted;
         var err = await host.Api.SendChat(text, to);

@@ -134,7 +134,7 @@ fun JarvisApp(vm: MainViewModel) {
                 AnimatedContent(targetState = screen, transitionSpec = { screenTransition(reduced) }, label = "tela") { atual ->
                 Column(Modifier.fillMaxSize()) {
                 when (atual) {
-                    Screen.HOME -> HomeScreen(ui, openSala = { screen = Screen.SALA }, openApprovals = openApprovals, send = vm::sendChat, onUpdate = { vm.installUpdate() }, openCall = { screen = Screen.CHAMADA }, startGoal = { vm.callStartGoal(); screen = Screen.CHAMADA })
+                    Screen.HOME -> HomeScreen(ui, openSala = { screen = Screen.SALA }, openApprovals = openApprovals, send = vm::sendChat, onUpdate = { vm.installUpdate() }, openCall = { screen = Screen.CHAMADA }, startGoal = { vm.callStartGoal(); screen = Screen.CHAMADA }, resume = { vm.pauseAgents(false) })
                     Screen.MAIS -> MoreScreen(ui, forget = vm::forget) { screen = it }
                     Screen.NOTAS -> NotesScreen(ui.notes, add = { vm.addNote(it) }, toggle = { id, d -> vm.toggleNote(id, d) }, delete = { vm.deleteNote(it) }, share = vm::shareNotes)
                     Screen.BUSCA -> SearchScreen(ui.searchQuery, ui.searchHits, search = vm::searchAll) { h ->
