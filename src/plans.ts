@@ -19,9 +19,9 @@ export const PLANS: Record<PlanId, Plan> = {
 
 /**
  * Chave pública do vendedor (Ed25519, SPKI em base64). Trocar pela gerada com `node tools/licenca.mjs chaves`.
- * Vazia = nenhuma licença paga é aceita (tudo fica no Grátis), que é o seguro para quem compila o código aberto.
+ * Esta é a chave PÚBLICA oficial (pode ficar no código aberto; só confere assinatura). Quem faz fork troca pela sua; vazia = tudo fica no Grátis.
  */
-export const VENDOR_PUBLIC_KEY = process.env.AGENT_CONTROL_LICENSE_PUBKEY ?? '';
+export const VENDOR_PUBLIC_KEY = process.env.AGENT_CONTROL_LICENSE_PUBKEY ?? 'MCowBQYDK2VwAyEA7xOljP1yjG5vZLy/9HEuoaVdaMDH10r/A8zfus3BwPY=';
 
 export interface License { plan: PlanId; cliente: string; pessoas?: number; validaAte: string; emitida: string }
 export interface PlanState { plan: Plan; license: Omit<License, 'cliente'> & { cliente: string } | null; motivo: string | null; pessoas: number }
