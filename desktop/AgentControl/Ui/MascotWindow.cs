@@ -133,7 +133,7 @@ public sealed class MascotWindow : Window
         Content = root;
         root.Tip("AgentC · clique para falar com os agentes · arraste para mover · botão direito para opções");
 
-        K.DragOrClick(this, root, () => { lastTouch = DateTime.Now; Squish(); Wiggle(); Clicked?.Invoke(); }, SavePos);
+        K.DragOrClick(this, root, () => { lastTouch = DateTime.Now; Squish(); Wiggle(); if (!Tickle()) Clicked?.Invoke(); }, SavePos);
         root.PointerReleased += (_, e) => { if (e.InitialPressMouseButton == MouseButton.Right) { menu.IsOpen = true; if (menu.Child is { } m) K.EnterUp(m, 0, 6); } };
         root.PointerMoved += (_, e) => localMouse = e.GetPosition(root);
         root.PointerExited += (_, _) => { localMouse = null; hover = false; };
@@ -291,6 +291,21 @@ public sealed class MascotWindow : Window
     void Wiggle() { if (!K.Reduced) wiggleUntil = DateTime.Now.AddSeconds(.6); }
     /// <summary>Olhos arregalam por meio segundo (chegou mensagem).</summary>
     void Perk() { if (!K.Reduced) perkUntil = DateTime.Now.AddSeconds(.5); }
+
+    // Carinho (como os companheiros do Grok): vários cliques rápidos fazem ele rir em vez de abrir o painel.
+    readonly Queue<DateTime> taps = new();
+    static readonly string[] TickleLines = ["Hehe, faz cócegas!", "Ei! Eu tô trabalhando aqui 😄", "Tá bom, tá bom, eu tô acordado!", "Você é o melhor chefe.", "Mais um e eu solto faísca!"];
+    bool Tickle()
+    {
+        var now = DateTime.Now;
+        taps.Enqueue(now);
+        while (taps.Count > 0 && now - taps.Peek() > TimeSpan.FromSeconds(2)) taps.Dequeue();
+        if (taps.Count < 4) return false;
+        taps.Clear();
+        Celebrate();
+        Say("AgentC", TickleLines[rnd.Next(TickleLines.Length)]);
+        return true;
+    }
 
     void Squish()
     {

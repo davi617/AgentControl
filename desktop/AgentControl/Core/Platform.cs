@@ -30,8 +30,8 @@ public static class Platform
 
     public static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
-    /// <summary>Pasta dos agentes (loops, lançadores, modelos): ~/.config/dw-agents nos três sistemas.</summary>
-    public static string AgentsDir => Path.Combine(Home, ".config", "dw-agents");
+    /// <summary>Pasta dos agentes (loops, lançadores, modelos): ~/.config/agent-control nos três sistemas.</summary>
+    public static string AgentsDir => Path.Combine(Home, ".config", "agent-control");
 
     /// <summary>Expande %VAR% (Windows), $VAR e ~ (Linux/macOS).</summary>
     public static string Expand(string p)
@@ -291,7 +291,7 @@ public static class Platform
 
     /// <summary>
     /// O loop do agente está rodando? Windows: o loop segura o mutex AgentLoop-&lt;agente&gt;.
-    /// Linux/macOS: tools/agentes/agent-loop.sh grava o PID em ~/.config/dw-agents/night-logs/&lt;agente&gt;.pid.
+    /// Linux/macOS: tools/agentes/agent-loop.sh grava o PID em ~/.config/agent-control/night-logs/&lt;agente&gt;.pid.
     /// </summary>
     public static bool LoopAlive(string agent)
     {

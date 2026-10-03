@@ -1,5 +1,5 @@
 // Modelo e força (raciocínio) de cada agente, escolhidos pelo dono no JARVIS/app (2026-09-26).
-// Só opções da lista. Grava só na pasta dos agentes (dw-agents): o Claude e o Codex pessoais do dono não mudam.
+// Só opções da lista. Grava só na pasta dos agentes (agent-control): o Claude e o Codex pessoais do dono não mudam.
 //   model-choice.json { agente: { model, effort } } → provider-ring-manager.js aplica na config de cada CLI
 //   effort-<agente>.txt → o launcher passa na linha de comando (--effort, --reasoning, --thinking)
 //   claude-route.txt  → "nvidia" (9Router) ou o modelo Claude da assinatura do dono

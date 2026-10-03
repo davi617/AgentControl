@@ -5,7 +5,7 @@
 # ("codex exec", sem tela interativa); o codex.cmd normal continua abrindo a janela do Codex.
 # -Agentes: lista escolhida no Agent Control (Ajustes > Seu time). Sem ela, liga os 7 de sempre.
 param([string]$Agentes = 'claude,codex,droid,hermes,openclaw,opencode,qwen')
-$root = Join-Path $env:USERPROFILE '.config\dw-agents'
+$root = Join-Path $env:USERPROFILE '.config\agent-control'
 $loop = Join-Path $PSScriptRoot 'agentes\agent-loop.ps1'
 foreach ($a in ($Agentes -split '[,; ]+' | Where-Object { $_ } | ForEach-Object { $_.ToLower() })) {
   $launcher = Join-Path $root "launchers\$a-loop.cmd"

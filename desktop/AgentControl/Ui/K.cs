@@ -342,7 +342,7 @@ public static class K
     public static string Nice(string id) => id.ToUpperInvariant() switch
     {
         "OPENCODE" => "OpenCode", "OPENCLAW" => "OpenClaw", "CHATGPT" => "ChatGPT", "OUTRO" => "Outros", "CHAMADA" => "Chamada", "JARVIS" or "AGENTC" => "AgentC",
-        "QA" => "QA", "SEGURANCA" => "Segurança", "DEVOPS" => "DevOps",
+        "QA" => "QA", "AMP" => "Amp", "CURSOR" => "Cursor", "SEGURANCA" => "Segurança", "DEVOPS" => "DevOps",
         _ => id.Length <= 1 ? id : char.ToUpperInvariant(id[0]) + id[1..].ToLowerInvariant(),
     };
 

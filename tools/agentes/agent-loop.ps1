@@ -7,9 +7,9 @@ param(
   [int]$EsperarJanela=0     # PID de uma janela cmd com o agente ainda rodando: espera ele terminar antes
 )
 $ErrorActionPreference='Continue'
-$root=Join-Path $env:USERPROFILE '.config\dw-agents'
+$root=Join-Path $env:USERPROFILE '.config\agent-control'
 $repo=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
-$worktree=Join-Path (Join-Path $env:USERPROFILE 'Documents\Codex') ('agent-'+$Agent.ToLower())
+$worktree=Join-Path (Join-Path $env:USERPROFILE 'AgentControl') ('agent-'+$Agent.ToLower())
 try {
   $config=Get-Content (Join-Path $repo 'jarvis.config.json') -Raw | ConvertFrom-Json
   $configured=@($config.projects | ForEach-Object { $_.agents } | Where-Object { $_.id -ieq $Agent -and $_.worktree }) | Select-Object -First 1

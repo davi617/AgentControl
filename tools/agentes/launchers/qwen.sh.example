@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Exemplo (Linux/macOS). Copie para ~/.config/dw-agents/launchers/qwen.sh e ajuste.
+# Exemplo (Linux/macOS). Copie para ~/.config/agent-control/launchers/qwen.sh e ajuste.
 # O agent-loop.sh já entrega: $WORKTREE (pasta do agente), $PROMPT (ordem padrão) e as funções de comum.sh.
 set -e
 cd "$WORKTREE"
-MODEL="$(cat "$HOME/.config/dw-agents/active-model-qwen.txt" 2>/dev/null || echo nvidia/moonshotai/kimi-k3)"
+MODEL="$(cat "$HOME/.config/agent-control/active-model-qwen.txt" 2>/dev/null || echo nvidia/moonshotai/kimi-k3)"
 exec qwen --auth-type openai --openai-base-url "${ROUTER_URL:-http://127.0.0.1:20129}/a/qwen/v1" --openai-api-key "$(router_key)" -m "$MODEL" -o text --approval-mode auto-edit "$PROMPT"

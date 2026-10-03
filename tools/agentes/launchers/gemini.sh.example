@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exemplo (Linux/macOS). Copie para ~/.config/dw-agents/launchers/gemini.sh e ajuste.
+# Exemplo (Linux/macOS). Copie para ~/.config/agent-control/launchers/gemini.sh e ajuste.
 # O agent-loop.sh já entrega: $WORKTREE (pasta do agente), $PROMPT (ordem padrão) e as funções de comum.sh.
 set -e
 cd "$WORKTREE"

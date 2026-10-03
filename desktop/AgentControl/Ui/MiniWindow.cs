@@ -40,7 +40,7 @@ public sealed class MiniWindow : Window
 
         input = new TextBox
         {
-            Watermark = "Escreva para os agentes…", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, MaxHeight = 150, FontSize = 13.5, FontFamily = K.Ui,
+            Watermark = "Escreva para os agentes… (ou \"lembra que…\" para o AgentC)", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, MaxHeight = 150, FontSize = 13.5, FontFamily = K.Ui,
             Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, Padding = new Thickness(0),
         };
         input.AddHandler(KeyDownEvent, (_, e) =>
@@ -147,6 +147,8 @@ public sealed class MiniWindow : Window
         var text = (input.Text ?? "").Trim();
         if (text.Length == 0) { Flash("Escreva a mensagem primeiro.", K.Warn); return; }
         if (sending) return;
+        // "lembra que…", "o que você lembra", "esquece": quem responde é o AgentC, sem ir para a sala.
+        if (AgentControl.Core.Memory.Handle(text) is { } reply) { input.Text = ""; host.Mascot.Say("AgentC", reply); Flash(reply, K.Ok); return; }
         sending = true;
         status.Text = "Enviando…"; status.Foreground = K.Muted;
         var err = await host.Api.SendChat(text, to);

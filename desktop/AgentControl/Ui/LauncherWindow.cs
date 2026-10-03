@@ -92,6 +92,7 @@ public sealed class LauncherWindow : Window
         {
             if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key >= Key.D1 && e.Key <= Key.D6) { ShowTab((Tab)(e.Key - Key.D1)); e.Handled = true; }
             else if (e.Key == Key.F5) { e.Handled = true; await Refresh(); }
+            else if (e.Key == Key.Escape && overlay.IsVisible) { e.Handled = true; K.Fade(overlay, 0, 140, K.InQuad, done: () => overlay.IsVisible = false); }
         };
         Opened += async (_, _) =>
         {
@@ -263,6 +264,7 @@ public sealed class LauncherWindow : Window
                 : alive.Count == 0 ? "Toque em Ligar agentes: os loops não voltam sozinhos quando o PC reinicia."
                 : $"{working} trabalhando agora · {snap.Pending} {(snap.Pending == 1 ? "aprovação esperando" : "aprovações esperando")} · {snap.TasksDone}/{snap.TasksTotal} tarefas do Goal";
 
+            Title = (snap.Pending > 0 ? $"({snap.Pending}) " : "") + (exposed ? "Agent Control · ATENÇÃO" : !allOn ? "Agent Control · serviços desligados" : snap.Paused ? "Agent Control · pausado" : $"Agent Control · {working} trabalhando");
             pipeline.Children.Clear();
             Step("Roteador", $":{svc.Settings.RouterPort}", router);
             Step("Fila anti-429", $":{svc.Settings.GatePort}", gate);
@@ -666,6 +668,14 @@ public sealed class LauncherWindow : Window
         var head = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
         var open = Link("Abrir o arquivo", K.IFile, () => svc.OpenPath(svc.LogPath)).Also(l => l.Margin = new Thickness(0, -6, -6, -6));
         DockPanel.SetDock(open, Dock.Right); head.Children.Add(open);
+        // Copiar: para colar o que deu errado num chat ou issue sem abrir arquivo.
+        Border? copy = null;
+        copy = Link("Copiar", K.IFile, async () =>
+        {
+            var text = string.Join("\n", fullLog.Children.OfType<TextBlock>().Select(t => t.Text));
+            if (TopLevel.GetTopLevel(this)?.Clipboard is { } cb) { await cb.SetTextAsync(text); if (copy?.Child is StackPanel sp && sp.Children[^1] is TextBlock tb) { tb.Text = "Copiado"; DispatcherTimer.RunOnce(() => tb.Text = "Copiar", TimeSpan.FromSeconds(2)); } }
+        }).Also(l => l.Margin = new Thickness(0, -6, 4, -6));
+        DockPanel.SetDock(copy, Dock.Right); head.Children.Add(copy);
         head.Children.Add(K.Label("Atividade do Launcher").Also(l => l.Margin = new Thickness(0)));
         var left = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Children = { head } };
         var card = new Border { Background = K.Side, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Padding = new Thickness(16, 12), Child = fullLogScroll };
@@ -820,6 +830,7 @@ public sealed class LauncherWindow : Window
         var pick = st.CallPeople.Select(x => x.ToUpperInvariant()).ToHashSet();
         bool auto = st.CallAutoAdvance, voice = st.CallVoice;
         List<(string Id, string Papel, bool Virtual)> people = [];
+        var loadingPeople = true;
         var col = new StackPanel { Spacing = 10 };
         col.Children.Add(K.Label("Chamada no painel").Also(l => l.Margin = new Thickness(0)));
         col.Children.Add(K.Wrap("A chamada com o time abre no painel do AgentC (aba Chamada), sem navegador. Aqui fica o que já vem escolhido quando você começa uma.", 12.5, K.Muted));
@@ -854,7 +865,7 @@ public sealed class LauncherWindow : Window
             foreach (var (id, name, about) in new[] { ("debate", "Debate", "cada um defende o ponto do seu papel"), ("brainstorm", "Ideias", "constroem em cima das ideias dos outros"), ("revisao", "Revisão", "procuram riscos, bugs e o que falta testar"), ("goal", "Goal", "tocam o Goal ativo sem parar") })
                 modes.Children.Add(Chip(name, modo == id, () => modo = id, about));
             who.Children.Clear();
-            if (people.Count == 0) who.Children.Add(K.T(snap.Online ? "Carregando…" : "Ligue o servidor para escolher quem entra. Sem escolha, entra o time todo.", 12.5, K.Muted));
+            if (people.Count == 0) who.Children.Add(K.T(loadingPeople ? "Carregando…" : "Ligue o servidor para escolher quem entra. Sem escolha, entra o time todo.", 12.5, K.Muted));
             foreach (var p in people)
             {
                 var on = pick.Count == 0 ? !p.Virtual : pick.Contains(p.Id);
@@ -883,11 +894,13 @@ public sealed class LauncherWindow : Window
             catch (Exception ex) { toast.Text = $"Não salvei: {ex.Message}"; toast.Foreground = K.Err; }
             return Task.CompletedTask;
         }, primary: true, height: 36);
-        col.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 4, 0, 0), Children = { save, toast.Also(t => t.VerticalAlignment = VerticalAlignment.Center) } });
-        if (snap.Online) _ = Task.Run(async () =>
+        var test = K.Button("Testar voz", K.ISound, () => _ = Platform.SpeakAsync("Oi! Eu sou o AgentC. É assim que eu leio as falas da chamada."), primary: false, height: 36);
+        col.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 4, 0, 0), Children = { save, test, toast.Also(t => t.VerticalAlignment = VerticalAlignment.Center) } });
+        // Pergunta direto ao servidor (o "snap" pode ainda não ter chegado quando a aba abre).
+        _ = Task.Run(async () =>
         {
             var list = await api.CallPeopleAsync();
-            Dispatcher.UIThread.Post(() => { people = list; Draw(); });
+            Dispatcher.UIThread.Post(() => { people = list; loadingPeople = false; Draw(); });
         });
         return col;
     }

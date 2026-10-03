@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Exemplo (Linux/macOS). Copie para ~/.config/dw-agents/launchers/claude.sh e ajuste.
+# Exemplo (Linux/macOS). Copie para ~/.config/agent-control/launchers/claude.sh e ajuste.
 # O agent-loop.sh já entrega: $WORKTREE (pasta do agente), $PROMPT (ordem padrão) e as funções de comum.sh.
 set -e
 cd "$WORKTREE"
 # Claude isolado: config própria (não mexe no Claude do usuário) e chave da fila só neste processo.
-export CLAUDE_CONFIG_DIR="$HOME/.config/dw-agents/claude-agent-home"
+export CLAUDE_CONFIG_DIR="$HOME/.config/agent-control/claude-agent-home"
 export ANTHROPIC_BASE_URL="${ROUTER_URL:-http://127.0.0.1:20129}/a/claude/v1"
 export ANTHROPIC_AUTH_TOKEN="$(router_key)"
 exec claude -p "$PROMPT" --permission-mode acceptEdits \

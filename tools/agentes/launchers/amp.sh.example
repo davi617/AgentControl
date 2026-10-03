@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Exemplo (Linux/macOS). Copie para ~/.config/agent-control/launchers/opencode.sh e ajuste.
+# Exemplo (Linux/macOS). Copie para ~/.config/agent-control/launchers/amp.sh e ajuste.
 # O agent-loop.sh já entrega: $WORKTREE (pasta do agente), $PROMPT (ordem padrão) e as funções de comum.sh.
 set -e
 cd "$WORKTREE"
-exec opencode run --auto "$PROMPT"
+# Amp (Sourcegraph), no login do Amp.
+exec amp -x "$PROMPT"
