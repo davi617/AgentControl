@@ -329,7 +329,7 @@ public sealed class LauncherWindow : Window
         var util = new WrapPanel { Margin = new Thickness(-8, 2, 0, 0) };
         util.Children.Add(Link("Configuração", K.ISettings, () => svc.OpenPath(svc.SettingsPath)));
         util.Children.Add(Link("Sala no Obsidian", K.IBook, () => svc.OpenObsidianNote(svc.Settings.SalaNote)));
-        util.Children.Add(Link("Sala no navegador", K.IOpen, svc.OpenJarvisWindow));
+        util.Children.Add(Link("Chamada no painel", K.IPhone, () => _ = OpenPanel("call")));
         left.Children.Add(util);
         body.Children.Add(Scroll(left));
         var right = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, Content = agentCards };
@@ -729,6 +729,7 @@ public sealed class LauncherWindow : Window
             return g;
         }
         v.Children.Add(K.Card(TeamPicker(), 18, new Thickness(20, 16)));
+        v.Children.Add(K.Card(CallSettings(), 18, new Thickness(20, 16)));
         var info = new StackPanel();
         info.Children.Add(K.Label("Este PC"));
         info.Children.Add(Row("Sistema", $"{Platform.Name} · {System.Runtime.InteropServices.RuntimeInformation.OSDescription}"));
@@ -808,6 +809,89 @@ public sealed class LauncherWindow : Window
         return col;
     }
 
+    /// <summary>
+    /// Ajustes da chamada que roda no painel do HUD: modo e quem já vêm marcados, avançar sozinho e voz.
+    /// Grava no settings.json; o HUD relê a cada poucos segundos (não precisa reabrir nada).
+    /// </summary>
+    Control CallSettings()
+    {
+        var st = svc.Settings;
+        var modo = st.CallModo;
+        var pick = st.CallPeople.Select(x => x.ToUpperInvariant()).ToHashSet();
+        bool auto = st.CallAutoAdvance, voice = st.CallVoice;
+        List<(string Id, string Papel, bool Virtual)> people = [];
+        var col = new StackPanel { Spacing = 10 };
+        col.Children.Add(K.Label("Chamada no painel").Also(l => l.Margin = new Thickness(0)));
+        col.Children.Add(K.Wrap("A chamada com o time abre no painel do AgentC (aba Chamada), sem navegador. Aqui fica o que já vem escolhido quando você começa uma.", 12.5, K.Muted));
+        var modes = new WrapPanel();
+        var who = new WrapPanel();
+        var toggles = new StackPanel { Spacing = 8 };
+        var toast = K.T("", 12.5, K.Ok);
+        Border Chip(string text, bool on, Action go, string? tip = null, string? avatar = null)
+        {
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+            if (avatar is not null) row.Children.Add(K.Avatar(avatar, 20));
+            row.Children.Add(K.T(text, 12.5, on ? K.OnBrand : K.Text2, FontWeight.SemiBold));
+            var c = new Border { CornerRadius = new CornerRadius(11), Padding = new Thickness(avatar is null ? 12 : 7, 6, 12, 6), Margin = new Thickness(0, 0, 8, 8), Background = on ? K.Brand : K.Raised, BorderBrush = K.Line, BorderThickness = new Thickness(on ? 0 : 1), Child = row };
+            if (tip is not null) c.Tip(tip);
+            K.Pressable(c, () => { toast.Text = ""; go(); Draw(); });
+            return c;
+        }
+        Control Toggle(string title, string about, bool on, Action flip)
+        {
+            var knob = new Border { Width = 16, Height = 16, CornerRadius = new CornerRadius(8), Background = on ? K.OnBrand : K.Muted, HorizontalAlignment = on ? HorizontalAlignment.Right : HorizontalAlignment.Left, Margin = new Thickness(3, 0) };
+            var sw = new Border { Width = 40, Height = 22, CornerRadius = new CornerRadius(11), Background = on ? K.Brand : K.Raised, BorderBrush = K.Line, BorderThickness = new Thickness(on ? 0 : 1), Child = knob, VerticalAlignment = VerticalAlignment.Center };
+            var g = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), Background = Brushes.Transparent, Cursor = new Cursor(StandardCursorType.Hand) };
+            g.Children.Add(sw);
+            var txt = new StackPanel { Margin = new Thickness(12, 0, 0, 0), Spacing = 1, Children = { K.T(title, 13, K.Text, FontWeight.SemiBold), K.T(about, 11.5, K.Muted) } };
+            Grid.SetColumn(txt, 1); g.Children.Add(txt);
+            K.Pressable(g, () => { toast.Text = ""; flip(); Draw(); });
+            return g;
+        }
+        void Draw()
+        {
+            modes.Children.Clear();
+            foreach (var (id, name, about) in new[] { ("debate", "Debate", "cada um defende o ponto do seu papel"), ("brainstorm", "Ideias", "constroem em cima das ideias dos outros"), ("revisao", "Revisão", "procuram riscos, bugs e o que falta testar"), ("goal", "Goal", "tocam o Goal ativo sem parar") })
+                modes.Children.Add(Chip(name, modo == id, () => modo = id, about));
+            who.Children.Clear();
+            if (people.Count == 0) who.Children.Add(K.T(snap.Online ? "Carregando…" : "Ligue o servidor para escolher quem entra. Sem escolha, entra o time todo.", 12.5, K.Muted));
+            foreach (var p in people)
+            {
+                var on = pick.Count == 0 ? !p.Virtual : pick.Contains(p.Id);
+                var id = p.Id;
+                who.Children.Add(Chip(K.Nice(p.Id), on, () =>
+                {
+                    if (pick.Count == 0) foreach (var x in people.Where(x => !x.Virtual)) pick.Add(x.Id);
+                    if (!pick.Remove(id)) pick.Add(id);
+                    if (pick.SetEquals(people.Where(x => !x.Virtual).Select(x => x.Id))) pick.Clear();
+                }, p.Papel + (p.Virtual ? " · especialista: só opina na chamada" : ""), p.Id));
+            }
+            toggles.Children.Clear();
+            toggles.Children.Add(Toggle("Avançar sozinho", "Os agentes falam um depois do outro até pararem para esperar você. Desligado: botão Próxima fala.", auto, () => auto = !auto));
+            toggles.Children.Add(Toggle("Ler as falas em voz alta", "Usa a voz do sistema deste PC. Dá para calar na hora pelo botão de som no painel.", voice, () => voice = !voice));
+        }
+        Draw();
+        col.Children.Add(K.T("Modo que já vem marcado", 12, K.Text2, FontWeight.SemiBold));
+        col.Children.Add(modes);
+        col.Children.Add(K.T("Quem entra", 12, K.Text2, FontWeight.SemiBold));
+        col.Children.Add(who);
+        col.Children.Add(toggles);
+        var save = Action("Salvar ajustes da chamada", K.ICheck, () =>
+        {
+            st.CallModo = modo; st.CallPeople = pick.ToList(); st.CallAutoAdvance = auto; st.CallVoice = voice;
+            try { svc.Save(); toast.Text = "Salvo. O painel já usa os ajustes novos na próxima chamada."; toast.Foreground = K.Ok; svc.Log("Ajustes da chamada salvos."); }
+            catch (Exception ex) { toast.Text = $"Não salvei: {ex.Message}"; toast.Foreground = K.Err; }
+            return Task.CompletedTask;
+        }, primary: true, height: 36);
+        col.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 12, Margin = new Thickness(0, 4, 0, 0), Children = { save, toast.Also(t => t.VerticalAlignment = VerticalAlignment.Center) } });
+        if (snap.Online) _ = Task.Run(async () =>
+        {
+            var list = await api.CallPeopleAsync();
+            Dispatcher.UIThread.Post(() => { people = list; Draw(); });
+        });
+        return col;
+    }
+
     // ======================================================================= diálogo e ações
     /// <summary>Pergunta "tem certeza?" dentro da própria janela (igual nos três sistemas).</summary>
     void Confirm(string title, string text, string yesText, Action yes)
@@ -847,11 +931,13 @@ public sealed class LauncherWindow : Window
     }
 
     /// <summary>Abre a tela completa no HUD (outro processo) por um aviso local.</summary>
-    async Task OpenPanel()
+    async Task OpenPanel() => await OpenPanel("full");
+
+    async Task OpenPanel(string what)
     {
-        if (Signal.Send("full")) return;
+        if (Signal.Send(what)) return;
         Program.StartHud();
-        for (var i = 0; i < 10; i++) { await Task.Delay(500); if (Signal.Send("full")) return; }
+        for (var i = 0; i < 10; i++) { await Task.Delay(500); if (Signal.Send(what)) return; }
         svc.Log("O HUD ainda está abrindo; tente de novo em alguns segundos.");
     }
 

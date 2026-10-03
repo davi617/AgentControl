@@ -48,7 +48,8 @@ public static class K
         IFolder = "M3 6h6l2 2h10v11H3z", IFile = "M6 3h8l4 4v14H6z M14 3v4h4", IRefresh = "M20 11a8 8 0 1 0-2.3 5.7 M20 4v7h-7",
         IApps = "M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z", IBook = "M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3z M5 17a3 3 0 0 1 3-3h11",
         ILogs = "M9 6h11 M9 12h11 M9 18h11 M4 6h1 M4 12h1 M4 18h1", IChip = "M7 7h10v10H7z M10 3v4 M14 3v4 M10 17v4 M14 17v4 M3 10h4 M3 14h4 M17 10h4 M17 14h4",
-        IAdd = "M12 5v14 M5 12h14", IShield = "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z", ITerminal = "M4 5h16v14H4z M8 10l3 2-3 2 M13 15h3", IMore = "F:M5 10.5h3v3H5z M10.5 10.5h3v3h-3z M16 10.5h3v3h-3z";
+        IAdd = "M12 5v14 M5 12h14", IShield = "M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z", ITerminal = "M4 5h16v14H4z M8 10l3 2-3 2 M13 15h3", IMore = "F:M5 10.5h3v3H5z M10.5 10.5h3v3h-3z M16 10.5h3v3h-3z",
+        ISound = "M4 9h4l5-4v14l-5-4H4z M16.5 8.5a5 5 0 0 1 0 7 M19 6a8.5 8.5 0 0 1 0 12", IMute = "M4 9h4l5-4v14l-5-4H4z M17 9l5 6 M22 9l-5 6";
 
     /// <summary>Ícone vetorial (cor trocável depois por <see cref="Ico.Color"/>).</summary>
     public static Ico Icon(string data, double size = 15, IBrush? c = null) => new(data, size, c ?? Text);
@@ -341,6 +342,7 @@ public static class K
     public static string Nice(string id) => id.ToUpperInvariant() switch
     {
         "OPENCODE" => "OpenCode", "OPENCLAW" => "OpenClaw", "CHATGPT" => "ChatGPT", "OUTRO" => "Outros", "CHAMADA" => "Chamada", "JARVIS" or "AGENTC" => "AgentC",
+        "QA" => "QA", "SEGURANCA" => "Segurança", "DEVOPS" => "DevOps",
         _ => id.Length <= 1 ? id : char.ToUpperInvariant(id[0]) + id[1..].ToLowerInvariant(),
     };
 

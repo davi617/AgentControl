@@ -193,15 +193,36 @@ footer .wrap a:hover{color:var(--text)}
   .moods{grid-template-columns:repeat(3,1fr)}
   .grid3,.dl{grid-template-columns:1fr 1fr}
   nav .links{display:none}
-  .bubble{left:50%;top:-34px;transform:translateX(-50%)}
+  nav .wrap>.btn{margin-left:auto}
+  /* "translate" e não "transform": a animação do balão escreve no transform e tirava o centro (estourava a tela no celular) */
+  .bubble{left:50%;top:-40px;transform:none;translate:-50% 0}
 }
 @media (max-width:600px){
+  .hero{padding:64px 0 44px}
+  .mascot-stage{width:190px;height:190px}
+  .pill{font-size:12px;padding:5px 12px}
+  .pill .pill-os{display:none}
+  .lead{font-size:16px;margin-bottom:26px}
+  .cta .btn{flex:1 1 150px;justify-content:center}
+  .os-row{gap:6px 12px;font-size:12px}
+  .os-row span:nth-child(even){display:none}
   .moods{grid-template-columns:1fr 1fr}
   .grid3,.dl{grid-template-columns:1fr}
   .launcher{display:none}
+  .desk{aspect-ratio:4/3}
+  .hud{zoom:.78}
+  .panel{width:78%}
   .mini-bubble{max-width:70%}
-  section{padding:70px 0}
+  .phone{width:min(300px,86vw);height:580px}
+  section{padding:64px 0}
+  .term pre{font-size:12px;padding:14px}
+  .final{padding:80px 0 110px}
+  .m-cta{display:flex}
 }
+/* Celular: botão de baixar sempre à mão; some quando a seção de downloads aparece */
+.m-cta{display:none;position:fixed;left:16px;right:16px;bottom:14px;z-index:60;justify-content:center;box-shadow:0 12px 30px rgba(0,0,0,.55);transition:opacity .25s,translate .25s}
+.m-cta.away{opacity:0;translate:0 20px;pointer-events:none}
+@media (max-width:600px){.m-cta{display:flex}}
 @media (prefers-reduced-motion:reduce){.reveal,.msg,.approve,.panel,.bubble,.mini-bubble{opacity:1!important}.dot{animation:none}}
 </style>
 </head>
@@ -226,7 +247,7 @@ footer .wrap a:hover{color:var(--text)}
     </svg>
     <div class="bubble" id="heroBubble"><b id="hbWho">AgentC</b><span id="hbText">Oi! Eu cuido do seu time.</span></div>
   </div>
-  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT · Windows, Linux, macOS e Android</span>
+  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT<span class="pill-os"> · Windows, Linux, macOS e Android</span></span>
   <h1 id="title"><span class="word">Seu</span> <span class="word">time</span> <span class="word">de</span> <span class="word grad">agentes</span> <span class="word grad">de</span> <span class="word grad">IA</span> <span class="word">num</span> <span class="word">só</span> <span class="word">lugar.</span></h1>
   <p class="lead reveal-hero">Claude Code, Codex, Gemini, Qwen, Hermes e outros trabalhando juntos. Sala de conversa, ordens com aprovação, HUD no topo da tela, app no celular e o <b style="color:var(--brand-text)">AgentC</b> avisando tudo.</p>
   <div class="cta reveal-hero">
@@ -286,7 +307,7 @@ footer .wrap a:hover{color:var(--text)}
     <p class="sub">Veja os agentes conversando, mande ordens, aprove o que é sensível com um toque e ligue para o time por voz. O acesso de fora é só pelo Tailscale, com token. Nada fica exposto na internet.</p>
     <div class="side-list" style="margin-top:26px">
       <div class="feat"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg></span>Aprovação por comando</h3><p>Deploy, push, merge e apagar ficam esperando você. Cada aprovação vale só para aquele comando.</p></div>
-      <div class="feat"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>Chamada com o time</h3><p>Fale e ouça os agentes. No fim, a ata fica salva.</p></div>
+      <div class="feat"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5 11a7 7 0 0 0 14 0M12 18v3"/></svg></span>Chamada com o time</h3><p>Fale e ouça os agentes no celular, ou converse pelo painel do PC. No fim, a ata fica salva.</p></div>
     </div>
   </div>
   <div class="phone reveal" id="phone">
@@ -344,6 +365,7 @@ footer .wrap a:hover{color:var(--text)}
   <div class="cta"><a class="btn primary" href="#baixar">Baixar grátis</a><a class="btn" href="https://github.com/davi617/AgentControl">Dar uma estrela no GitHub</a></div>
 </div></section>
 
+<a class="btn primary m-cta" id="mCta" href="#baixar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 21h16"/></svg>Baixar grátis</a>
 <footer><div class="wrap">
   <span class="logo"><img src="img/agentc.png" alt="" style="width:22px">Agent Control</span>
   <span>Licença MIT</span>
@@ -456,6 +478,11 @@ const io = new IntersectionObserver(es => es.forEach(e => {
   e.target.dispatchEvent(new Event('shown'));
 }), { threshold: .15 });
 $$('.reveal').forEach(el => reduce ? (el.style.opacity = 1) : io.observe(el));
+
+/* botão de baixar do celular: some no topo (o herói já tem) e quando os downloads estão na tela */
+const mCta = $('#mCta'), dlSec = $('#baixar');
+const ctaSync = () => { const r = dlSec.getBoundingClientRect(); mCta.classList.toggle('away', scrollY < 500 || (r.top < innerHeight && r.bottom > 0)); };
+addEventListener('scroll', ctaSync, { passive: true }); ctaSync();
 
 /* ---------- demo do PC ---------- */
 const HUD = ['claude', 'codex', 'qwen', 'hermes', 'opencode', 'openclaw', 'droid'];

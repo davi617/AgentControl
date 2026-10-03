@@ -19,6 +19,13 @@ public sealed class HudHost
     public HudSnapshot Snap { get; private set; } = HudSnapshot.Offline;
     public (string Speaker, string Text)? LastCaption { get; private set; }
     public bool Pumping { get; private set; }
+    /// <summary>Esperando o modelo responder a próxima fala.</summary>
+    public bool Thinking { get; private set; }
+    /// <summary>Ler as falas em voz alta (começa pelo ajuste do Launcher; o botão do painel troca só nesta sessão).</summary>
+    public bool VoiceOn { get; private set; }
+    public LauncherSettings Settings { get; private set; } = HudApi.ReadSettings();
+    bool? lastVoiceSetting;
+    CancellationTokenSource? voiceCts;
 
     readonly IClassicDesktopStyleApplicationLifetime desk;
     internal readonly MascotWindow Mascot;
@@ -49,7 +56,7 @@ public sealed class HudHost
         {
             case "hud": OpenHud(0); break;
             case "mini": OpenMini(); break;
-            case "web": OpenWeb(); break;
+            case "web": OpenHud(2); break; // chamada agora fica no painel (antes abria a página antiga no navegador)
             case "goal": StartGoal(); break;
             case "launcher": OpenLauncher(); break;
             case "full": OpenFull(); break;
@@ -66,6 +73,7 @@ public sealed class HudHost
             else if (msg == "show") { if (hidden) ShowAll(); } // o Launcher abrindo não deve abrir o painel por cima dele
             else if (msg == "hud") { if (hidden) ShowAll(); OpenHud(0); }
             else if (msg == "mini") { if (hidden) ShowAll(); OpenMini(); }
+            else if (msg == "call") { if (hidden) ShowAll(); OpenHud(2); }
             else if (msg == "esconder") HideAll();
             else if (msg == "demo") { if (hidden) ShowAll(); Mascot.Celebrate(); DispatcherTimer.RunOnce(() => Mascot.Say("AgentC", "Oi! Assim eu fico quando um agente fala com você: a boca mexe e a onda sai de mim."), TimeSpan.FromSeconds(2.6)); }
         }));
@@ -111,13 +119,16 @@ public sealed class HudHost
             Hud.Refresh();
             if (Mini.IsVisible) Mini.Refresh();
             if (Full.IsVisible) Full.Refresh();
-            if (Snap.Online && Snap.CallStatus == "ATIVA" && Snap.CallModo == "goal" && !Pumping) _ = Pump();
-            if (!Snap.CallActive) LastCaption = null;
+            // Chamada no painel: os agentes falam um atrás do outro sozinhos (Goal sempre; os outros modos se o ajuste mandar).
+            Settings = HudApi.ReadSettings();
+            if (Settings.CallVoice != lastVoiceSetting) { lastVoiceSetting = Settings.CallVoice; VoiceOn = Settings.CallVoice; }
+            if (Snap.Online && Snap.CallStatus == "ATIVA" && (Snap.CallModo == "goal" || Settings.CallAutoAdvance) && !Pumping) _ = Pump();
+            if (!Snap.CallActive) { LastCaption = null; voiceCts?.Cancel(); }
         }
         finally { polling = false; }
     }
 
-    /// <summary>Modo Goal: pede a próxima fala até a chamada parar (o servidor junta pedidos iguais do celular).</summary>
+    /// <summary>Pede a próxima fala até a chamada parar ou esperar você (o servidor junta pedidos iguais do celular).</summary>
     async Task Pump()
     {
         Pumping = true;
@@ -125,15 +136,57 @@ public sealed class HudHost
         {
             for (var i = 0; i < 600; i++)
             {
-                var t = await Api.CallNext();
-                if (t is null) break;
-                LastCaption = t;
-                Mascot.Say(t.Value.Speaker, t.Value.Text);
-                Hud.Refresh();
+                if (!await NextTurn()) break;
+                if (Snap.CallModo != "goal" && !Settings.CallAutoAdvance) break;
             }
         }
         finally { Pumping = false; }
     }
+
+    /// <summary>Uma fala: mostra no balão e no painel e, com a voz ligada, lê em voz alta antes da próxima.</summary>
+    async Task<bool> NextTurn()
+    {
+        Thinking = true; Hud.Refresh();
+        var t = await Api.CallNext();
+        Thinking = false;
+        if (t is null) { Hud.Refresh(); return false; }
+        LastCaption = t;
+        Mascot.Say(t.Value.Speaker, t.Value.Text);
+        Snap = await Api.SnapshotAsync();
+        Hud.Refresh();
+        if (VoiceOn)
+        {
+            voiceCts = new CancellationTokenSource();
+            await Platform.SpeakAsync(t.Value.Text, voiceCts.Token);
+        }
+        return true;
+    }
+
+    /// <summary>Botão "Próxima fala" (avançar sozinho desligado).</summary>
+    public async void CallNextManual() { if (!Pumping) { Pumping = true; try { await NextTurn(); } finally { Pumping = false; } } }
+
+    public void ToggleVoice() { VoiceOn = !VoiceOn; if (!VoiceOn) voiceCts?.Cancel(); Hud.Refresh(); }
+
+    /// <summary>Começa uma chamada pelo painel e já põe o primeiro agente para falar.</summary>
+    public async Task<string?> StartCall(string topic, IEnumerable<string> who, string modo)
+    {
+        var err = await Api.StartCall(topic, who, modo);
+        if (err is not null) return err;
+        Mascot.Say("AgentC", modo == "goal" ? "Modo Goal ligado. O time está tocando o Goal." : "Chamada começou. O time vai falar aqui no painel.");
+        await Poll();
+        return null;
+    }
+
+    /// <summary>Você fala na chamada (texto); os agentes respondem em seguida.</summary>
+    public async Task<string?> CallSay(string text)
+    {
+        var err = await Api.CallSay(text);
+        await Poll();
+        return err;
+    }
+
+    public async Task<string?> CallRound() { var e = await Api.CallRound(); await Poll(); return e; }
+    public async Task<string?> CallTurn(string agent) { var e = await Api.CallTurn(agent); await Poll(); return e; }
 
     // ---------- abrir / fechar ----------
     void Toggle()
