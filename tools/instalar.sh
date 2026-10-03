@@ -15,7 +15,7 @@ case "$OS-$ARCH" in
   Darwin-arm64) RID=osx-arm64 ;; Darwin-x86_64) RID=osx-x64 ;;
   *) echo "Sistema não suportado: $OS $ARCH"; exit 1 ;;
 esac
-if [ "$OS" = Linux ] && ldd --version 2>&1 | grep -qi musl; then
+if [ "$OS" = Linux ] && (ldd --version 2>&1 || true) | grep -qi musl; then
   case "$ARCH" in
     x86_64) RID=linux-musl-x64 ;;
     *) echo 'Desktop musl disponível somente para x64 nesta versão. Use --sem-app para servidor.'; [ "$APP" = 0 ] || exit 1 ;;
