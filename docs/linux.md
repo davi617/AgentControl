@@ -30,6 +30,18 @@ O modo servidor `--sem-app` dispensa as dependências gráficas e o SDK .NET. Au
 
 A CI `Linux distributions` executa o binário real em contêineres Arch, Ubuntu, Debian, Fedora e openSUSE x64, e Ubuntu/Debian ARM64 nativos. Confere os testes do servidor, configuração inicial, mudanças de time, preservação de dados e renderização das janelas em X11/Xvfb. A aprovação depende do resultado da execução, consultável na aba Actions; criar um job não equivale a ter passado nele.
 
+Validação de 03/10/2026: **todos os sete ambientes passaram**, com 100 testes do servidor por ambiente e as verificações nativas. [Execução e logs](../../../actions/runs/37097820036).
+
+| Distribuição testada | Arquitetura | Resultado |
+|---|---|---|
+| Arch Linux (rolling) | x64 | PASS |
+| Ubuntu 22.04 | x64 | PASS |
+| Debian 12 | x64 | PASS |
+| Fedora 44 | x64 | PASS |
+| openSUSE Tumbleweed | x64 | PASS |
+| Ubuntu 24.04 | ARM64 | PASS |
+| Debian 12 | ARM64 | PASS |
+
 Contêineres verificam bibliotecas e execução na distribuição, usando o kernel do runner. Não equivalem a testes manuais de GNOME/KDE, Wayland, bandeja, áudio ou instalação em hardware de cada distro. Derivados compartilham dependências, mas não recebem confirmação individual automática.
 
 ## Limites de compatibilidade

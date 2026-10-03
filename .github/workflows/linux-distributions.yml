@@ -1,7 +1,9 @@
 name: Linux distributions
 on:
   push:
-    branches: [codex/native-platform-smoke]
+    branches: [main, codex/native-platform-smoke]
+  pull_request:
+    paths: ['desktop/**', 'android/app/src/main/res/drawable/**', 'src/**', 'test/**', 'tools/**', 'package*.json', 'jarvis.config.example.json', '.github/workflows/linux-distributions.yml']
   workflow_dispatch:
 permissions:
   contents: read
