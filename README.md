@@ -28,7 +28,7 @@ Windows · Linux · macOS · MIT</p>
 | Linux ARM64 | [AgentControl-linux-arm64.tar.gz](../../releases/latest/download/AgentControl-linux-arm64.tar.gz) |
 | Android 8+ | [AgentControl-android.apk](../../releases/latest/download/AgentControl-android.apk) |
 
-O app do PC já vem com o .NET dentro (não precisa instalar nada). O servidor precisa do Node 24+ (veja o começo rápido).
+O app do PC já vem com o runtime .NET. No Linux, as bibliotecas nativas do sistema também precisam estar instaladas: veja [suporte Linux](docs/linux.md), incluindo Arch. O servidor precisa do Node 24+ (veja o começo rápido).
 No macOS, na primeira vez: botão direito no app → **Abrir** (o app não é assinado pela Apple).
 
 ## Veja funcionando

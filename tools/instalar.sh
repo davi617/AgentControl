@@ -15,6 +15,9 @@ case "$OS-$ARCH" in
   Darwin-arm64) RID=osx-arm64 ;; Darwin-x86_64) RID=osx-x64 ;;
   *) echo "Sistema não suportado: $OS $ARCH"; exit 1 ;;
 esac
+if [ "$OS" = Linux ] && [ "$APP" = 1 ]; then
+  bash "$REPO/tools/linux-deps.sh" --check
+fi
 ok() { printf '\033[32m%s\033[0m\n' "$*"; }
 aviso() { printf '\033[33m%s\033[0m\n' "$*"; }
 
