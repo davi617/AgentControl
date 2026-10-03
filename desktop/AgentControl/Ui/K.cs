@@ -154,12 +154,12 @@ public static class K
 
     // ---------------- peças ----------------
     public static TextBlock T(string s, double size = 13, IBrush? c = null, FontWeight w = FontWeight.Normal, FontFamily? f = null) =>
-        new() { Text = s, FontSize = size, Foreground = c ?? Text, FontWeight = w, FontFamily = f ?? Ui, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
+        new() { Text = AgentControl.Core.Platform.DisplayPath(s), FontSize = size, Foreground = c ?? Text, FontWeight = w, FontFamily = f ?? Ui, TextTrimming = TextTrimming.CharacterEllipsis, VerticalAlignment = VerticalAlignment.Center };
 
     public static TextBlock Wrap(string s, double size = 13, IBrush? c = null, int maxLines = 0, double lineHeight = double.NaN, FontWeight w = FontWeight.Normal, FontFamily? f = null) =>
-        new() { Text = s, FontSize = size, Foreground = c ?? Text, FontWeight = w, FontFamily = f ?? Ui, TextWrapping = TextWrapping.Wrap, MaxLines = maxLines, TextTrimming = maxLines > 0 ? TextTrimming.WordEllipsis : TextTrimming.None, LineHeight = lineHeight };
+        new() { Text = AgentControl.Core.Platform.DisplayPath(s), FontSize = size, Foreground = c ?? Text, FontWeight = w, FontFamily = f ?? Ui, TextWrapping = TextWrapping.Wrap, MaxLines = maxLines, TextTrimming = maxLines > 0 ? TextTrimming.WordEllipsis : TextTrimming.None, LineHeight = lineHeight };
 
-    public static TextBlock Label(string s) => new() { Text = s.ToUpperInvariant(), FontSize = 10.5, Foreground = Muted, FontWeight = FontWeight.SemiBold, FontFamily = Ui, LetterSpacing = .6, Margin = new Thickness(0, 0, 0, 8) };
+    public static TextBlock Label(string s) => new() { Text = AgentControl.Core.Platform.DisplayPath(s).ToUpperInvariant(), FontSize = 10.5, Foreground = Muted, FontWeight = FontWeight.SemiBold, FontFamily = Ui, LetterSpacing = .6, Margin = new Thickness(0, 0, 0, 8) };
 
     public static Border Card(Control child, double radius = 14, Thickness? pad = null) =>
         new() { Background = Surface, BorderBrush = Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(radius), Padding = pad ?? new Thickness(14), Child = child };
@@ -261,7 +261,7 @@ public static class K
 
     public static T Also<T>(this T x, Action<T> f) { f(x); return x; }
 
-    public static Control Tip(this Control c, string? tip) { if (!string.IsNullOrEmpty(tip)) ToolTip.SetTip(c, tip); return c; }
+    public static Control Tip(this Control c, string? tip) { if (!string.IsNullOrEmpty(tip)) ToolTip.SetTip(c, AgentControl.Core.Platform.DisplayPath(tip)); return c; }
 
     // ---------------- AgentC (o logo é o mascote) ----------------
 
