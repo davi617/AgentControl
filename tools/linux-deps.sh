@@ -4,14 +4,16 @@ set -euo pipefail
 MODE=${1:---help}
 case "$MODE" in --help|--check) ;; *) echo "Uso: bash tools/linux-deps.sh [--help|--check]"; exit 2 ;; esac
 if [ "$(uname -s)" != Linux ]; then echo 'Este diagnóstico é para Linux.'; exit 2; fi
-if ldd --version 2>&1 | grep -qi musl; then
-  echo 'O desktop publicado usa glibc. Em Alpine/musl, use a interface web num host glibc; o binário não é compatível.'
-  exit 1
-fi
 ID=unknown; ID_LIKE=''
 if [ -r /etc/os-release ]; then . /etc/os-release; fi
 echo "Linux: ${PRETTY_NAME:-$ID}; arquitetura: $(uname -m)"
 case " $ID $ID_LIKE " in
+  *' alpine '*)
+    echo 'Dependências: sudo apk add icu-libs openssl libstdc++ zlib libx11 libice libsm fontconfig xdg-utils xwayland'
+    echo 'Desktop: publique linux-musl-x64; o binário glibc não serve. Para compilar, instale .NET SDK 8 compatível com musl; servidor: Node 24+.' ;;
+  *' nixos '*)
+    echo 'Use o ambiente criado por nix-build tools/nixos.nix, conforme docs/linux.md.'
+    if [ "${AGENTCONTROL_NIX_ENV:-0}" != 1 ] && [ "$MODE" = --check ]; then exit 1; fi ;;
   *' arch '*|*' manjaro '*|*' endeavouros '*)
     echo 'Dependências: sudo pacman -Syu --needed icu openssl zlib libx11 libice libsm fontconfig xdg-utils xorg-xwayland'
     echo 'Compilação/servidor: .NET SDK 8 e Node 24+ (confira as versões antes de instalar).' ;;
@@ -28,13 +30,20 @@ case " $ID $ID_LIKE " in
 esac
 echo 'Avalonia 11 usa X11; numa sessão Wayland, mantenha XWayland disponível.'
 if [ "$MODE" = --help ]; then exit 0; fi
+if [ "${AGENTCONTROL_NIX_ENV:-0}" = 1 ]; then
+  echo 'Bibliotecas fornecidas pelo ambiente Nix FHS.'
+  exit 0
+fi
 LDCONFIG=$(command -v ldconfig || true)
 if [ -z "$LDCONFIG" ] && [ -x /sbin/ldconfig ]; then LDCONFIG=/sbin/ldconfig; fi
-if [ -z "$LDCONFIG" ]; then echo 'Não achei ldconfig para conferir as bibliotecas. Instale as dependências acima.'; exit 1; fi
-LIBRARIES=$("$LDCONFIG" -p)
+LIBRARIES=''
+if [ -n "$LDCONFIG" ]; then LIBRARIES=$("$LDCONFIG" -p 2>/dev/null || true); fi
 missing=0
 for library in libX11.so.6 libICE.so.6 libSM.so.6 libfontconfig.so.1 libstdc++.so.6 libz.so.1 libicuuc.so libssl.so; do
-  if ! grep -Fq "$library" <<< "$LIBRARIES"; then echo "Falta: $library"; missing=1; fi
+  found=0
+  if grep -Fq "$library" <<< "$LIBRARIES"; then found=1; fi
+  for path in /lib/"$library"* /usr/lib/"$library"*; do [ ! -e "$path" ] || found=1; done
+  if [ "$found" = 0 ]; then echo "Falta: $library"; missing=1; fi
 done
 if [ "$missing" = 1 ]; then echo 'Instale as dependências indicadas e execute novamente.'; exit 1; fi
 echo 'Dependências nativas encontradas.'

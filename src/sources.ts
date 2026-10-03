@@ -99,8 +99,10 @@ export function ingest(store: Store, p: ProjectCfg, src: SourceFile, initial: bo
   const st = statSync(src.path);
   const text = readText(src.path);
   const fileHash = sha(text);
-  if (store.fileHash(src.path) === fileHash) return [];
-  store.setFile(src.path, fileHash, st.mtime.toISOString());
+  const relativeSource = redact(path.relative(p.vault, src.path));
+  const cacheKey = `${p.id}::${src.kind}::${src.agent}::${relativeSource}`;
+  if (store.fileHash(cacheKey) === fileHash) return [];
+  store.setFile(cacheKey, fileHash, st.mtime.toISOString());
   if (src.kind === 'tasks') return []; // TASKS vira quadro, não mensagens
 
   const known = new Set(p.agents.map((a) => a.id));
@@ -111,7 +113,7 @@ export function ingest(store: Store, p: ProjectCfg, src: SourceFile, initial: bo
     const ts = s.date ? `${s.date}T${s.time ?? '00:00'}:00` : mtime;
     const e = store.insert({
       project: p.id,
-      source: src.path,
+      source: relativeSource,
       kind: src.kind,
       agent: authorFor(src, s.agent, known),
       heading: s.heading,

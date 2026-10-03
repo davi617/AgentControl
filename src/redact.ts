@@ -4,6 +4,10 @@
 const R = '[REDACTED]';
 
 const RULES: Array<[RegExp, string]> = [
+  // Do not retain account names in local paths or contact addresses in app text.
+  [/\b[A-Z]:[\\/]+Users[\\/]+[^\\/\s"'<>]+/gi, '[HOME]'],
+  [/\/(?:Users|home)\/[^/\s"'<>]+/g, '[HOME]'],
+  [/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/gi, R],
   // Cabeçalhos de autenticação
   [/\b(Bearer|Basic|Token)\s+[A-Za-z0-9._~+\/=-]{8,}/gi, `$1 ${R}`],
   // JWT

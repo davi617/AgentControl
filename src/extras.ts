@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { ProjectCfg, SummaryCfg } from './config.ts';
 import type { Store } from './store.ts';
+import { localDay } from './date.ts';
 
 const STARTED = Date.now();
 /** Commit do código que ESTE processo carregou (lido ao ligar). Antes lia o HEAD na hora e mostrava commit novo com código velho rodando. */
@@ -49,7 +50,7 @@ export function about(dbFile: string) {
   try { app = JSON.parse(readFileSync(path.join(path.dirname(dbFile), 'app', 'version.json'), 'utf8')); } catch { /* nenhum app publicado */ }
   return {
     jarvis: { commit, node: process.version, ligadoHaMin: Math.round((Date.now() - STARTED) / 60_000) },
-    pc: { nome: os.hostname(), ligadoHaMin: Math.round(os.uptime() / 60), nucleos: os.cpus().length },
+    pc: { nome: "Computador", ligadoHaMin: Math.round(os.uptime() / 60), nucleos: os.cpus().length },
     app,
   };
 }
@@ -77,7 +78,7 @@ export function topProcesses(limit = 5): Promise<{ nome: string; mb: number }[]>
  * Reescrito de hora em hora (sempre o retrato atual do dia); nota de outro dia não é tocada.
  */
 export async function writeDiary(store: Store, p: ProjectCfg, summary: SummaryCfg, now = new Date(), fetchImpl: typeof fetch = fetch): Promise<string> {
-  const dia = now.toLocaleDateString('sv-SE');
+  const dia = localDay(now);
   const cmds = store.commands(p.id, 1000).filter((c) => c.created_at.slice(0, 10) === dia);
   const notas = store.notes(p.id, 500).filter((n) => n.created_at.slice(0, 10) === dia);
   const calls = listCalls(p, 200).filter((c) => c.id.startsWith(`CALL-${dia}`));
@@ -108,7 +109,7 @@ export function commandsPerDay(store: Store, p: ProjectCfg, dias: number, now = 
   const cmds = store.commands(p.id, 2000);
   const out: { dia: string; total: number; done: number }[] = [];
   for (let i = dias - 1; i >= 0; i--) {
-    const dia = new Date(now.getTime() - i * 86_400_000).toLocaleDateString('sv-SE');
+    const dia = localDay(new Date(now.getTime() - i * 86_400_000));
     const doDia = cmds.filter((c) => c.created_at.slice(0, 10) === dia);
     out.push({ dia, total: doDia.length, done: doDia.filter((c) => c.status === 'DONE').length });
   }

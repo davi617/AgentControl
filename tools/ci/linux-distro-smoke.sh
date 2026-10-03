@@ -3,6 +3,9 @@
 set -euo pipefail
 . /etc/os-release
 case "$ID" in
+  alpine)
+    apk add --no-cache bash python3 nodejs npm icu-libs openssl libstdc++ zlib libx11 libice libsm fontconfig xvfb font-dejavu xdg-utils
+    npm ci ;;
   arch)
     pacman -Syu --noconfirm --needed python icu openssl zlib libx11 libice libsm fontconfig xorg-server-xvfb ttf-dejavu xdg-utils ;;
   ubuntu|debian)
@@ -15,7 +18,8 @@ case "$ID" in
     zypper --non-interactive install python3 libicu libopenssl3 libz1 libX11-6 libICE6 libSM6 fontconfig libstdc++6 xorg-x11-server-Xvfb dejavu-fonts xdg-utils ;;
   *) echo "Unsupported test image: $ID"; exit 2 ;;
 esac
-export PATH="/opt/node/bin:$PATH"
+if [ "$ID" != alpine ]; then export PATH="/opt/node/bin:$PATH"; fi
+node -e 'if (Number(process.versions.node.split(".")[0]) < 24) process.exit(1)'
 bash -n tools/instalar.sh tools/linux-deps.sh tools/agentes/agent-loop.sh
 bash tools/linux-deps.sh --check
 node --test
