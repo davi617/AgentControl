@@ -360,7 +360,7 @@ public sealed class MascotWindow : Window
         Item("hud", K.IHome, "Abrir a HUD");
         Item("full", K.IOpen, "Abrir a tela completa");
         Item("mini", K.IChat, "Falar com os agentes");
-        Item("web", K.IOpen, "Abrir a sala no navegador");
+        Item("web", K.IPhone, "Chamada com o time");
         Item("goal", K.IGoal, "Iniciar Modo Goal");
         Item("launcher", K.IHealth, "Abrir o Launcher");
         list.Children.Add(new Border { Height = 1, Background = K.Line, Margin = new Thickness(6, 4) });

@@ -161,7 +161,14 @@ test('cliente desiste com o 9Router pendurado: vaga solta na hora, não depois d
   const g = createGate({ port: 0, upstream: `http://127.0.0.1:${upPort}`, maxConcurrent: 1, maxRetries: 0, maxWaitMs: 1_000, baseBackoffMs: 10, idleTimeoutMs: 60_000 });
   servers.push(g.server);
   const port = await listen(g.server);
-  await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, { method: 'POST', body: '{"model":"nvidia/z-ai/glm-5.3"}', signal: AbortSignal.timeout(150) }).catch(() => null);
+  // Desiste só depois que a fila pegou a vaga: com o PC carregado (Node 26) a 1ª conexão leva ~400 ms,
+  // e um timeout fixo de 150 ms cancelava antes do pedido chegar (o teste falhava sem bug nenhum).
+  const ac = new AbortController();
+  const req = fetch(`http://127.0.0.1:${port}/v1/chat/completions`, { method: 'POST', body: '{"model":"nvidia/z-ai/glm-5.3"}', signal: ac.signal }).catch(() => null);
+  for (let i = 0; i < 300 && g.slots.inFlight === 0; i++) await new Promise((r) => setTimeout(r, 10));
+  assert.equal(g.slots.inFlight, 1, 'pedido chegou na fila');
+  ac.abort();
+  await req;
   await new Promise((r) => setTimeout(r, 100));
   assert.equal(g.slots.inFlight, 0, 'vaga liberada logo que o cliente desistiu');
   assert.equal(g.stats.abandoned, 1);

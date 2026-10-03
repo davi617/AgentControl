@@ -220,6 +220,39 @@ public static class Platform
         Open(url);
     }
 
+    /// <summary>
+    /// Lê um texto em voz alta com a voz do sistema e espera terminar (chamada no painel).
+    /// O texto vai por variável de ambiente, nunca dentro do comando.
+    /// </summary>
+    public static async Task SpeakAsync(string text, CancellationToken ct = default)
+    {
+        // A fala vem do modelo: começando com "-" o say/spd-say/espeak leriam como opção.
+        text = text.TrimStart('-', ' ', '\t', '\r', '\n');
+        if (string.IsNullOrWhiteSpace(text)) return;
+        ProcessStartInfo psi;
+        if (Win)
+        {
+            psi = new ProcessStartInfo("powershell.exe") { UseShellExecute = false, CreateNoWindow = true };
+            foreach (var a in new[] { "-NoProfile", "-NonInteractive", "-Command",
+                "Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; " +
+                "$v = $s.GetInstalledVoices() | Where-Object { $_.VoiceInfo.Culture.Name -like 'pt*' } | Select-Object -First 1; " +
+                "if ($v) { $s.SelectVoice($v.VoiceInfo.Name) }; $s.Speak($env:AC_FALA)" }) psi.ArgumentList.Add(a);
+        }
+        else if (Mac) psi = new ProcessStartInfo("say") { ArgumentList = { text }, UseShellExecute = false };
+        else if (Which("spd-say") is { } spd) psi = new ProcessStartInfo(spd) { ArgumentList = { "-w", "-l", "pt", text }, UseShellExecute = false };
+        else if ((Which("espeak-ng") ?? Which("espeak")) is { } es) psi = new ProcessStartInfo(es) { ArgumentList = { "-v", "pt-br", text }, UseShellExecute = false };
+        else return;
+        psi.Environment["AC_FALA"] = text;
+        try
+        {
+            using var p = Process.Start(psi);
+            if (p is null) return;
+            using var reg = ct.Register(() => { try { p.Kill(); } catch { } });
+            await p.WaitForExitAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(90));
+        }
+        catch { }
+    }
+
     // ---------------- memória ----------------
 
     [StructLayout(LayoutKind.Sequential)]

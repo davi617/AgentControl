@@ -305,6 +305,7 @@ public sealed class HudWindow : Window
         LimitPanelHeight();
         Render(animate);
         if (i == 5) _ = LoadCmds();
+        if (i == 2) _ = LoadPeople();
     }
 
     public void Refresh()
@@ -383,7 +384,7 @@ public sealed class HudWindow : Window
         col.Children.Add(K.T(s.Paused ? "AGENT CONTROL · AGENTES PAUSADOS" : "AGENT CONTROL · ONLINE", 10.5, s.Paused ? K.Warn : K.Muted, FontWeight.SemiBold));
         var working = s.Agents.Count(a => K.StatusBrush(a.Status) == K.Brand);
         col.Children.Add(K.T($"{s.Agents.Count} agentes · {working} trabalhando", 15.5, K.Text, FontWeight.SemiBold, K.Display).Also(t => t.Margin = new Thickness(0, 2, 0, 9)));
-        col.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.Button("Falar", K.IMic, host.OpenWeb, height: 34), K.Button("Escrever", K.IChat, host.OpenMini, primary: false, height: 34) } });
+        col.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.Button(s.CallActive ? "Na chamada" : "Chamada", K.IPhone, () => Select(2), height: 34), K.Button("Escrever", K.IChat, host.OpenMini, primary: false, height: 34) } });
         Grid.SetColumn(col, 1); top.Children.Add(col);
         v.Children.Add(top);
 
@@ -408,7 +409,7 @@ public sealed class HudWindow : Window
         v.Children.Add(Gap(8));
         v.Children.Add(new Cols(3).Add(Quick(K.ITerminal, "Comandos", () => Select(5), badge: s.Pending > 0 ? $"{s.Pending}" : null))
             .Add(Quick(K.IApps, "Tela completa", () => { Collapse(); host.OpenFull(); }))
-            .Add(Quick(K.IOpen, "Navegador", host.OpenWeb)).Panel);
+            .Add(Quick(K.IPhone, s.CallActive ? "Na chamada" : "Chamada", () => Select(2), s.CallActive ? K.Ok : null)).Panel);
 
         v.Children.Add(Gap(16));
         var head = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
@@ -460,32 +461,195 @@ public sealed class HudWindow : Window
         v.Children.Add(K.Button("Abrir a sala completa", K.IOpen, () => { Collapse(); host.OpenFull(); }, primary: false, height: 34));
     }
 
+    // ---------- Chamada no painel (2026-10-02: antes os botões abriam a página antiga no navegador) ----------
+    static readonly (string Id, string Name, string About)[] Modes =
+        [("debate", "Debate", "Cada um defende o ponto do seu papel e discorde com argumento."), ("brainstorm", "Ideias", "Trazem ideias novas e constroem em cima das dos outros."),
+         ("revisao", "Revisão", "Procuram riscos, bugs e o que falta testar."), ("goal", "Goal", "Tocam o Goal ativo sem parar, sem esperar você a cada passo.")];
+    List<(string Id, string Papel, bool Virtual)> people = [];
+    HashSet<string>? pick;
+    string? modo;
+    string topic = "";
+    bool loadingPeople;
+
+    async Task LoadPeople()
+    {
+        if (loadingPeople || people.Count > 0) return;
+        loadingPeople = true;
+        try { people = await host.Api.CallPeopleAsync(); } catch { }
+        finally { loadingPeople = false; }
+        sig = "";
+        Render(false);
+    }
+
+    static string ModeName(string? id) => Modes.FirstOrDefault(m => m.Id == id).Name ?? "Debate";
+
+    // Clique num botão com a caixa de texto focada: sem isso o "typing" segurava o redesenho.
+    void Redraw() { typing = false; sig = ""; Render(false); }
+
     void Chamada(StackPanel v, HudSnapshot s)
     {
-        if (s.CallActive)
+        if (s.CallActive) { CallLive(v, s); return; }
+        var cfg = host.Settings;
+        modo ??= Modes.Any(m => m.Id == cfg.CallModo) ? cfg.CallModo : "debate";
+        pick ??= cfg.CallPeople.Select(x => x.ToUpperInvariant()).ToHashSet();
+        var goal = modo == "goal";
+
+        v.Children.Add(K.T("Chamada com o time", 15.5, K.Text, FontWeight.SemiBold, K.Display));
+        v.Children.Add(K.Wrap("Os agentes conversam aqui no painel, um de cada vez. Você entra na conversa escrevendo.", 12.5, K.Muted, lineHeight: 18).Also(t => t.Margin = new Thickness(0, 3, 0, 12)));
+
+        var box = TextField(goal ? "Foco do Goal (opcional)" : "Sobre o que é a chamada?", topic, t => topic = t, () => _ = Begin(s));
+        v.Children.Add(box);
+
+        v.Children.Add(K.Label("Modo").Also(l => l.Margin = new Thickness(0, 14, 0, 6)));
+        var modes = new Cols(4, 6);
+        foreach (var m in Modes)
         {
-            v.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = { K.Pill("AO VIVO", K.Ok), K.T($"modo {(s.CallModo == "goal" ? "Goal contínuo" : s.CallModo)} · {s.CallTurns} falas", 12, K.Muted) } });
-            v.Children.Add(new VoiceOrb(128) { Level = host.Pumping || host.LastCaption is not null ? .9 : .35, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 6, 0, 0) });
-            v.Children.Add(K.Wrap(s.CallTopic ?? "", 15.5, K.Text, 2, w: FontWeight.SemiBold, f: K.Display).Also(t => t.Margin = new Thickness(0, 10)));
-            if (host.LastCaption is { } c)
-                v.Children.Add(new Border
-                {
-                    Background = K.Raised, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 10),
-                    Child = new StackPanel { Spacing = 3, Children = { K.T(K.Nice(c.Speaker), 11, K.BrandText, FontWeight.SemiBold), K.Wrap(c.Text, 13, K.Text, 5, 19) } },
-                });
-            else v.Children.Add(K.Wrap(host.Pumping ? "Esperando a próxima fala…" : "Os agentes estão falando no celular ou no navegador.", 12.5, K.Muted));
-            v.Children.Add(Gap(14));
-            v.Children.Add(new Cols().Add(K.Button("Encerrar", K.IStop, host.EndCall, primary: false, danger: true)).Add(K.Button("Abrir no navegador", K.IOpen, host.OpenWeb, primary: false)).Panel);
+            var on = m.Id == modo;
+            var chip = new Border { Height = 32, CornerRadius = new CornerRadius(9), Background = on ? K.Brand : K.Raised, BorderBrush = K.Line, BorderThickness = new Thickness(on ? 0 : 1), Child = K.T(m.Name, 12, on ? K.OnBrand : K.Text2, FontWeight.SemiBold).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.VerticalAlignment = VerticalAlignment.Center; }) };
+            chip.Tip(m.About);
+            var id = m.Id;
+            K.Pressable(chip, () => { modo = id; Redraw(); });
+            modes.Add(chip);
         }
-        else
+        v.Children.Add(modes.Panel);
+        v.Children.Add(K.Wrap(Modes.First(m => m.Id == modo).About, 11.5, K.Faint).Also(t => t.Margin = new Thickness(2, 6, 0, 0)));
+
+        var head = new DockPanel { Margin = new Thickness(0, 14, 0, 6) };
+        var count = K.T(pick.Count == 0 ? "o time todo" : $"{pick.Count} marcados", 10.5, K.Faint); DockPanel.SetDock(count, Dock.Right); head.Children.Add(count);
+        head.Children.Add(K.Label("Quem entra").Also(l => l.Margin = new Thickness(0)));
+        v.Children.Add(head);
+        var who = new WrapPanel();
+        if (people.Count == 0) who.Children.Add(K.T(loadingPeople ? "Carregando…" : "Sem lista do servidor: entra o time todo.", 12, K.Muted));
+        foreach (var p in people)
         {
-            v.Children.Add(new VoiceOrb(96) { Level = .12, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 0, 0, 8) });
-            v.Children.Add(K.T("Nenhuma chamada agora", 15.5, K.Text, FontWeight.SemiBold, K.Display));
-            v.Children.Add(K.Wrap("No Modo Goal os agentes tocam o Goal ativo de forma contínua, falando entre si. As falas aparecem aqui e no balão do AgentC.", 12.5, K.Muted, lineHeight: 18).Also(t => t.Margin = new Thickness(0, 4, 0, 14)));
-            v.Children.Add(K.Button("Iniciar Modo Goal", K.IPlay, host.StartGoal));
-            v.Children.Add(Gap(8));
-            v.Children.Add(K.Button("Chamada por voz no navegador", K.IMic, host.OpenWeb, primary: false));
+            var on = pick.Count == 0 ? !p.Virtual : pick.Contains(p.Id);
+            var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Children = { K.Avatar(p.Id, 18), K.T(K.Nice(p.Id), 11.5, on ? K.Text : K.Muted, FontWeight.SemiBold) } };
+            var chip = new Border { CornerRadius = new CornerRadius(10), Padding = new Thickness(6, 4, 10, 4), Margin = new Thickness(0, 0, 6, 6), Background = on ? K.Raised : Brushes.Transparent, BorderBrush = on ? K.Brand : K.Line, BorderThickness = new Thickness(1), Opacity = on ? 1 : .7, Child = row };
+            chip.Tip($"{p.Papel}{(p.Virtual ? " · especialista: só opina na chamada" : "")}");
+            var id = p.Id;
+            K.Pressable(chip, () =>
+            {
+                if (pick.Count == 0) foreach (var x in people.Where(x => !x.Virtual)) pick.Add(x.Id);
+                if (!pick.Remove(id)) pick.Add(id);
+                // Voltou a ser exatamente o time: guarda como "o time todo".
+                if (pick.SetEquals(people.Where(x => !x.Virtual).Select(x => x.Id))) pick.Clear();
+                Redraw();
+            });
+            who.Children.Add(chip);
         }
+        v.Children.Add(who);
+
+        if (toast.Length > 0) v.Children.Add(Toast());
+        v.Children.Add(Gap(10));
+        v.Children.Add(K.Button(goal ? "Iniciar Modo Goal" : "Começar chamada", goal ? K.IPlay : K.IPhone, () => _ = Begin(s)));
+        var cfgLink = K.T("Modo e quem entra por padrão, voz e avanço automático: Launcher › Ajustes", 11, K.Faint).Also(t => { t.Margin = new Thickness(2, 10, 0, 0); t.Cursor = new Cursor(StandardCursorType.Hand); });
+        K.Pressable(cfgLink, host.OpenLauncher);
+        v.Children.Add(cfgLink);
+    }
+
+    async Task Begin(HudSnapshot s)
+    {
+        var t = topic.Trim();
+        if (t.Length == 0 && modo == "goal") t = string.IsNullOrWhiteSpace(s.Goal) ? "Tocar o Goal ativo" : s.Goal!;
+        if (t.Length == 0) { toast = "Não comecei: escreva o assunto da chamada."; Redraw(); return; }
+        typing = false;
+        var err = await host.StartCall(t, pick ?? [], modo ?? "debate");
+        toast = err is null ? "" : $"Não comecei: {err}";
+        if (err is null) topic = "";
+        sig = "";
+        Render(true);
+    }
+
+    void CallLive(StackPanel v, HudSnapshot s)
+    {
+        var waiting = s.CallStatus == "AGUARDANDO_DONO";
+        var goal = s.CallModo == "goal";
+        var head = new DockPanel();
+        var voice = new Border { Width = 30, Height = 30, CornerRadius = new CornerRadius(8), Background = host.VoiceOn ? K.Raised : Brushes.Transparent, BorderBrush = K.Line, BorderThickness = new Thickness(1), Child = K.Icon(host.VoiceOn ? K.ISound : K.IMute, 14, host.VoiceOn ? K.BrandText : K.Muted) };
+        voice.Tip(host.VoiceOn ? "Lendo as falas em voz alta (clique para calar)" : "Ler as falas em voz alta");
+        K.Pressable(voice, host.ToggleVoice);
+        DockPanel.SetDock(voice, Dock.Right); head.Children.Add(voice);
+        head.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center, Children = { K.Pill(waiting ? "SUA VEZ" : "AO VIVO", waiting ? K.Warn : K.Ok), K.T($"{ModeName(s.CallModo)} · {s.CallTurns} falas", 12, K.Muted) } });
+        v.Children.Add(head);
+
+        // A roda: quem falou por último fica com o anel aceso; clique passa a vez para ele.
+        var lastSpeaker = s.CallLog.Count > 0 ? s.CallLog[^1].Speaker : "";
+        var ring = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, HorizontalAlignment = HorizontalAlignment.Center, Margin = new Thickness(0, 14, 0, 4) };
+        var orb = new VoiceOrb(46) { Level = host.Thinking ? .9 : host.VoiceOn && host.Pumping ? .6 : .25 };
+        ring.Children.Add(orb.Also(o => o.Tip(host.Thinking ? "Pensando na próxima fala…" : "AgentC")));
+        foreach (var id in s.CallWho)
+        {
+            var on = id == lastSpeaker;
+            var b = new Border { CornerRadius = new CornerRadius(20), Padding = new Thickness(2), BorderThickness = new Thickness(2), BorderBrush = on ? K.Brand : Brushes.Transparent, Opacity = on ? 1 : .62, Child = K.Avatar(id, 30), VerticalAlignment = VerticalAlignment.Center };
+            b.Tip($"{K.Nice(id)} · clique para ele falar agora");
+            var who = id;
+            K.Pressable(b, async () => { var e = await host.CallTurn(who); toast = e is null ? $"{K.Nice(who)} fala agora." : $"Não passei a vez: {e}"; Redraw(); });
+            ring.Children.Add(b);
+        }
+        v.Children.Add(ring);
+        v.Children.Add(K.Wrap(s.CallTopic ?? "", 14.5, K.Text, 2, w: FontWeight.SemiBold, f: K.Display).Also(t => { t.TextAlignment = TextAlignment.Center; t.Margin = new Thickness(0, 6, 0, 12); }));
+
+        // As últimas falas, mais nova embaixo (como numa conversa).
+        var log = new StackPanel { Spacing = 8 };
+        // Só as 3 últimas: a caixa de falar e os botões precisam caber sem rolar.
+        foreach (var (speaker, text) in s.CallLog.TakeLast(3))
+        {
+            var me = speaker == "DONO";
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
+            row.Children.Add(K.Avatar(speaker, 24).Also(a => a.VerticalAlignment = VerticalAlignment.Top));
+            var col = new StackPanel { Margin = new Thickness(10, 0, 0, 0), Spacing = 1 };
+            col.Children.Add(K.T(me ? "Você" : K.Nice(speaker), 11.5, me ? K.Text2 : K.BrandText, FontWeight.SemiBold));
+            col.Children.Add(K.Wrap(text, 12.5, me ? K.Text2 : K.Text, 4, 18).Also(t => t.Tip(text)));
+            Grid.SetColumn(col, 1); row.Children.Add(col);
+            log.Children.Add(row);
+        }
+        if (host.Thinking) log.Children.Add(K.T("Alguém está pensando na próxima fala…", 12, K.Muted).Also(t => t.Margin = new Thickness(34, 0, 0, 0)));
+        v.Children.Add(new Border { Background = K.Side, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12, 10), Child = log });
+        if (waiting) v.Children.Add(K.Wrap("O time parou e espera você. Escreva algo ou peça uma rodada.", 12, K.Warn).Also(t => t.Margin = new Thickness(2, 8, 0, 0)));
+
+        v.Children.Add(Gap(10));
+        v.Children.Add(TextField("Falar na chamada", "", _ => { }, null, async text =>
+        {
+            var e = await host.CallSay(text);
+            toast = e is null ? "" : $"Não enviei: {e}";
+            Redraw();
+        }));
+        if (toast.Length > 0) v.Children.Add(Toast());
+        v.Children.Add(Gap(10));
+        var btns = new Cols(goal || host.Settings.CallAutoAdvance ? 2 : 3);
+        btns.Add(K.Button("Rodada", K.IPeople, async () => { var e = await host.CallRound(); toast = e is null ? "Todo mundo vai falar uma vez." : $"Não pedi a rodada: {e}"; Redraw(); }, primary: false, height: 34).Also(b => b.Tip("Cada um da chamada fala uma vez, na ordem")));
+        if (!goal && !host.Settings.CallAutoAdvance) btns.Add(K.Button("Próxima fala", K.IPlay, host.CallNextManual, height: 34));
+        btns.Add(K.Button("Encerrar", K.IStop, () => { toast = ""; host.EndCall(); }, primary: false, danger: true, height: 34));
+        v.Children.Add(btns.Panel);
+    }
+
+    /// <summary>Caixa de texto simples do painel. Enter envia (send) ou chama enter.</summary>
+    Control TextField(string hint, string text, Action<string> changed, Action? enter, Func<string, Task>? send = null)
+    {
+        var box = new TextBox { Watermark = hint, Text = text, FontSize = 13, FontFamily = K.Ui, Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0), Padding = new Thickness(0) };
+        box.GotFocus += (_, _) => typing = true;
+        box.LostFocus += (_, _) => typing = false;
+        box.TextChanged += (_, _) => changed(box.Text ?? "");
+        async void Go()
+        {
+            if (send is null) { enter?.Invoke(); return; }
+            var t = (box.Text ?? "").Trim();
+            if (t.Length == 0) return;
+            box.Text = "";
+            typing = false;
+            await send(t);
+        }
+        box.KeyDown += (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; Go(); } };
+        var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), MinHeight = 32 };
+        row.Children.Add(box);
+        if (send is not null)
+        {
+            var sendB = new Border { Width = 32, Height = 32, CornerRadius = new CornerRadius(9), Background = K.Brand, Child = K.Icon(K.ISend, 14, K.OnBrand) };
+            sendB.Tip("Enviar (Enter)");
+            K.Pressable(sendB, Go);
+            Grid.SetColumn(sendB, 1); row.Children.Add(sendB);
+        }
+        return new Border { Background = K.Raised, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(5), Child = row };
     }
 
     void Goal(StackPanel v, HudSnapshot s, bool animate)
@@ -638,7 +802,7 @@ public sealed class HudWindow : Window
     {
         0 => $"{s.Online}{s.Pending}{s.Working}{s.Paused}{s.CallStatus}{s.CallModo}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Usage.Select(u => u.Agent + u.Req))}",
         1 => replyTo + toast + string.Join("|", s.Chat.Take(5).Select(c => c.Ts + c.Agent)),
-        2 => $"{s.CallStatus}{s.CallModo}{s.CallTurns}{host.LastCaption}",
+        2 => $"{s.CallStatus}{s.CallModo}{s.CallTurns}{string.Join(",", s.CallWho)}{host.Thinking}{host.VoiceOn}{host.Settings.CallAutoAdvance}|{toast}|{people.Count}{loadingPeople}{modo}{string.Join(",", pick ?? [])}",
         3 => $"{s.Goal}{s.TasksDone}/{s.TasksTotal}{s.CallStatus}{s.CallModo}",
         4 => $"{s.RamFreeMb / 100}{s.Cpu / 5}{s.Paused}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Alerts)}",
         _ => $"{s.Pending}|{toast}|{cmdTo}|{string.Join(",", cmds.Take(8).Select(c => c.Code + c.Status + c.Approval))}",

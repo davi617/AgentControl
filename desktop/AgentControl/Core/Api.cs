@@ -31,6 +31,9 @@ public sealed record HudSnapshot(
     /// <summary>Há quantos minutos a rodada atual/última do loop começou.</summary>
     public Dictionary<string, int> LoopMinutes { get; init; } = [];
     public Dictionary<string, AgentQuota> Limits { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Chamada aberta: quem está nela e as últimas falas (mais antiga primeiro).</summary>
+    public IReadOnlyList<string> CallWho { get; init; } = [];
+    public IReadOnlyList<(string Speaker, string Text)> CallLog { get; init; } = [];
 }
 
 /// <summary>
@@ -48,14 +51,19 @@ public sealed class HudApi
 
     public HudApi()
     {
-        var settings = new LauncherSettings();
+        Configure(ReadSettings());
+    }
+
+    /// <summary>settings.json como está agora (o Launcher grava os ajustes da chamada; o HUD relê a cada leitura).</summary>
+    public static LauncherSettings ReadSettings()
+    {
         try
         {
             var file = Path.Combine(Platform.DataDir, "settings.json");
-            if (File.Exists(file)) settings = JsonSerializer.Deserialize<LauncherSettings>(File.ReadAllText(file), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? settings;
+            if (File.Exists(file)) return JsonSerializer.Deserialize<LauncherSettings>(File.ReadAllText(file), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new();
         }
         catch { /* A configuração inválida é explicada pelo Launcher. */ }
-        Configure(settings);
+        return new();
     }
 
     public void Configure(LauncherSettings settings)
@@ -160,10 +168,16 @@ public sealed class HudApi
         }
 
         string? cst = null, cmodo = null, ctopic = null; var cturns = 0;
+        var cwho = new List<string>(); var clog = new List<(string, string)>();
         if (call.Result is { ValueKind: JsonValueKind.Object } cl)
         {
             cst = Str(cl, "status"); cmodo = Str(cl, "modo"); ctopic = Str(cl, "topic");
-            if (cl.TryGetProperty("turns", out var tu) && tu.ValueKind == JsonValueKind.Array) cturns = tu.GetArrayLength();
+            if (cl.TryGetProperty("turns", out var tu) && tu.ValueKind == JsonValueKind.Array)
+            {
+                cturns = tu.GetArrayLength();
+                clog.AddRange(tu.EnumerateArray().Skip(Math.Max(0, cturns - 8)).Select(t => (Str(t, "speaker"), Str(t, "text"))));
+            }
+            if (cl.TryGetProperty("participants", out var pa) && pa.ValueKind == JsonValueKind.Array) cwho.AddRange(pa.EnumerateArray().Select(x => Str(x, "id")));
         }
 
         var goal = s.TryGetProperty("goal", out var g) && g.ValueKind == JsonValueKind.String ? g.GetString() : null;
@@ -171,7 +185,7 @@ public sealed class HudApi
         if (limits.Result is { } lim && lim.TryGetProperty("agents", out var la) && la.ValueKind == JsonValueKind.Array)
             foreach (var row in la.EnumerateArray())
                 try { var q = JsonSerializer.Deserialize<AgentQuota>(row.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); if (q is not null) quotas[q.Agent] = q; } catch { }
-        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin, Limits = quotas };
+        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin, Limits = quotas, CallWho = cwho, CallLog = clog };
     }
 
     /// <summary>Pede a próxima fala da chamada. Devolve (quem, texto) ou null se ninguém falou (fim, pausa, esperando o dono).</summary>
@@ -292,5 +306,19 @@ public sealed class HudApi
     public Task<string?> SendChat(string text, string to) => Post("/api/chat", new { project = Project, text, to });
     public Task<string?> StartGoal(string? goal) => Post("/api/call/start", new { project = Project, text = string.IsNullOrWhiteSpace(goal) ? "Tocar o Goal ativo" : goal, modo = "goal" });
     public Task<string?> EndCall() => Post("/api/call/end", new { project = Project });
+    // Chamada direto no painel (antes só pelo navegador/celular).
+    public Task<string?> StartCall(string topic, IEnumerable<string> who, string modo) => Post("/api/call/start", new { project = Project, text = topic, who = who.ToArray(), modo });
+    public Task<string?> CallSay(string text) => Post("/api/call/say", new { project = Project, text });
+    public Task<string?> CallRound() => Post("/api/call/round", new { project = Project });
+    public Task<string?> CallTurn(string agent) => Post("/api/call/turn", new { project = Project, agent });
+
+    /// <summary>Quem pode entrar na chamada: agentes do time e especialistas (virtual = só opina).</summary>
+    public async Task<List<(string Id, string Papel, bool Virtual)>> CallPeopleAsync()
+    {
+        var r = new List<(string, string, bool)>();
+        if (await Get("/api/call/people") is { ValueKind: JsonValueKind.Array } ps)
+            foreach (var p in ps.EnumerateArray()) r.Add((Str(p, "id"), Str(p, "papel"), p.TryGetProperty("virtual", out var v) && v.ValueKind == JsonValueKind.True));
+        return r;
+    }
     public Task<string?> Pause(bool on) => Post("/api/agents/pause", new { project = Project, on, agora = false });
 }

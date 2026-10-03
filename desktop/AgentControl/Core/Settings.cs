@@ -22,6 +22,15 @@ public sealed class LauncherSettings
     /// <summary>Agentes com loop próprio (tools/ligar-agentes.*). Os outros aparecem só com o status.</summary>
     public List<string> LoopAgents { get; set; } = ["claude", "codex", "droid", "hermes", "openclaw", "opencode", "qwen"];
     public List<ManagedApp> Apps { get; set; } = [];
+    // Chamada no painel do HUD (ajustes na aba Ajustes do Launcher).
+    /// <summary>Modo que já vem marcado: debate, brainstorm, revisao ou goal.</summary>
+    public string CallModo { get; set; } = "debate";
+    /// <summary>Quem já vem marcado para entrar. Vazio = o time todo.</summary>
+    public List<string> CallPeople { get; set; } = [];
+    /// <summary>Os agentes falam um depois do outro sozinhos (desligado: botão "Próxima fala").</summary>
+    public bool CallAutoAdvance { get; set; } = true;
+    /// <summary>Lê cada fala em voz alta no PC.</summary>
+    public bool CallVoice { get; set; }
 }
 
 public sealed class ManagedApp
