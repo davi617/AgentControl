@@ -30,6 +30,15 @@ public static class Platform
 
     public static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
+    /// <summary>Show local home paths without revealing the operating system account name.</summary>
+    public static string DisplayPath(string value)
+    {
+        if (string.IsNullOrEmpty(Home)) return value;
+        return value.Replace(Home, "~", StringComparison.OrdinalIgnoreCase)
+            .Replace(Home.Replace('\\', '/'), "~", StringComparison.OrdinalIgnoreCase);
+    }
+
+
     /// <summary>Pasta dos agentes (loops, lançadores, modelos): ~/.config/agent-control nos três sistemas.</summary>
     public static string AgentsDir => Path.Combine(Home, ".config", "agent-control");
 
