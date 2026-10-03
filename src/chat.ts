@@ -86,12 +86,14 @@ export function writeSala(store: Store, p: ProjectCfg): string | undefined {
  * as=DONO → CHAT/DONO.md · as=CHATGPT → CHAT/CHATGPT.md marcado "via: colado por você"
  * (o app do ChatGPT não escreve arquivo sozinho; você cola a resposta dele).
  */
-export function postChat(p: ProjectCfg, as: 'DONO' | 'CHATGPT' | 'JARVIS', para: string, assunto: string, raw: string): string {
+export function postChat(p: ProjectCfg, as: string, para: string, assunto: string, raw: string): string {
+  // Modo Time: além de DONO/CHATGPT/JARVIS, cada pessoa do time escreve no próprio arquivo (ANA.md).
+  if (!/^[A-Z0-9_]{2,24}$/.test(as)) throw new Error('autor inválido');
   const dir = chatDir(p);
   if (!dir) throw new Error('chat não configurado');
   mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${as}.md`);
-  const who = as === 'DONO' ? 'o JARVIS (em nome do dono)' : as === 'JARVIS' ? 'o JARVIS (respostas ao dono)' : 'o ChatGPT (ou o JARVIS, quando o dono cola a resposta)';
+  const who = as === 'DONO' ? 'o JARVIS (em nome do dono)' : as === 'JARVIS' ? 'o JARVIS (respostas ao dono)'  : as === 'CHATGPT' ? 'o ChatGPT (ou o JARVIS, quando o dono cola a resposta)' : `o JARVIS (em nome de ${as}, pessoa do time)`;
   if (!existsSync(file)) writeFileSync(file, `# ${as}\n\nMensagens de ${as} na sala central. Só ${who} escreve aqui.\n`);
   const [date, time] = nowIso().split('T');
   const text = redact(raw.trim()).slice(0, 8000);

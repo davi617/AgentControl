@@ -170,7 +170,15 @@ h2{font-size:clamp(30px,4.4vw,48px);line-height:1.08;letter-spacing:-.035em;font
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px}
 
 /* downloads */
-.dl{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:44px}
+.dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:44px}
+/* planos */
+.plans{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:44px}
+.plan{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:10px}
+.plan.hot{border-color:rgba(249,115,22,.55)}
+.plan .price{font-size:30px;font-weight:800;letter-spacing:-.03em}
+.plan .price small{font-size:14px;font-weight:600;color:var(--muted)}
+.plan ul{list-style:none;display:grid;gap:6px;color:var(--text2);font-size:14px}
+.plan li::before{content:"✓ ";color:var(--ok)}
 .card{border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:24px;display:flex;flex-direction:column;gap:12px;position:relative;overflow:hidden}
 .card::after{content:"";position:absolute;inset:auto -40% -60% auto;width:220px;height:220px;background:radial-gradient(circle,rgba(249,115,22,.14),transparent 70%)}
 .card .os{width:44px;height:44px;border-radius:12px;background:var(--raised);display:grid;place-items:center}
@@ -381,6 +389,23 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <span class="c"># escolher só os agentes que você usa</span>
 <span class="p">$</span> AgentControl --time claude,hermes</pre>
   </div>
+</div></section>
+
+<section id="planos"><div class="wrap">
+  <div class="center reveal"><span class="kicker">Planos</span><h2>Grátis no seu PC. Pago quando o time cresce.</h2>
+  <p class="sub">O app é aberto e roda de graça com agentes ilimitados. Os planos pagos liberam mais pessoas trabalhando junto e serviços na nuvem.</p></div>
+  <div class="plans">
+    <div class="plan reveal"><b>Grátis</b><div class="price">R$ 0</div><ul><li>Agentes ilimitados no seu PC</li><li>Sala, chamada e HUD</li><li>App do celular e do iPhone</li><li>Até 3 pessoas no time</li></ul></div>
+    <div class="plan hot reveal"><b>Pro</b><div class="price">R$ 29 <small>/mês</small></div><ul><li>Tudo do Grátis</li><li>Até 5 pessoas</li><li>Acesso de fora sem Tailscale</li><li>Backup da configuração</li></ul></div>
+    <div class="plan reveal"><b>Time</b><div class="price">R$ 19 <small>/pessoa/mês</small></div><ul><li>Tudo do Pro</li><li>Pessoas ilimitadas</li><li>Aprovação em dupla</li><li>Auditoria de 1 ano</li></ul></div>
+    <div class="plan reveal"><b>Empresa</b><div class="price">Sob consulta</div><ul><li>Tudo do Time</li><li>SSO</li><li>Suporte prioritário</li><li>Contrato</li></ul></div>
+  </div>
+  <p class="sub" style="margin:22px auto 0;text-align:center">Assinatura com Pix Automático ou cartão. Em breve.</p>
+</div></section>
+
+<section id="iphone"><div class="wrap">
+  <div class="center reveal"><span class="kicker">iPhone e iPad</span><h2>Use no iPhone pelo Safari, como app.</h2>
+  <p class="sub">1. Instale o Tailscale no iPhone e entre na mesma rede do seu PC. 2. No Safari, abra o endereço do seu PC (o mesmo do app Android). 3. Cole o token. 4. Toque em Compartilhar e em Adicionar à Tela de Início.</p></div>
 </div></section>
 
 <section class="final"><div class="wrap reveal">
@@ -656,6 +681,9 @@ const FEATS = [
   ['M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3Z', 'Só no seu PC', 'Tudo escuta em 127.0.0.1. Filtro de segredos, token CSRF e CSP estrita. Remoto só pelo Tailscale.'],
   ['M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01', 'Ordens com aprovação', 'Deploy, push, merge, apagar e pagar esperam o seu OK, que vale para um comando só.'],
   ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', 'Tudo em Markdown', 'Os agentes conversam por arquivos .md que você lê e versiona. Nada preso num banco fechado.'],
+  ['M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5 11a7 7 0 0 0 14 0M12 18v3', 'Chamada no painel', 'Debate, ideias, revisão ou Goal: os agentes falam um de cada vez no painel do PC, com voz se você quiser. A ata fica salva.'],
+  ['M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z', 'AgentC que lembra', 'Diga “lembra que…” e ele guarda. Dá um resumo quando você chega, fica quieto de madrugada e silencia por 1 hora com um toque.'],
+  ['M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM11 18h2', 'Celular sempre em dia', 'O app do Android se atualiza pelo seu PC: publique a versão nova e o celular mostra “Atualizar”.'],
   ['M12 8v4l3 3M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z', 'Loops que se cuidam', 'Só rodam com ordem nova, esperam memória livre, cortam rodadas longas e tentam de novo quando o modelo não responde.'],
 ];
 $('#feats').innerHTML = FEATS.map(([d, t, p]) => `<div class="feat reveal"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg></span>${t}</h3><p>${p}</p></div>`).join('');
@@ -668,13 +696,15 @@ const OS = {
   linux: '<svg viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="1.8" stroke-linecap="round"><ellipse cx="12" cy="8" rx="4" ry="5"/><path d="M8 12c-2 2-3 5-2 8h12c1-3 0-6-2-8"/><circle cx="10.5" cy="7.5" r=".6" fill="#fbbf24"/><circle cx="13.5" cy="7.5" r=".6" fill="#fbbf24"/></svg>',
   android: '<svg viewBox="0 0 24 24" fill="#4ade80"><path d="M6 9h12v8a2 2 0 0 1-2 2h-1v3h-2v-3h-2v3H9v-3H8a2 2 0 0 1-2-2zM3.5 9a1.5 1.5 0 0 1 3 0v6a1.5 1.5 0 0 1-3 0zm14 0a1.5 1.5 0 0 1 3 0v6a1.5 1.5 0 0 1-3 0zM7.5 3.5l1.2 1.7A6 6 0 0 1 12 4.5c1.2 0 2.3.3 3.3.7l1.2-1.7.6.4-1.1 1.6A6 6 0 0 1 18 8H6a6 6 0 0 1 2-2.5L6.9 3.9z"/></svg>',
 };
+OS.ios = '<svg viewBox="0 0 24 24" fill="none" stroke="#e4e4e7" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/></svg>';
 const DL = [
   ['win', 'Windows', 'Windows 10 e 11 (64 bits). Descompacte e abra o AgentControl.exe.', 'AgentControl-windows-x64.zip', 'Baixar para Windows', null],
   ['mac', 'macOS', 'Apple Silicon (M1 em diante). Na primeira vez: botão direito → Abrir.', 'AgentControl-macos-arm64.zip', 'Baixar (Apple Silicon)', ['AgentControl-macos-x64.zip', 'Mac com Intel']],
   ['linux', 'Linux', 'x64 e ARM64, com X11 ou XWayland. Ou use o tools/instalar.sh.', 'AgentControl-linux-x64.tar.gz', 'Baixar (x64)', ['AgentControl-linux-arm64.tar.gz', 'Versão ARM64']],
   ['android', 'Android', 'Android 8 ou mais novo. Conecta no seu PC pelo Tailscale.', 'AgentControl-android.apk', 'Baixar o APK', null],
+  ['ios', 'iPhone e iPad', 'Pelo Safari: abra o endereço do seu PC (Tailscale), entre com o token e toque em Adicionar à Tela de Início.', '#iphone', 'Como instalar', null],
 ];
-$('#dl').innerHTML = DL.map(([k, t, p, f, b, alt]) => `<div class="card reveal"><span class="os">${OS[k]}</span><h3>${t}</h3><p>${p}</p><a class="btn primary" href="${REL + f}">${b}</a>${alt ? `<a class="alt" href="${REL + alt[0]}">${alt[1]} →</a>` : '<span class="alt" style="visibility:hidden">.</span>'}</div>`).join('');
+$('#dl').innerHTML = DL.map(([k, t, p, f, b, alt]) => `<div class="card reveal"><span class="os">${OS[k]}</span><h3>${t}</h3><p>${p}</p><a class="btn primary" href="${f.startsWith('#') ? f : REL + f}">${b}</a>${alt ? `<a class="alt" href="${REL + alt[0]}">${alt[1]} →</a>` : '<span class="alt" style="visibility:hidden">.</span>'}</div>`).join('');
 $$('#dl .reveal').forEach((el, i) => reduce ? (el.style.opacity = 1) : io.observe(el));
 
 /* o download do seu sistema vem marcado */

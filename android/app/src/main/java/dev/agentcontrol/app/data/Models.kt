@@ -271,3 +271,23 @@ data class AboutPc(val nome: String = "", val ligadoHaMin: Int = 0, val nucleos:
 
 @Serializable
 data class About(val jarvis: AboutJarvis = AboutJarvis(), val pc: AboutPc = AboutPc(), val app: AppVersion? = null)
+
+
+// ---------- Modo Time (2026-10-03): pessoas trabalhando junto com os agentes ----------
+@Serializable
+data class TeamMe(val id: String, val name: String, val role: String, val owner: Boolean = false)
+
+@Serializable
+data class TeamPerson(val id: String, val name: String, val role: String, val color: String = "#F97316", val online: Boolean = false, val lastSeen: String? = null, val via: String? = null)
+
+@Serializable
+data class PlanoInfo(val plano: String = "gratis", val nome: String = "Grátis", val pessoas: Int? = null, val motivo: String? = null)
+
+@Serializable
+data class TeamInfo(val me: TeamMe, val people: List<TeamPerson> = emptyList(), val plano: PlanoInfo? = null)
+
+@Serializable
+data class RemoteAddr(val host: String, val port: Int)
+
+@Serializable
+data class TeamInvite(val person: TeamPerson, val token: String, val remote: RemoteAddr? = null)

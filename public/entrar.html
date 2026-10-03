@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#090909">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Agent Control">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<title>Entrar · Agent Control</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="entrar">
+<main class="entrar-box">
+  <img src="/apple-touch-icon.png" alt="" width="72" height="72" class="entrar-logo">
+  <h1>Entrar no Agent Control</h1>
+  <p class="entrar-sub">Cole o token que o dono do time mandou para você. Ele fica guardado só neste aparelho.</p>
+  <form id="f">
+    <input id="t" type="password" autocomplete="off" placeholder="Token" class="entrar-input">
+    <button id="b" type="submit" class="entrar-btn">Entrar</button>
+  </form>
+  <p id="m" class="entrar-erro"></p>
+  <p class="entrar-dica">No iPhone: depois de entrar, toque em <b>Compartilhar</b> e em <b>Adicionar à Tela de Início</b> para abrir como app.</p>
+</main>
+<script src="/entrar.js"></script>
+</body>
+</html>

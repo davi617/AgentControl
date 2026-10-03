@@ -91,6 +91,12 @@ class JarvisApi(url: String, private val token: String) {
 
     suspend fun projects(): List<Project> = json.decodeFromString(get("/api/projects"))
 
+    // Modo Time: quem sou eu, quem está online, convidar e remover (só o dono).
+    suspend fun team(): TeamInfo = json.decodeFromString(get("/api/team"))
+    suspend fun teamInvite(name: String, role: String): TeamInvite =
+        json.decodeFromString(post("/api/team/invite", buildJsonObject { put("name", name); put("role", role) }.toString()))
+    suspend fun teamRemove(id: String) { post("/api/team/remove", buildJsonObject { put("id", id) }.toString()) }
+
     suspend fun limits(project: String): LimitsSnap = json.decodeFromString(get("/api/limits", project))
 
     suspend fun health(project: String): Health = json.decodeFromString(get("/api/health", project))

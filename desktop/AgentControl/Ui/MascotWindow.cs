@@ -169,9 +169,15 @@ public sealed class MascotWindow : Window
     }
 
     /// <summary>Um agente falou: o AgentC pula, olha para cima e mostra o balão.</summary>
+    /// <summary>Até quando o AgentC fica quieto (modo silêncio do menu).</summary>
+    public DateTime QuietUntil { get; set; }
+
     public void Say(string who, string text)
     {
         if (string.IsNullOrWhiteSpace(text) || !IsVisible) return;
+        // Modo silêncio: só fala quem você chamou (cócegas, memória); o resto fica quieto até a hora acabar.
+        if (DateTime.Now < QuietUntil && who != "AgentC!") return;
+        if (who == "AgentC!") who = "AgentC";
         bubbleWho.Text = who == "DONO" ? "Você" : K.Nice(who);
         bubbleText.Text = text.Length > 160 ? text[..160] + "…" : text;
         bubble.IsOpen = true;
@@ -303,7 +309,7 @@ public sealed class MascotWindow : Window
         if (taps.Count < 4) return false;
         taps.Clear();
         Celebrate();
-        Say("AgentC", TickleLines[rnd.Next(TickleLines.Length)]);
+        Say("AgentC!", TickleLines[rnd.Next(TickleLines.Length)]);
         return true;
     }
 
@@ -378,6 +384,8 @@ public sealed class MascotWindow : Window
         Item("web", K.IPhone, "Chamada com o time");
         Item("goal", K.IGoal, "Iniciar Modo Goal");
         Item("launcher", K.IHealth, "Abrir o Launcher");
+        Item("pausa", K.IPause, "Pausar / retomar os agentes");
+        Item("silencio", K.IMute, "Silenciar o AgentC por 1 h");
         list.Children.Add(new Border { Height = 1, Background = K.Line, Margin = new Thickness(6, 4) });
         Item("esconder", K.IHide, "Esconder AgentC e a HUD");
         Item("sair", K.IClose, "Fechar o AgentC", danger: true);
