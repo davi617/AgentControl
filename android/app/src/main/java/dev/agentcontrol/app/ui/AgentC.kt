@@ -27,7 +27,7 @@ import kotlin.random.Random
  * Minimalista: só pisca e olha em volta de vez em quando. [stroke] muda com o estado (laranja, âmbar, cinza).
  */
 @Composable
-fun AgentC(size: Dp, modifier: Modifier = Modifier, stroke: Color? = null, alive: Boolean = true) {
+fun AgentC(size: Dp, modifier: Modifier = Modifier, stroke: Color? = null, alive: Boolean = true, talking: Boolean = false) {
     val k = Clay.c
     val reduced = reducedMotion()
     val blink = remember { Animatable(1f) }
@@ -51,6 +51,12 @@ fun AgentC(size: Dp, modifier: Modifier = Modifier, stroke: Color? = null, alive
                 lookY.animateTo(ty, tween(260, easing = OutExpo))
             }
         }
+    }
+    // Falando: a boca abre e fecha (2026-10-03, HUD do celular).
+    val mouth = remember { Animatable(0f) }
+    LaunchedEffect(talking, reduced) {
+        if (!talking || reduced) { mouth.animateTo(0f, tween(150)); return@LaunchedEffect }
+        while (true) { mouth.animateTo(Random.nextFloat() * .8f + .2f, tween(110)); mouth.animateTo(.1f, tween(110)) }
     }
     val line = stroke ?: k.brand
     val fill = k.surface
@@ -78,6 +84,10 @@ fun AgentC(size: Dp, modifier: Modifier = Modifier, stroke: Color? = null, alive
         val dy = lookY.value * unit
         for (x in listOf(c.x - 12f * unit, c.x + 4f * unit)) {
             drawRoundRect(eye, topLeft = Offset(x + dx, c.y - eh / 2 + dy), size = Size(ew, eh), cornerRadius = CornerRadius(ew / 2, ew / 2))
+        }
+        if (mouth.value > .02f) {
+            val mw = 10f * unit; val mh = (1.5f + 6f * mouth.value) * unit
+            drawRoundRect(eye, topLeft = Offset(c.x - mw / 2 - 2f * unit, c.y + 11f * unit - mh / 2), size = Size(mw, mh), cornerRadius = CornerRadius(mh / 2, mh / 2))
         }
     }
 }

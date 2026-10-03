@@ -258,7 +258,7 @@ fun LogoMark(size: Int) = AgentC(size.dp)
 // sugestões. O histórico inteiro fica na aba Sala; o resto das funções na aba Mais.
 
 @Composable
-fun HomeScreen(ui: UiState, openSala: () -> Unit, openApprovals: () -> Unit, send: (String, String, Boolean) -> Unit, onUpdate: () -> Unit = {}, openCall: () -> Unit = {}, startGoal: () -> Unit = {}, resume: () -> Unit = {}) {
+fun HomeScreen(ui: UiState, openSala: () -> Unit, openApprovals: () -> Unit, send: (String, String, Boolean) -> Unit, onUpdate: () -> Unit = {}, openCall: () -> Unit = {}, startGoal: () -> Unit = {}, resume: () -> Unit = {}, openAgent: (String) -> Unit = {}) {
     val k = Clay.c
     val today = java.time.LocalDate.now().toString()
     val chat = ui.chat.filter { it.ts.startsWith(today) }
@@ -266,6 +266,7 @@ fun HomeScreen(ui: UiState, openSala: () -> Unit, openApprovals: () -> Unit, sen
     val list = rememberLazyListState()
     LaunchedEffect(chat.size) { if (chat.isNotEmpty()) list.animateScrollToItem(chat.size) }
     Column(Modifier.fillMaxSize()) {
+        PhoneHud(ui, openSala, openAgent)
         if (ui.update != null) Box(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) { Chip("Nova versão do app (${ui.update.versionName}) · atualizar", onUpdate, accent = true) }
         if (ui.pending.isNotEmpty()) Box(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) { Chip("${ui.pending.size} aprovação esperando você", openApprovals, accent = true) }
         // Avisos do PC no topo do Início (2026-10-03): pausado com Retomar, chamada ao vivo, pouca memória e sem conexão.
