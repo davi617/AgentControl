@@ -17,7 +17,7 @@ screens = out / "screens"
 
 def run(label, args, graphical=False, expected_exit=0):
     command = [str(exe), *args]
-    if graphical and sys.platform.startswith("linux"):
+    if graphical and sys.platform.startswith("linux") and env.get("AGENTCONTROL_TEST_DISPLAY_READY") != "1":
         command = ["xvfb-run", "-a", "-s", "-screen 0 1440x1000x24", *command]
     with (out / f"{label}.log").open("w") as log:
         proc = subprocess.run(command, env=env, stdout=log, stderr=subprocess.STDOUT, timeout=180)
