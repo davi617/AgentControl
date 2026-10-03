@@ -115,7 +115,10 @@ public sealed class HudHost
                         break;
                     }
             prevReports = Snap.Reports;
+            // Primeira leitura do dia: o AgentC dá um resumo curto (quem está ligado e o que espera você).
+            if (first && Snap.Online) Greet();
             first = false;
+            if (tray is not null) tray.ToolTipText = TraySummary();
             Hud.Refresh();
             if (Mini.IsVisible) Mini.Refresh();
             if (Full.IsVisible) Full.Refresh();
@@ -220,6 +223,29 @@ public sealed class HudHost
     {
         if (tray is not null) tray.IsVisible = false;
         desk.Shutdown();
+    }
+
+    void Greet()
+    {
+        var hour = DateTime.Now.Hour;
+        var hi = hour < 5 ? "Boa madrugada" : hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+        var on = Snap.Agents.Count(a => a.Status is not ("OFF" or "OFFLINE" or ""));
+        var parts = new List<string> { $"{on} de {Snap.Agents.Count} agentes ligados" };
+        if (Snap.Pending > 0) parts.Add(Snap.Pending == 1 ? "1 aprovação esperando você" : $"{Snap.Pending} aprovações esperando você");
+        if (Snap.Paused) parts.Add("o time está pausado");
+        DispatcherTimer.RunOnce(() => Mascot.Say("AgentC", $"{hi}! {string.Join(", ", parts)}."), TimeSpan.FromSeconds(1.5));
+    }
+
+    /// <summary>Texto do ícone na bandeja: o estado sem precisar abrir nada.</summary>
+    string TraySummary()
+    {
+        if (!Snap.Online) return "AgentC · servidor desligado";
+        var working = Snap.Agents.Count(a => a.Status == "WORKING");
+        var txt = $"AgentC · {working} trabalhando de {Snap.Agents.Count}";
+        if (Snap.Pending > 0) txt += $" · {Snap.Pending} aprovação(ões)";
+        if (Snap.Paused) txt += " · pausado";
+        if (Snap.CallActive) txt += " · em chamada";
+        return txt;
     }
 
     void BuildTray()
