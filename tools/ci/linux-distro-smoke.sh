@@ -19,6 +19,7 @@ case "$ID" in
   *) echo "Unsupported test image: $ID"; exit 2 ;;
 esac
 if [ "$ID" != alpine ]; then export PATH="/opt/node/bin:$PATH"; fi
+node -e 'if (Number(process.versions.node.split(".")[0]) < 24) process.exit(1)'
 bash -n tools/instalar.sh tools/linux-deps.sh tools/agentes/agent-loop.sh
 bash tools/linux-deps.sh --check
 node --test
