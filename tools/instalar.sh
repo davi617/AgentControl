@@ -15,6 +15,12 @@ case "$OS-$ARCH" in
   Darwin-arm64) RID=osx-arm64 ;; Darwin-x86_64) RID=osx-x64 ;;
   *) echo "Sistema não suportado: $OS $ARCH"; exit 1 ;;
 esac
+if [ "$OS" = Linux ] && ldd --version 2>&1 | grep -qi musl; then
+  case "$ARCH" in
+    x86_64) RID=linux-musl-x64 ;;
+    *) echo 'Desktop musl disponível somente para x64 nesta versão. Use --sem-app para servidor.'; [ "$APP" = 0 ] || exit 1 ;;
+  esac
+fi
 if [ "$OS" = Linux ] && [ "$APP" = 1 ]; then
   bash "$REPO/tools/linux-deps.sh" --check
 fi
@@ -66,6 +72,11 @@ EOF
     ok "App: $APPDIR (abra pelo Launchpad ou Spotlight: Agent Control)."
   else
     EXE="$OUT/AgentControl"
+    EXEC_LINE="\"$EXE\""
+    if [ "${AGENTCONTROL_NIX_ENV:-0}" = 1 ]; then
+      chmod +x "$REPO/tools/run-nixos.sh"
+      EXEC_LINE="\"$REPO/tools/run-nixos.sh\" \"$EXE\""
+    fi
     ICON="$HOME/.local/share/icons/hicolor/512x512/apps/agent-control.png"
     mkdir -p "$(dirname "$ICON")" "$HOME/.local/share/applications"
     cp "$REPO/desktop/AgentControl/Assets/agentc.png" "$ICON"
@@ -74,7 +85,7 @@ EOF
 Type=Application
 Name=Agent Control
 Comment=Seu time de agentes de IA num só lugar
-Exec="$EXE"
+Exec=$EXEC_LINE
 Icon=agent-control
 Terminal=false
 Categories=Development;Utility;
@@ -102,7 +113,7 @@ EOF
     ok "Autostart: $PL (para tirar: apague esse arquivo)."
   else
     mkdir -p "$HOME/.config/autostart"
-    sed "s|^Exec=.*|Exec=\"$EXE\" --autostart|; s|^Name=.*|Name=Agent Control (ligar serviços)|" "$HOME/.local/share/applications/agent-control.desktop" > "$HOME/.config/autostart/agent-control.desktop"
+    sed "s|^Exec=.*|Exec=$EXEC_LINE --autostart|; s|^Name=.*|Name=Agent Control (ligar serviços)|" "$HOME/.local/share/applications/agent-control.desktop" > "$HOME/.config/autostart/agent-control.desktop"
     ok "Autostart: ~/.config/autostart/agent-control.desktop (para tirar: apague esse arquivo)."
   fi
 fi

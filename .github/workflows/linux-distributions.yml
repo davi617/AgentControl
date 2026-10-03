@@ -1,7 +1,7 @@
 name: Linux distributions
 on:
   push:
-    branches: [main, codex/native-platform-smoke]
+    branches: [main, codex/native-platform-smoke, codex/linux-musl-nixos]
   pull_request:
     paths: ['desktop/**', 'android/app/src/main/res/drawable/**', 'src/**', 'test/**', 'tools/**', 'package*.json', 'jarvis.config.example.json', '.github/workflows/linux-distributions.yml']
   workflow_dispatch:
@@ -16,6 +16,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - {distro: alpine, image: 'alpine:3.23', rid: linux-musl-x64, runner: ubuntu-22.04}
           - {distro: arch, image: 'archlinux:base', rid: linux-x64, runner: ubuntu-22.04}
           - {distro: ubuntu, image: 'ubuntu:22.04', rid: linux-x64, runner: ubuntu-22.04}
           - {distro: debian, image: 'debian:12', rid: linux-x64, runner: ubuntu-22.04}
