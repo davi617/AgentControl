@@ -1,0 +1,54 @@
+name: Native desktop smoke
+
+on:
+  push:
+    branches: [codex/native-platform-smoke]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: ${{ matrix.rid }} native app
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            rid: linux-x64
+          - os: macos-15-intel
+            rid: osx-x64
+          - os: macos-15
+            rid: osx-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Linux display dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb libx11-6 libice6 libsm6 libfontconfig1
+      - name: Server tests
+        run: npm ci && node --test
+      - name: Publish native executable
+        run: dotnet publish desktop/AgentControl/AgentControl.csproj -c Release -r '${{ matrix.rid }}' --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -o artifacts/app
+      - name: First configuration and native windows
+        run: python3 tools/ci/native-desktop-smoke.py artifacts/app/AgentControl artifacts
+      - name: Upload temporary evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.rid }}
+          path: |
+            artifacts/*.log
+            artifacts/result.json
+            artifacts/screens/*.png
+            artifacts/screens/erro.txt
+          retention-days: 1
