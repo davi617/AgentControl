@@ -24,11 +24,15 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixos-25.11
       - name: Run in Nix FHS
-        run: nix-shell tools/nixos.nix --run 'bash tools/ci/nixos-smoke.sh'
+        run: |
+          env_dir="$(nix-build tools/nixos.nix --no-out-link)"
+          "$env_dir/bin/agent-control-env" -c 'bash tools/ci/nixos-smoke.sh'
+          test -f artifacts/result.json
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: nixos-environment
+          if-no-files-found: error
           path: |
             artifacts/*.log
             artifacts/result.json

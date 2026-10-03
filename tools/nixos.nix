@@ -12,4 +12,4 @@
     export FONTCONFIG_FILE=${pkgs.fontconfig.out}/etc/fonts/fonts.conf
   '';
   runScript = "bash";
-}).env
+})

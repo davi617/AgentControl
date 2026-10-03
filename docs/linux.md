@@ -29,7 +29,8 @@ Para compilar, instale SDK .NET 8 compatível com musl; Node 24+ é necessário 
 As dependências e caminhos do desktop ficam no ambiente FHS declarado em `tools/nixos.nix`, com Node 24 e SDK .NET 8. Entre nesse ambiente para instalar:
 
 ```bash
-nix-shell tools/nixos.nix
+env_dir="$(nix-build tools/nixos.nix --no-out-link)"
+"$env_dir/bin/agent-control-env"
 bash tools/instalar.sh --agentes
 ```
 

@@ -12,7 +12,7 @@ case " $ID $ID_LIKE " in
     echo 'Dependências: sudo apk add icu-libs openssl libstdc++ zlib libx11 libice libsm fontconfig xdg-utils xwayland'
     echo 'Desktop: publique linux-musl-x64; o binário glibc não serve. Para compilar, instale .NET SDK 8 compatível com musl; servidor: Node 24+.' ;;
   *' nixos '*)
-    echo 'Use: nix-shell tools/nixos.nix; depois bash tools/instalar.sh.'
+    echo 'Use o ambiente criado por nix-build tools/nixos.nix, conforme docs/linux.md.'
     if [ "${AGENTCONTROL_NIX_ENV:-0}" != 1 ] && [ "$MODE" = --check ]; then exit 1; fi ;;
   *' arch '*|*' manjaro '*|*' endeavouros '*)
     echo 'Dependências: sudo pacman -Syu --needed icu openssl zlib libx11 libice libsm fontconfig xdg-utils xorg-xwayland'

@@ -4,6 +4,7 @@
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { localDay } from './date.ts';
 
 export interface Bucket {
   req: number; // pedidos que chegaram à NVIDIA (com resposta)
@@ -17,7 +18,7 @@ export interface Bucket {
 }
 
 const empty = (): Bucket => ({ req: 0, ok: 0, err: 0, r429: 0, pin: 0, pout: 0, ms: 0, models: {} });
-const dayKey = (d = new Date()) => d.toLocaleDateString('sv-SE'); // AAAA-MM-DD no horário do PC
+const dayKey = (d = new Date()) => localDay(d); // AAAA-MM-DD no horário do PC
 
 /** "/a/hermes/v1/chat/completions" → HERMES + "/v1/chat/completions". Sem prefixo, decide pelo cabeçalho de prioridade. */
 export function agentFromUrl(url: string, priority: string): { agent: string; url: string } {
