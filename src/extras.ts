@@ -50,7 +50,7 @@ export function about(dbFile: string) {
   try { app = JSON.parse(readFileSync(path.join(path.dirname(dbFile), 'app', 'version.json'), 'utf8')); } catch { /* nenhum app publicado */ }
   return {
     jarvis: { commit, node: process.version, ligadoHaMin: Math.round((Date.now() - STARTED) / 60_000) },
-    pc: { nome: os.hostname(), ligadoHaMin: Math.round(os.uptime() / 60), nucleos: os.cpus().length },
+    pc: { nome: "Computador", ligadoHaMin: Math.round(os.uptime() / 60), nucleos: os.cpus().length },
     app,
   };
 }
