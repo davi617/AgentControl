@@ -114,7 +114,12 @@ public sealed class Services
         return null;
     }
 
-    static string Redact(string s) => Regex.Replace(s, @"(Bearer\s+|sk-|nvapi-|AIza|eyJ)[A-Za-z0-9._\-]{8,}", "$1[REDACTED]");
+    static string Redact(string s)
+    {
+        s = Regex.Replace(s, @"(Bearer\s+|sk-|nvapi-|AIza|eyJ)[A-Za-z0-9._\-]{8,}", "$1[REDACTED]");
+        s = s.Replace(Platform.Home, "[HOME]", StringComparison.OrdinalIgnoreCase);
+        return Regex.Replace(s, @"\b[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}\b", "[REDACTED]", RegexOptions.IgnoreCase);
+    }
 
     string Repo => Platform.Expand(Settings.JarvisDir);
 
