@@ -281,7 +281,10 @@ data class TeamMe(val id: String, val name: String, val role: String, val owner:
 data class TeamPerson(val id: String, val name: String, val role: String, val color: String = "#F97316", val online: Boolean = false, val lastSeen: String? = null, val via: String? = null)
 
 @Serializable
-data class TeamInfo(val me: TeamMe, val people: List<TeamPerson> = emptyList())
+data class PlanoInfo(val plano: String = "gratis", val nome: String = "Grátis", val pessoas: Int? = null, val motivo: String? = null)
+
+@Serializable
+data class TeamInfo(val me: TeamMe, val people: List<TeamPerson> = emptyList(), val plano: PlanoInfo? = null)
 
 @Serializable
 data class RemoteAddr(val host: String, val port: Int)

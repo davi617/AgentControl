@@ -406,6 +406,53 @@ test('time: dono convida, pessoa entra com token próprio, fala com o nome dela,
     // dono remove: o token para de valer
     assert.equal((await post(token, '/api/team/remove', { id: 'BETO' })).status, 200);
     assert.equal((await fetch(`${rb}/api/projects`, { headers: { Authorization: `Bearer ${ro.token}` } })).status, 401);
+
+    // freemium: o Grátis cabe 3 pessoas contando o dono (dono + Ana + Carla); a 4ª é recusada com 402
+    assert.equal((await post(token, '/api/team/invite', { name: 'Carla', role: 'membro' })).status, 201);
+    const full = await post(token, '/api/team/invite', { name: 'Edu', role: 'membro' });
+    assert.equal(full.status, 402);
+    assert.match((await full.json()).error, /Grátis permite 3 pessoas/);
+    const plano = await (await fetch(`${rb}/api/plan`, { headers: { Authorization: `Bearer ${inv.token}` } })).json();
+    assert.equal(plano.plano, 'gratis');
+    assert.equal((await post(inv.token, '/api/plan/license', { license: 'AC1.a.b' })).status, 403, 'licença só o dono instala');
+    assert.equal((await post(token, '/api/plan/license', { license: 'AC1.a.b' })).status, 400, 'licença inválida é recusada');
+  } finally {
+    rs.closeAllConnections();
+    await new Promise<void>((r) => rs.close(() => r()));
+  }
+});
+
+test('navegador (iPhone/PWA): entrar guarda o token em cookie HttpOnly; escrita por cookie exige CSRF', async () => {
+  const token = 'token-dono-web-0123456789abcdef';
+  const probe = createServer(j, { host: '127.0.0.1', token });
+  await new Promise<void>((r) => probe.listen(0, '127.0.0.1', r));
+  const rport = (probe.address() as AddressInfo).port;
+  await new Promise<void>((r) => probe.close(() => r()));
+  const rs = createServer(j, { host: '127.0.0.1', token, port: rport });
+  await new Promise<void>((r) => rs.listen(rport, '127.0.0.1', r));
+  const rb = `http://127.0.0.1:${rport}`;
+  try {
+    const home = await fetch(`${rb}/`, { headers: { Accept: 'text/html' }, redirect: 'manual' });
+    assert.equal(home.status, 302, 'sem login vai para /entrar');
+    assert.equal(home.headers.get('location'), '/entrar');
+    assert.equal((await fetch(`${rb}/entrar`)).status, 200);
+    assert.equal((await fetch(`${rb}/manifest.webmanifest`)).status, 200);
+    assert.equal((await fetch(`${rb}/api/projects`)).status, 401, 'API continua fechada');
+
+    const bad = await fetch(`${rb}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: 'errado' }) });
+    assert.equal(bad.status, 401);
+    const ok = await fetch(`${rb}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token }) });
+    assert.equal(ok.status, 200);
+    const setCookie = ok.headers.get('set-cookie') ?? '';
+    assert.match(setCookie, /HttpOnly/);
+    assert.match(setCookie, /SameSite=Strict/);
+    const cookie = setCookie.split(';')[0];
+
+    assert.equal((await fetch(`${rb}/api/projects`, { headers: { Cookie: cookie } })).status, 200, 'cookie vale para ler');
+    const chat = (h: Record<string, string>) => fetch(`${rb}/api/chat`, { method: 'POST', headers: { Cookie: cookie, 'Content-Type': 'application/json', ...h }, body: JSON.stringify({ project: 'test', text: 'oi do iPhone' }) });
+    assert.equal((await chat({})).status, 403, 'escrita só com cookie (sem CSRF) é recusada');
+    const { csrf } = await (await fetch(`${rb}/api/session`, { headers: { Cookie: cookie } })).json();
+    assert.equal((await chat({ Origin: rb, 'X-Jarvis-Csrf': csrf })).status, 201, 'com CSRF e Origin a escrita passa');
   } finally {
     rs.closeAllConnections();
     await new Promise<void>((r) => rs.close(() => r()));

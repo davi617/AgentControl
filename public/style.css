@@ -349,3 +349,13 @@ h1 { margin: 0 0 2px; font: 600 24px/1.2 var(--display); }
   .grid { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) { .bubble.fresh .b, .msg.fresh { animation: none; } }
+
+/* Tela de entrar (navegador do iPhone / PWA) */
+.entrar-box{max-width:420px;margin:12vh auto 0;padding:0 20px;font-family:system-ui,sans-serif}
+.entrar-logo{border-radius:18px}
+.entrar-box h1{font-size:26px;margin:18px 0 6px}
+.entrar-sub{opacity:.75;line-height:1.5;margin:0 0 18px}
+.entrar-input{width:100%;box-sizing:border-box;padding:14px 16px;border-radius:14px;border:1px solid #333;background:#151515;color:#f5f5f5;font-size:16px}
+.entrar-btn{width:100%;margin-top:12px;padding:14px;border:0;border-radius:14px;background:#F97316;color:#0a0a0a;font-weight:700;font-size:16px}
+.entrar-erro{min-height:22px;margin-top:12px;color:#fca5a5}
+.entrar-dica{opacity:.6;font-size:14px;line-height:1.5}

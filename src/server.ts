@@ -15,8 +15,9 @@ import { addNote, syncNotesFile } from './notes.ts';
 import { searchAll } from './search.ts';
 import { about, commandsPerDay, gateUsage, listCalls } from './extras.ts';
 import { OWNER, mentions, teamFor, type Role, type Who } from './team.ts';
+import { PlanStore, publicPlan } from './plans.ts';
 
-const TEAM_POSTS = ['/api/team/invite', '/api/team/remove', '/api/team/role'];
+const TEAM_POSTS = ['/api/team/invite', '/api/team/remove', '/api/team/role', '/api/plan/license'];
 const CALL_POSTS = ['/api/call/start', '/api/call/say', '/api/call/next', '/api/call/end', '/api/call/turn', '/api/call/round'];
 const WRITE_POSTS = [
   '/api/models', '/api/agents/pause', '/api/call/attach',
@@ -31,6 +32,11 @@ const STATIC: Record<string, [string, string]> = {
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8'],
   '/icon.svg': ['icon.svg', 'image/svg+xml'],
+  // iPhone/iPad e navegador de qualquer celular: app instalável pela tela de início (PWA) e tela de entrar.
+  '/manifest.webmanifest': ['manifest.webmanifest', 'application/manifest+json'],
+  '/apple-touch-icon.png': ['apple-touch-icon.png', 'image/png'],
+  '/entrar': ['entrar.html', 'text/html; charset=utf-8'],
+  '/entrar.js': ['entrar.js', 'text/javascript; charset=utf-8'],
 };
 
 const SECURITY_HEADERS = {
@@ -73,21 +79,43 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     : new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
 
   const team = teamFor(j.cfg.db === ':memory:' ? null : path.dirname(j.cfg.db));
+  const plans = new PlanStore(j.cfg.db === ':memory:' ? null : path.dirname(j.cfg.db));
   const handle = (req: http.IncomingMessage, res: http.ServerResponse) => {
     // Quem está pedindo: no PC é o dono; no remoto, o token principal é o dono e um token de convite é a pessoa do time.
     // Sem token válido no remoto não responde nada (nem a página).
     let who: Who = OWNER;
+    // Navegador (iPhone/PWA) não manda Bearer: depois de /entrar, o token vai num cookie HttpOnly. Pedido por cookie
+    // é credencial automática do navegador, então as escritas por esse caminho exigem o token CSRF (como no PC).
+    let viaCookie = false, anon = false;
     if (remote) {
+      const pathOnly = (req.url ?? '/').split('?')[0];
       const auth = String(req.headers.authorization ?? '');
-      const guest = auth.startsWith('Bearer ') ? team.byToken(auth.slice(7)) : null;
-      if (sameSecret(auth, `Bearer ${remote.token}`)) who = OWNER;
+      const cookieTok = /(?:^|;\s*)ac_token=([^;]+)/.exec(String(req.headers.cookie ?? ''))?.[1];
+      const tok = auth.startsWith('Bearer ') ? auth.slice(7) : cookieTok ? decodeURIComponent(cookieTok) : '';
+      viaCookie = !auth.startsWith('Bearer ') && !!cookieTok;
+      const guest = tok ? team.byToken(tok) : null;
+      if (tok && sameSecret(tok, remote.token)) who = OWNER;
       else if (guest) who = guest;
-      else {
+      else if (STATIC[pathOnly] && ['/entrar', '/entrar.js', '/icon.svg', '/apple-touch-icon.png', '/manifest.webmanifest', '/style.css'].includes(pathOnly)) {
+        anon = true; // tela de entrar e ícones abrem sem token (e não contam como ninguém)
+      } else if (pathOnly === '/api/login' && req.method === 'POST') {
+        readBody(req, 1_024).then((raw) => {
+          let t = '';
+          try { t = String(JSON.parse(raw).token ?? '').trim(); } catch { /* vazio */ }
+          if (!t || !(sameSecret(t, remote.token) || team.byToken(t))) { res.writeHead(401, { ...SECURITY_HEADERS, 'Content-Type': 'application/json' }).end('{"error":"token não confere"}'); return; }
+          res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': 'application/json', 'Set-Cookie': `ac_token=${encodeURIComponent(t)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000` }).end('{"ok":true}');
+        }).catch(() => res.writeHead(413, SECURITY_HEADERS).end());
+        return;
+      } else if ((req.headers.accept ?? '').includes('text/html')) {
+        res.writeHead(302, { ...SECURITY_HEADERS, Location: '/entrar' }).end();
+        return;
+      } else {
         res.writeHead(401, { ...SECURITY_HEADERS, 'WWW-Authenticate': 'Bearer' }).end('token obrigatório');
         return;
       }
     }
-    team.touch(who, remote ? 'celular' : 'pc');
+    if (anon && !STATIC[(req.url ?? '/').split('?')[0]]) { res.writeHead(401, SECURITY_HEADERS).end(); return; }
+    if (!anon) team.touch(who, remote ? 'celular' : 'pc');
     // Anti DNS-rebinding: um site externo que aponte um domínio para 127.0.0.1 manda outro Host.
     const host = req.headers.host ?? '';
     const origin = req.headers.origin;
@@ -106,7 +134,7 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     // não é credencial automática do navegador, então não há CSRF.
     const isPost = req.method === 'POST' && ['/api/commands', '/api/chat', '/api/commands/decide', ...WRITE_POSTS, ...CALL_POSTS, ...TEAM_POSTS].includes(url.pathname);
     const browserOk = !!origin && req.headers['x-jarvis-csrf'] === csrf;
-    if (isPost && (!(remote || browserOk) || !String(req.headers['content-type']).startsWith('application/json'))) {
+    if (isPost && (!((remote && !viaCookie) || browserOk) || !String(req.headers['content-type']).startsWith('application/json'))) {
       send(403, { error: 'requisição recusada' });
       return;
     }
@@ -117,11 +145,15 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
       return;
     }
     if (isPost && TEAM_POSTS.includes(url.pathname)) {
-      readBody(req, 2_048).then((raw) => {
-        let body: { name?: string; role?: string; id?: string };
+      readBody(req, 4_096).then((raw) => {
+        let body: { name?: string; role?: string; id?: string; license?: string };
         try { body = JSON.parse(raw); } catch { send(400, { error: 'JSON inválido' }); return; }
         try {
+          if (url.pathname === '/api/plan/license') { send(200, publicPlan(plans.install(String(body.license ?? '')))); return; }
           if (url.pathname === '/api/team/invite') {
+            // Freemium: o plano define quantas pessoas cabem no time (contando o dono).
+            const st = plans.state();
+            if (team.ids().length + 1 >= st.pessoas) { send(402, { error: `o plano ${st.plan.nome} permite ${st.pessoas} pessoas no time; para convidar mais, mude de plano` }); return; }
             const { person, token } = team.invite(String(body.name ?? ''), (String(body.role ?? 'membro')) as Role);
             // O token sai só nesta resposta: quem convidou passa para a pessoa (QR/link no app).
             send(201, { person, token, remote: j.cfg.remote?.enabled ? { host: j.cfg.remote.host, port: j.cfg.remote.port ?? j.cfg.port } : null });
@@ -332,7 +364,8 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     }
 
     // Time: quem sou eu e quem mais está aqui (presença).
-    if (url.pathname === '/api/team') { send(200, { me: who, people: team.list() }); return; }
+    if (url.pathname === '/api/team') { send(200, { me: who, people: team.list(), plano: publicPlan(plans.state()) }); return; }
+    if (url.pathname === '/api/plan') { send(200, publicPlan(plans.state())); return; }
     if (url.pathname === '/api/session') {
       // Outro site não consegue ler esta resposta (sem CORS + checagem de Host), então o token não vaza.
       send(200, { csrf });
