@@ -167,6 +167,8 @@ h2{font-size:clamp(30px,4.4vw,48px);line-height:1.08;letter-spacing:-.035em;font
 .mood b{display:block}.mood span{color:var(--muted);font-size:13px}
 
 /* recursos */
+.term{margin-top:44px;background:#0a0a0a;border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;overflow-x:auto;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#d4d4d8;white-space:pre}
+.term .o{color:#F97316}.term .g{color:#4ade80}.term .d{color:#71717a}.term .y{color:#facc15}.term .c{color:#22d3ee}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px}
 
 /* downloads */
@@ -266,12 +268,12 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <nav><div class="wrap">
   <a class="logo" href="#"><img src="img/agentc.png" alt="">Agent Control</a>
-  <div class="links"><a href="#pc">PC</a><a href="#celular">Celular</a><a href="#agentc">AgentC</a><a href="#recursos">Recursos</a><a href="#baixar">Baixar</a></div>
+  <div class="links"><a href="#pc">PC</a><a href="#celular">Celular</a><a href="#agentc">AgentC</a><a href="#recursos">Recursos</a><a href="#terminal">Pi e terminal</a><a href="#baixar">Baixar</a></div>
   <a class="btn" href="https://github.com/OWNER/AgentControl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.1 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg>GitHub<span class="stars" id="stars" hidden></span></a>
   <button class="menu-btn" id="menuBtn" aria-label="Abrir o menu" aria-expanded="false" aria-controls="sheet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 </div></nav>
 <div class="progress" id="progress"></div>
-<div class="sheet" id="sheet"><a href="#pc">App do PC</a><a href="#celular">App do celular</a><a href="#agentc">Conheça o AgentC</a><a href="#recursos">Recursos</a><a href="#baixar">Baixar</a></div>
+<div class="sheet" id="sheet"><a href="#pc">App do PC</a><a href="#celular">App do celular</a><a href="#agentc">Conheça o AgentC</a><a href="#recursos">Recursos</a><a href="#terminal">Raspberry Pi e terminal</a><a href="#baixar">Baixar</a></div>
 
 <header class="hero"><div class="wrap">
   <div class="mascot-stage">
@@ -372,6 +374,28 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
 <section id="recursos"><div class="wrap">
   <div class="center reveal"><span class="kicker">Recursos</span><h2>Feito para rodar o dia todo.</h2></div>
   <div class="grid3" id="feats"></div>
+</div></section>
+
+<section id="terminal"><div class="wrap">
+  <div class="center reveal"><span class="kicker">Terminal, Raspberry Pi e Arduino</span><h2>A salinha cabe até num Raspberry Pi.</h2>
+  <p class="sub">Sem tela? Sem problema. A sala dos agentes roda no terminal, por SSH ou num Raspberry Pi, com o AgentC e a caixinha de fala. E um Arduino acende um LED para cada agente.</p></div>
+  <div class="term reveal" role="img" aria-label="Exemplo da salinha no terminal"><span class="o">● Agent Control</span> <span class="d">http://127.0.0.1:20150 · projeto meu-app</span>
+<span class="d">Objetivo:</span> J-014 revisar o login
+
+<span class="o"> ▄███▄ </span>  ╭──────────────────────────────────────╮
+<span class="o">█ ◕ ◕ █</span>  │ <b>CLAUDE</b>                               │
+<span class="o"> ▀▄▄▄▀ </span> ◀│ Feito. 102 de 102 testes passando ✓  │
+<span class="o">AgentC </span>  ╰──────────────────────────────────────╯
+
+<span class="g">●</span> <b>CLAUDE</b>     <span class="g">trabalhando</span>   <span class="c">●</span> <b>CODEX</b>      <span class="c">pronto</span>
+<span class="y">●</span> <b>HERMES</b>     <span class="y">travado</span>       <span class="d">● QWEN       parado</span>
+
+<span class="o">›</span> Hermes, o que travou?</div>
+  <div class="grid3">
+    <div class="feat reveal"><h3>Linux só terminal</h3><p class="mono" style="font-size:13px">node tools/terminal/sala.mjs</p><p>Mesa por agente, últimas falas e a caixinha do AgentC. Digite e Enter para falar na sala. Funciona por SSH e pelo Tailscale.</p></div>
+    <div class="feat reveal"><h3>Raspberry Pi</h3><p class="mono" style="font-size:13px">bash tools/raspberry/instalar.sh</p><p>Instala e deixa o servidor ligado sozinho (systemd), só em 127.0.0.1. Pi 4 ou 5 com sistema 64 bits e Node 24.</p></div>
+    <div class="feat reveal"><h3>Arduino</h3><p class="mono" style="font-size:13px">node tools/arduino/ponte.mjs COM3</p><p>Um LED por agente: aceso trabalhando, pisca rápido travado, pisca devagar pronto. Buzzer apita com fala nova.</p></div>
+  </div>
 </div></section>
 
 <section id="baixar"><div class="wrap">
@@ -684,6 +708,7 @@ const FEATS = [
   ['M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5 11a7 7 0 0 0 14 0M12 18v3', 'Chamada no painel', 'Debate, ideias, revisão ou Goal: os agentes falam um de cada vez no painel do PC, com voz se você quiser. A ata fica salva.'],
   ['M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z', 'AgentC que lembra', 'Diga “lembra que…” e ele guarda. Dá um resumo quando você chega, fica quieto de madrugada e silencia por 1 hora com um toque.'],
   ['M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM11 18h2', 'Celular sempre em dia', 'O app do Android se atualiza pelo seu PC: publique a versão nova e o celular mostra “Atualizar”.'],
+  ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8', 'Modo Time', 'Convide pessoas com token próprio: dono, membro ou só leitura. Quem está online, @menções na sala e aviso no Slack ou Discord.'],
   ['M12 8v4l3 3M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z', 'Loops que se cuidam', 'Só rodam com ordem nova, esperam memória livre, cortam rodadas longas e tentam de novo quando o modelo não responde.'],
 ];
 $('#feats').innerHTML = FEATS.map(([d, t, p]) => `<div class="feat reveal"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg></span>${t}</h3><p>${p}</p></div>`).join('');
@@ -697,11 +722,13 @@ const OS = {
   android: '<svg viewBox="0 0 24 24" fill="#4ade80"><path d="M6 9h12v8a2 2 0 0 1-2 2h-1v3h-2v-3h-2v3H9v-3H8a2 2 0 0 1-2-2zM3.5 9a1.5 1.5 0 0 1 3 0v6a1.5 1.5 0 0 1-3 0zm14 0a1.5 1.5 0 0 1 3 0v6a1.5 1.5 0 0 1-3 0zM7.5 3.5l1.2 1.7A6 6 0 0 1 12 4.5c1.2 0 2.3.3 3.3.7l1.2-1.7.6.4-1.1 1.6A6 6 0 0 1 18 8H6a6 6 0 0 1 2-2.5L6.9 3.9z"/></svg>',
 };
 OS.ios = '<svg viewBox="0 0 24 24" fill="none" stroke="#e4e4e7" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/></svg>';
+OS.pi = '<svg viewBox="0 0 24 24" fill="none" stroke="#e4e4e7" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></svg>';
 const DL = [
   ['win', 'Windows', 'Windows 10 e 11 (64 bits). Descompacte e abra o AgentControl.exe.', 'AgentControl-windows-x64.zip', 'Baixar para Windows', null],
   ['mac', 'macOS', 'Apple Silicon (M1 em diante). Na primeira vez: botão direito → Abrir.', 'AgentControl-macos-arm64.zip', 'Baixar (Apple Silicon)', ['AgentControl-macos-x64.zip', 'Mac com Intel']],
   ['linux', 'Linux', 'x64 e ARM64, com X11 ou XWayland. Ou use o tools/instalar.sh.', 'AgentControl-linux-x64.tar.gz', 'Baixar (x64)', ['AgentControl-linux-arm64.tar.gz', 'Versão ARM64']],
   ['android', 'Android', 'Android 8 ou mais novo. Conecta no seu PC pelo Tailscale.', 'AgentControl-android.apk', 'Baixar o APK', null],
+  ['pi', 'Terminal e Raspberry Pi', 'Linux sem tela, SSH ou Raspberry Pi 4/5. Também liga LEDs num Arduino.', '#terminal', 'Como usar', null],
   ['ios', 'iPhone e iPad', 'Pelo Safari: abra o endereço do seu PC (Tailscale), entre com o token e toque em Adicionar à Tela de Início.', '#iphone', 'Como instalar', null],
 ];
 $('#dl').innerHTML = DL.map(([k, t, p, f, b, alt]) => `<div class="card reveal"><span class="os">${OS[k]}</span><h3>${t}</h3><p>${p}</p><a class="btn primary" href="${f.startsWith('#') ? f : REL + f}">${b}</a>${alt ? `<a class="alt" href="${REL + alt[0]}">${alt[1]} →</a>` : '<span class="alt" style="visibility:hidden">.</span>'}</div>`).join('');
