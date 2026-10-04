@@ -42,7 +42,12 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Send
 import androidx.compose.material.icons.outlined.VolumeOff
 import androidx.compose.material.icons.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -81,6 +86,7 @@ fun CallScreen(
     round: () -> Unit = {},
     start: (topic: String, who: List<String>, modo: String) -> Unit,
     passTurn: (String) -> Unit,
+    kick: (String) -> Unit = {},
     sendTask: (agent: String, text: String) -> Unit,
     talk: () -> Unit,
     type: (String) -> Unit,
@@ -124,7 +130,33 @@ fun CallScreen(
                         .clickable { mute(!call.muted) }.semantics { contentDescription = if (call.muted) "Ligar a voz dos agentes" else "Deixar mudo: agentes só respondem por texto" },
                     contentAlignment = Alignment.Center,
                 ) { Icon(if (call.muted) Icons.Outlined.VolumeOff else Icons.Outlined.VolumeUp, null, tint = if (call.muted) k.onBrand else k.muted, modifier = Modifier.size(20.dp)) }
-                if (call.active) { Spacer(Modifier.width(8.dp)); Timer(call.startedAt) }
+                if (call.active) {
+                    // Menu de 3 pontos: expulsar alguém da chamada.
+                    var menu by remember { mutableStateOf(false) }
+                    var sure by remember { mutableStateOf<String?>(null) }
+                    Spacer(Modifier.width(8.dp))
+                    Box {
+                        Box(Modifier.size(40.dp).clay(CircleShape, elevation = 2.dp).clickable { menu = true }.semantics { contentDescription = "Mais opções da chamada" }, contentAlignment = Alignment.Center) {
+                            Icon(Icons.Outlined.MoreVert, null, tint = k.muted, modifier = Modifier.size(20.dp))
+                        }
+                        DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                            call.state!!.participants.forEach { pp ->
+                                DropdownMenuItem(text = { Text("Expulsar ${pp.id}") }, onClick = { menu = false; sure = pp.id })
+                            }
+                            DropdownMenuItem(text = { Text("Quem fica sem tokens sai sozinho", fontSize = 12.sp, color = k.muted) }, onClick = { menu = false }, enabled = false)
+                        }
+                    }
+                    sure?.let { who ->
+                        AlertDialog(
+                            onDismissRequest = { sure = null },
+                            title = { Text("Tirar $who da chamada?") },
+                            text = { Text("Ele para de falar nesta chamada. A ata registra a saída.") },
+                            confirmButton = { TextButton(onClick = { kick(who); sure = null }) { Text("Expulsar") } },
+                            dismissButton = { TextButton(onClick = { sure = null }) { Text("Cancelar") } },
+                        )
+                    }
+                    Spacer(Modifier.width(8.dp)); Timer(call.startedAt)
+                }
             }
 
             if (!call.active) {

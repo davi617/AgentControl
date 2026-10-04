@@ -665,6 +665,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .onFailure { e -> _ui.update { it.copy(message = "Não passei a vez: ${e.message}") } }
     }
 
+    /** Menu de 3 pontos: expulsa o agente da chamada. */
+    fun callKick(agent: String) = viewModelScope.launch {
+        val a = api ?: return@launch
+        if (!_ui.value.call.active) return@launch
+        runCatching { a.callKick(_ui.value.project, agent) }
+            .onSuccess { c -> setCall { it.copy(state = c) }; _ui.update { it.copy(message = "$agent saiu da chamada.") } }
+            .onFailure { e -> _ui.update { it.copy(message = "Não tirei: ${e.message}") } }
+    }
+
     fun callLoadPeople() = viewModelScope.launch {
         val a = api ?: return@launch
         runCatching { a.callPeople(_ui.value.project) }.onSuccess { p -> setCall { it.copy(people = p) } }

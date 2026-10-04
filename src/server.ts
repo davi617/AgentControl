@@ -18,7 +18,7 @@ import { OWNER, mentions, teamFor, type Role, type Who } from './team.ts';
 import { PlanStore, publicPlan } from './plans.ts';
 
 const TEAM_POSTS = ['/api/team/invite', '/api/team/remove', '/api/team/role', '/api/plan/license'];
-const CALL_POSTS = ['/api/call/start', '/api/call/say', '/api/call/next', '/api/call/end', '/api/call/turn', '/api/call/round'];
+const CALL_POSTS = ['/api/call/start', '/api/call/say', '/api/call/next', '/api/call/end', '/api/call/turn', '/api/call/round', '/api/call/kick'];
 const WRITE_POSTS = [
   '/api/models', '/api/agents/pause', '/api/call/attach',
   '/api/notes', '/api/notes/done', '/api/notes/delete',
@@ -300,6 +300,9 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
               return;
             case '/api/call/turn':
               send(200, calls.passTurn(p, String(body.agent ?? '')));
+              return;
+            case '/api/call/kick':
+              send(200, calls.leave(p, String(body.agent ?? '')));
               return;
             case '/api/call/end':
               send(200, calls.end(p) ?? null);

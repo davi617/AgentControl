@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { CallManager, FALLBACK_MODEL, MAX_ATTACH_BYTES, MAX_AUTO_TURNS, VISION_MODEL, callPriority, nextSpeaker } from '../src/call.ts';
+import { CallManager, FALLBACK_MODEL, MAX_ATTACH_BYTES, MAX_AUTO_TURNS, VISION_MODEL, callPriority, isQuotaError, nextSpeaker } from '../src/call.ts';
 
 const P = [{ id: 'HERMES', papel: 'revisor' }, { id: 'QWEN', papel: 'desktop' }, { id: 'CLAUDE', papel: 'arquiteto' }];
 const t = (speaker: string, text: string, n = 1) => ({ n, speaker, text, ts: '' });
@@ -180,4 +180,37 @@ test('chamada: especialistas virtuais entram quando escolhidos; "Rodada" faz tod
   const falas = [await m.next(p), await m.next(p), await m.next(p)].map((t) => t?.speaker);
   assert.deepEqual(falas, ['HERMES', 'DESIGNER', 'QA'], 'rodada: cada um uma vez, na ordem');
   assert.match(prompts.at(-1)!, /especialista VIRTUAL/);
+});
+test('chamada: expulsar tira o agente, a ata registra e ele não fala mais; sem ninguém, espera o usuário', async () => {
+  const { m, p } = setup();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (m as any).fetchImpl = async () => new Response(JSON.stringify({ choices: [{ message: { content: 'oi' } }] }));
+  const c = m.start(p, 'x');
+  const first = c.participants[0].id;
+  const after = m.leave(p, first.toLowerCase());
+  assert.ok(!after.participants.some((x) => x.id === first));
+  assert.match(after.turns.at(-1)!.text, new RegExp(`${first} saiu da chamada [(]expulso`));
+  assert.equal(after.turns.at(-1)!.speaker, 'JARVIS');
+  for (let i = 0; i < 4; i++) assert.notEqual((await m.next(p))?.speaker, first);
+  assert.throws(() => m.leave(p, first), /não está na chamada/);
+  for (const x of m.get(p.id)!.participants) m.leave(p, x.id);
+  assert.equal(m.get(p.id)!.status, 'AGUARDANDO_DONO');
+  assert.equal(await m.next(p), null);
+  assert.ok(readFileSync(m.get(p.id)!.file, 'utf8').includes('saiu da chamada'));
+});
+
+test('chamada: acabaram os tokens do agente → ele sai sozinho e a conversa segue', async () => {
+  assert.equal(isQuotaError(402, ''), true);
+  assert.equal(isQuotaError(429, '{"error":"insufficient_quota"}'), true);
+  assert.equal(isQuotaError(429, '{"error":"rate limited, slow down"}'), false, '429 de pressa não é falta de tokens');
+  assert.equal(isQuotaError(500, 'quota'), false);
+  const { m, p } = setup();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (m as any).fetchImpl = async () => new Response('{"error":{"code":"insufficient_quota"}}', { status: 429 });
+  const c = m.start(p, 'x');
+  const n = c.participants.length;
+  const t1 = await m.next(p);
+  assert.equal(t1?.speaker, 'JARVIS');
+  assert.match(t1!.text, /saiu da chamada \(acabaram os tokens\)/);
+  assert.equal(m.get(p.id)!.participants.length, n - 1);
 });

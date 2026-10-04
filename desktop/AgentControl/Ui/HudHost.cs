@@ -209,6 +209,7 @@ public sealed class HudHost
 
     public async Task<string?> CallRound() { var e = await Api.CallRound(); await Poll(); return e; }
     public async Task<string?> CallTurn(string agent) { var e = await Api.CallTurn(agent); await Poll(); return e; }
+    public async Task<string?> CallKick(string agent) { var e = await Api.CallKick(agent); await Poll(); return e; }
 
     // ---------- abrir / fechar ----------
     void Toggle()
