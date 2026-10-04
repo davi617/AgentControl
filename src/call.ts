@@ -103,6 +103,12 @@ ${context}`;
 
 type Fetch = typeof fetch;
 
+/** Cota/tokens esgotados (não é só lentidão): 402, ou 429/403 com texto de cota, crédito ou saldo. */
+export function isQuotaError(status: number, body: string): boolean {
+  if (status === 402) return true;
+  return (status === 429 || status === 403 || status === 400) && /quota|insufficient|credit|cr[ée]dito|saldo|balance|tokens? (?:exhausted|esgotad)|out of tokens|usage limit|billing/i.test(body);
+}
+
 export class CallManager {
   private calls = new Map<string, CallState & { rotation: number; auto: number; inflight?: Promise<Turn | null>; forceNext?: string; queue?: string[] }>();
   private j: Jarvis;
@@ -167,6 +173,28 @@ export class CallManager {
     c.status = 'ATIVA';
     c.auto = 0;
     return this.get(p.id)!;
+  }
+
+  /**
+   * Tira um agente da chamada: você expulsou ou acabaram os tokens dele. A ata registra a saída.
+   * Sem ninguém na chamada, ela fica esperando você (não encerra: dá para chamar outro).
+   */
+  leave(p: ProjectCfg, agent: string, motivo = 'expulso por você'): CallState {
+    const c = this.calls.get(p.id);
+    if (!c || c.status === 'ENCERRADA') throw new Error('nenhuma chamada ativa');
+    const id = agent.toUpperCase();
+    if (!c.participants.some((x) => x.id === id)) throw new Error(`${id} não está na chamada`);
+    this.drop(c, id, motivo);
+    return this.get(p.id)!;
+  }
+
+  private drop(c: CallState & { forceNext?: string; queue?: string[]; rotation: number }, id: string, motivo: string): Turn {
+    c.participants = c.participants.filter((x) => x.id !== id);
+    c.queue = c.queue?.filter((x) => x !== id);
+    if (c.forceNext === id) c.forceNext = undefined;
+    c.rotation = 0;
+    if (!c.participants.length) c.status = 'AGUARDANDO_DONO';
+    return this.add(c, 'JARVIS', `${id} saiu da chamada (${motivo}).`);
   }
 
   /** você anexa imagem ou arquivo: salva ao lado da ata, vira texto para os agentes e entra na conversa. */
@@ -239,6 +267,7 @@ export class CallManager {
       return null;
     }
     for (let attempt = 0; attempt < 2; attempt++) {
+      if (!c.participants.length) { c.status = 'AGUARDANDO_DONO'; this.j.emit('call', { project: p.id, status: c.status }); return null; }
       const seen = c.turns.length;
       const forced = c.forceNext ?? c.queue?.shift();
       const pick = forced ? { id: forced, rotation: c.rotation } : nextSpeaker(c.participants, c.turns, c.rotation);
@@ -252,6 +281,8 @@ export class CallManager {
         try { text = await this.llm(this.j.cfg.summary, p, c, me, model, ms); break; } catch (e) { lastErr = e; }
         if (c.status === 'ENCERRADA') return null;
       }
+      // Acabaram os tokens/cota deste agente: ele sai da chamada e a conversa segue com os outros.
+      if (text === undefined && (lastErr as { quota?: boolean })?.quota) return this.drop(c, me.id, 'acabaram os tokens');
       if (text === undefined) throw lastErr;
       if (c.status === 'ENCERRADA') return null;
       // O você falou enquanto este agente pensava: a fala ficou velha, gera de novo com o contexto novo.
@@ -340,7 +371,7 @@ export class CallManager {
       signal: AbortSignal.timeout(timeoutMs),
     });
     const body = await res.text();
-    if (!res.ok) throw new Error(`modelo respondeu HTTP ${res.status}`);
+    if (!res.ok) throw Object.assign(new Error(`modelo respondeu HTTP ${res.status}`), { quota: isQuotaError(res.status, body) });
     const text = extractContent(body).replace(new RegExp(`^\\**${me.id}\\**\\s*:\\s*`, 'i'), '');
     if (!text) throw new Error('modelo respondeu vazio');
     return text;

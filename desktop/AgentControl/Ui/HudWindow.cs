@@ -486,7 +486,8 @@ public sealed class HudWindow : Window
     HashSet<string>? pick;
     string? modo;
     string topic = "";
-    bool loadingPeople, confirmEnd;
+    bool loadingPeople, confirmEnd, callMenu;
+    string? kickConfirm;
 
     async Task LoadPeople()
     {
@@ -577,6 +578,33 @@ public sealed class HudWindow : Window
         Render(true);
     }
 
+    // Menu de 3 pontos da chamada: expulsar um agente (dois toques) e o aviso de que quem fica sem tokens sai sozinho.
+    Control CallMenu(HudSnapshot s)
+    {
+        var list = new StackPanel { Spacing = 6 };
+        list.Children.Add(K.T("Tirar da chamada", 12, K.Muted, FontWeight.SemiBold));
+        foreach (var id in s.CallWho)
+        {
+            var who = id;
+            var row = new DockPanel();
+            var sure = kickConfirm == who;
+            var kick = K.Button(sure ? "Toque de novo" : "Expulsar", K.IClose, async () =>
+            {
+                if (kickConfirm != who) { kickConfirm = who; Redraw(); DispatcherTimer.RunOnce(() => { if (kickConfirm == who) { kickConfirm = null; Redraw(); } }, TimeSpan.FromSeconds(3)); return; }
+                kickConfirm = null;
+                var e = await host.CallKick(who);
+                toast = e is null ? $"{K.Nice(who)} saiu da chamada." : $"Não tirei: {e}";
+                Redraw();
+            }, primary: false, danger: true, height: 30);
+            DockPanel.SetDock(kick, Dock.Right); row.Children.Add(kick);
+            row.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Children = { K.Avatar(who, 22), K.T(K.Nice(who), 12.5, K.Text) } });
+            list.Children.Add(row);
+        }
+        if (s.CallWho.Count == 0) list.Children.Add(K.T("Ninguém na chamada.", 12, K.Muted));
+        list.Children.Add(K.Wrap("Quem ficar sem tokens no meio da conversa sai sozinho, e a chamada segue com os outros.", 11.5, K.Muted, 3).Also(t => t.Margin = new Thickness(0, 4, 0, 0)));
+        return new Border { Background = K.Side, BorderBrush = K.Line, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12, 10), Margin = new Thickness(0, 10, 0, 0), Child = list };
+    }
+
     void CallLive(StackPanel v, HudSnapshot s)
     {
         var waiting = s.CallStatus == "AGUARDANDO_DONO";
@@ -586,8 +614,14 @@ public sealed class HudWindow : Window
         voice.Tip(host.VoiceOn ? "Lendo as falas em voz alta (clique para calar)" : "Ler as falas em voz alta");
         K.Pressable(voice, host.ToggleVoice);
         DockPanel.SetDock(voice, Dock.Right); head.Children.Add(voice);
+        // Menu de 3 pontos: tirar alguém da chamada.
+        var more = new Border { Width = 30, Height = 30, Margin = new Thickness(0, 0, 6, 0), CornerRadius = new CornerRadius(8), Background = callMenu ? K.Raised : Brushes.Transparent, BorderBrush = K.Line, BorderThickness = new Thickness(1), Child = K.T("⋯", 16, K.Text2, FontWeight.Bold).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.VerticalAlignment = VerticalAlignment.Center; }) };
+        more.Tip("Mais opções da chamada");
+        K.Pressable(more, () => { callMenu = !callMenu; kickConfirm = null; Redraw(); });
+        DockPanel.SetDock(more, Dock.Right); head.Children.Add(more);
         head.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, VerticalAlignment = VerticalAlignment.Center, Children = { K.Pill(waiting ? "SUA VEZ" : "AO VIVO", waiting ? K.Warn : K.Ok), K.T($"{ModeName(s.CallModo)} · {s.CallTurns} falas", 12, K.Muted) } });
         v.Children.Add(head);
+        if (callMenu) v.Children.Add(CallMenu(s));
 
         // A roda: quem falou por último fica com o anel aceso; clique passa a vez para ele.
         var lastSpeaker = s.CallLog.Count > 0 ? s.CallLog[^1].Speaker : "";

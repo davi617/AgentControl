@@ -337,6 +337,7 @@ public sealed class HudApi
     public Task<string?> CallSay(string text) => Post("/api/call/say", new { project = Project, text });
     public Task<string?> CallRound() => Post("/api/call/round", new { project = Project });
     public Task<string?> CallTurn(string agent) => Post("/api/call/turn", new { project = Project, agent });
+    public Task<string?> CallKick(string agent) => Post("/api/call/kick", new { project = Project, agent });
 
     /// <summary>Quem pode entrar na chamada: agentes do time e especialistas (virtual = só opina).</summary>
     public async Task<List<(string Id, string Papel, bool Virtual)>> CallPeopleAsync()

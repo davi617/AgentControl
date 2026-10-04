@@ -176,6 +176,9 @@ class JarvisApi(url: String, private val token: String) {
     /** Toque no rosto do agente: ele fala em seguida. */
     suspend fun callTurn(project: String, agent: String): CallState =
         json.decodeFromString(post("/api/call/turn", json.encodeToString(buildJsonObject { put("project", project); put("agent", agent) })))
+    /** Tira o agente da chamada (menu de 3 pontos). */
+    suspend fun callKick(project: String, agent: String): CallState =
+        json.decodeFromString(post("/api/call/kick", json.encodeToString(buildJsonObject { put("project", project); put("agent", agent) })))
     suspend fun callSay(project: String, text: String): CallState = json.decodeFromString(post("/api/call/say", callBody(project, text)))
     /** Pode demorar (o agente "pensa" e a fila NVIDIA pode estar cheia): timeout maior. */
     suspend fun callNext(project: String): CallNext = withContext(Dispatchers.IO) {
