@@ -1,0 +1,79 @@
+# Confere cada push e PR: testes do servidor, build do app do PC e do APK do Android, e varredura de segredos.
+name: CI
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  servidor:
+    name: Servidor (Node ${{ matrix.node }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Sintaxe da sala web e do site
+        run: |
+          for f in public/*.js; do node --check "$f"; done
+          for f in $(git ls-files 'docs/**/*.js' 'docs/**/*.js' | grep -v vendor); do node --check "$f"; done
+
+  app-pc:
+    name: App do PC (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet build desktop/AgentControl/AgentControl.csproj -c Release -nologo
+
+  android:
+    name: App do Android (APK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-debug
+          path: android/app/build/outputs/apk/debug/*.apk
+          retention-days: 7
+
+  segredos:
+    name: Sem segredos no código
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
+          GITLEAKS_ENABLE_SUMMARY: true

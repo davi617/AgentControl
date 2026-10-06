@@ -123,6 +123,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         set(v) { AlertCenter.foreground = v }
 
     val savedUrl: String get() = settings.baseUrl
+    /** Para o Prédio (WebView): o token vai num cookie só daquele WebView, nunca para log ou tela. */
+    val savedToken: String get() = settings.token
 
     init {
         if (settings.configured) connect()
@@ -147,6 +149,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // Botão "Desconectar" do menu: apaga endereço e token deste celular.
         sse?.cancel(); reconnect?.cancel()
         JarvisService.stop(getApplication())
+        // O Prédio (WebView) guarda o token num cookie: some junto ao desconectar.
+        runCatching { android.webkit.CookieManager.getInstance().removeAllCookies(null) }
         settings.clear()
         api = null
         _ui.value = UiState()

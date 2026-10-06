@@ -1,4 +1,5 @@
 // JARVIS — UI. Todo dado do bus entra via textContent (nunca innerHTML).
+import { createPredio } from '/predio.js';
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => {
@@ -11,6 +12,9 @@ const store = {
   get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* modo privado */ } },
 };
+
+// Dentro do app do celular (WebView do Prédio): sem a barra da sala, só a tela pedida.
+if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
 
 const state = { csrf: null, project: null, agent: '', oldest: null, es: null, taskFilter: 'abertas', agentsKnown: [] };
 const KIND = { command: 'comando', status: 'status', inbox: 'ordem', leader: 'líder', events: 'evento', decisions: 'decisão', goal: 'goal', handoff: 'handoff', meta: 'goal ativo' };
@@ -31,17 +35,36 @@ $('#theme').addEventListener('click', () => {
 });
 
 // ---------- abas ----------
-const TAB_TITLE = { chat: 'Sala central', chamada: 'Chamada em grupo', sala: 'Sala (bus)', comandos: 'Comandos', agentes: 'Agentes', tarefas: 'Tarefas', resumos: 'Resumos' };
+const TAB_TITLE = { chat: 'Sala central', chamada: 'Chamada em grupo', predio: 'Prédio', sala: 'Sala (bus)', comandos: 'Comandos', agentes: 'Agentes', tarefas: 'Tarefas', resumos: 'Resumos' };
 function showTab(name) {
   if (!TAB_TITLE[name]) name = 'chat';
   $('#view-title').textContent = TAB_TITLE[name];
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === name));
   store.set('jarvis.tab', name);
+  if (location.hash.slice(1) !== name) history.replaceState(null, '', `#${name}`);
+  if (name === 'predio') predio.show(); else predio.hide();
   if (name === 'resumos' && state.project) loadSummary();
   if (name === 'chat') $('#thread').lastElementChild?.scrollIntoView({ block: 'end' });
 }
 document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
+addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TAB_TITLE[h]) showTab(h); });
+
+// ---------- prédio (bonequinhos) ----------
+const predio = createPredio($('#predio-root'), {
+  async sendCommand(agent, text) {
+    const r = await fetch('/api/commands', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
+      body: JSON.stringify({ project: state.project, text, to: agent }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error ?? r.status);
+    loadCommands();
+    return data.reply;
+  },
+  openApprovals: () => showTab('comandos'),
+});
 
 // ---------- util ----------
 const api = async (path) => {
@@ -274,6 +297,7 @@ function appendChat(entries) {
   const th = $('#thread');
   th.querySelector('.empty')?.remove();
   for (const e of entries) { chatCache.push(e); th.append(renderBubble(e, true)); }
+  predio.chat(entries);
   th.lastElementChild?.scrollIntoView({ block: 'end', behavior: 'smooth' });
 }
 function fillChatTargets(agents) {
@@ -365,6 +389,7 @@ async function decide(code, decision, btns) {
 // Fase 3: cartões de aprovação (um clique = um comando) + aviso no chat + contador na navegação.
 function renderApprovals(rows) {
   const pending = rows.filter((c) => c.approval === 'pending');
+  predio.pending(pending.length);
   const box = $('#approvals');
   box.replaceChildren();
   if (!pending.length) box.append(el('div', 'empty', 'Nada esperando você.'));
@@ -610,6 +635,7 @@ function logTurn(turn) {
 }
 function renderCall() {
   const active = !!call.data && call.data.status !== 'ENCERRADA';
+  predio.call(active ? call.data : null);
   $('#call-start').hidden = active;
   $('#call-bar').hidden = !active;
   $('#call-timer').hidden = !active;
@@ -758,6 +784,7 @@ async function refreshState() {
   const s = await api('/api/state');
   $('#goal').textContent = s.goal ?? 'sem Goal ativo';
   renderAgents(s);
+  predio.update(s);
   renderRail(s);
   renderTasks(s.tasks);
   if (JSON.stringify(s.agents.map((a) => a.id)) !== JSON.stringify(state.agentsKnown)) {
@@ -813,6 +840,17 @@ async function selectProject(id) {
   connect();
 }
 
+// Sair (só no acesso de fora, pelo Tailscale): apaga o cookie e volta para a tela de entrar.
+if (!['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname)) {
+  document.querySelectorAll('.logout').forEach((b) => {
+    b.hidden = false;
+    b.addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }).catch(() => {}); location.replace('/entrar'); });
+  });
+}
+
+// App instalado (PWA): service worker só em contexto seguro (127.0.0.1 ou HTTPS).
+if ('serviceWorker' in navigator && isSecureContext) navigator.serviceWorker.register('/sw.js').catch(() => {});
+
 (async function boot() {
   state.csrf = (await (await fetch('/api/session')).json()).csrf;
   const projects = await (await fetch('/api/projects')).json();
@@ -822,6 +860,7 @@ async function selectProject(id) {
   const saved = store.get('jarvis.project', '');
   const first = projects.find((p) => p.id === saved)?.id ?? projects[0]?.id;
   sel.value = first;
-  showTab(store.get('jarvis.tab', 'chat'));
+  const fromHash = location.hash.slice(1);
+  showTab(TAB_TITLE[fromHash] ? fromHash : store.get('jarvis.tab', 'chat'));
   await selectProject(first);
 })();

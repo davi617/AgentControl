@@ -44,6 +44,8 @@ export interface Config {
   pollInterval?: number; // ms; só se o watcher nativo falhar (OneDrive)
   summary: SummaryCfg;
   projects: ProjectCfg[];
+  /** Página de pagamento (site/pagar/ ou a do seu SaaS). Só https; vazio = o app não mostra "Mudar de plano". */
+  pagarUrl?: string;
 }
 
 export function expand(p: string, base = process.cwd()): string {
@@ -72,6 +74,8 @@ export function loadConfig(file: string): Config {
     if (cfg.remote.port !== undefined && (!Number.isInteger(cfg.remote.port) || cfg.remote.port < 1 || cfg.remote.port > 65535)) throw new Error('remote.port inválida');
     cfg.remote.tokenFile = expand(cfg.remote.tokenFile, base);
   }
+  const pay = cfg.pagarUrl ?? process.env.AGENT_CONTROL_PAY_URL;
+  cfg.pagarUrl = pay && /^https:\/\/[^\s"'<>]+$/.test(pay) ? pay : undefined;
   cfg.db = expand(cfg.db, base);
   cfg.summary.keyFile = expand(cfg.summary.keyFile, base);
   for (const p of cfg.projects) {

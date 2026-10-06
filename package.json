@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/main.ts",
     "gate": "node src/gate.ts",
-    "test": "node --test test/"
+    "test": "node --test --test-concurrency=1 test/*.test.ts test/*.test.mjs"
   },
   "dependencies": {
     "chokidar": "^5.0.0"

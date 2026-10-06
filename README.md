@@ -106,6 +106,26 @@ Compile/publice uma versão maior com `tools/publicar-app.ps1`. O celular conect
 **Sobre → Atualizar app**. O Android pede confirmação da instalação; a nova versão só está instalada após esse passo.
 O dispositivo deve alcançar o PC pelo Tailscale. Nenhum celular precisa ficar exposto na internet.
 
+## Modo Prédio
+
+Na sala (aba **Prédio**), no app do PC (botão **Prédio** no HUD, no Launcher e no menu do AgentC) e no app do Android
+(**Mais → Prédio**): cada agente vira um bonequinho andando pelos andares de um escritório. Cada tela é um andar.
+
+- **Térreo**: recepção, copa, descanso, jogos e jardim. Quem terminou toma café; quem está parado dorme no sofá.
+- **1º andar · Diretoria**: a sala do chefe (você, de terno e gravata vermelha), reunião e o painel de aprovações.
+  Quem trava ou espera aprovação vai até a sua mesa; na chamada, todo mundo vai para a reunião.
+- **2º andar em diante · Time**: mesas de trabalho (8 por andar). Quem trabalha senta e digita; às vezes busca um café.
+- Roupas sorteadas pelo nome (camiseta, calça e tênis); 🎲 sorteia de novo. Balões com as falas da sala.
+- Toque num bonequinho para ver tarefa e modelo, mandar uma ordem ou segui-lo pelos andares. Zoom, arrastar e tela cheia.
+
+## Instalar por aparelho
+
+Cada aparelho tem a sua tela com o passo a passo no site: `instalar/` (iPhone e iPad, Android, Windows, macOS, Linux,
+Raspberry Pi). O iPhone usa a sala pelo Safari como app na tela de início (PWA): ligue o acesso em
+**Launcher → Ajustes → Celular e iPhone**, abra o endereço no Safari com o Tailscale ligado, cole o token e toque em
+**Adicionar à Tela de Início**. O pagamento fica separado em `pagar/` (fora do menu do site), configurado pelo
+`pagar/config.json` ou pela API do seu SaaS.
+
 ## Começo rápido
 
 **Precisa de:** Node 24+, .NET 8 SDK (para compilar o app do PC) e os CLIs dos agentes que você for usar.

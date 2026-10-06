@@ -195,6 +195,53 @@ h2{font-size:clamp(30px,4.4vw,48px);line-height:1.08;letter-spacing:-.035em;font
 .term pre{padding:18px;font:13.5px/1.75 "JetBrains Mono",monospace;color:var(--text2);overflow-x:auto}
 .term .c{color:var(--faint)}.term .p{color:var(--brand)}
 
+.predio-demo{margin-top:40px;border:1px solid var(--line);border-radius:20px;background:var(--surface);padding:14px}
+.predio-demo .predio-btn,.predio-demo .predio-floor{color:var(--text);font-family:inherit}
+.predio-demo{--line-2:#252525;--line-3:#333;--text-2:#E4E4E7;--brand-line:rgba(249,115,22,.45);--on-brand:#0A0A0A;--r-s:8px;--r:16px}
+.predio-demo .btn{min-height:36px;padding:6px 12px;font-size:14px}
+.predio-demo .primary{border:0;border-radius:8px;background:var(--brand);color:#0a0a0a;font-weight:700;padding:0 14px;cursor:pointer}
+.predio-demo .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.predio-demo .predio-card dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0 0 10px;font-size:13px}
+/* ---------- Prédio: bonequinhos andando pelos andares ---------- */
+.predio { position: relative; display: flex; flex-direction: column; gap: 10px; }
+.predio-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.predio-floors { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.predio-floors::-webkit-scrollbar { display: none; }
+.predio-floor { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); cursor: pointer; white-space: nowrap; }
+.predio-floor b { display: grid; place-items: center; min-width: 24px; height: 24px; border-radius: 7px; background: var(--raised); font-size: 12px; }
+.predio-floor span { font-size: 13px; color: var(--text-2); }
+.predio-floor small { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--raised); color: var(--muted); font-size: 11px; display: grid; place-items: center; }
+.predio-floor.on { border-color: var(--brand-line); background: var(--brand-soft); }
+.predio-floor.on b { background: var(--brand); color: var(--on-brand); }
+.predio-tools { display: flex; gap: 6px; }
+.predio-btn { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); cursor: pointer; font-size: 16px; }
+.predio-btn:hover, .predio-floor:hover { border-color: var(--brand); }
+.predio-stage { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--surface); touch-action: none; }
+.predio-canvas { display: block; cursor: pointer; }
+.predio-card { position: absolute; right: 12px; top: 12px; width: min(320px, calc(100% - 24px)); padding: 14px; border-radius: var(--r); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--line-3); box-shadow: 0 18px 40px rgba(0,0,0,.45); backdrop-filter: blur(8px); }
+.predio-card-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.predio-card-h i { width: 10px; height: 10px; border-radius: 50%; }
+.predio-card-h span { color: var(--muted); font-size: 12px; flex: 1; }
+.predio-x { border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--muted); width: 32px; height: 32px; }
+.predio-card dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0 0 10px; font-size: 13px; }
+.predio-card dt { color: var(--muted); }
+.predio-card dd { margin: 0; overflow-wrap: anywhere; }
+.predio-order { display: flex; gap: 6px; }
+.predio-order input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border-radius: var(--r-s); border: 1px solid var(--line-3); background: var(--bg); font-size: 16px; }
+.predio-order .primary { min-height: 40px; padding: 0 14px; }
+.predio-msg { display: block; min-height: 18px; margin-top: 4px; color: var(--muted); }
+.predio-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.predio-acts .btn { height: 36px; }
+.predio-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+.predio-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.predio-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.predio.full { position: fixed; inset: 0; z-index: 50; padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); background: var(--bg); }
+.predio.full .predio-legend { display: none; }
+@media (max-width: 860px) {
+  .predio-floor span { display: none; }
+  .predio-card { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; }
+}
+@media (max-width: 860px) { .predio-floors { flex-basis: 100%; order: 2; } .predio-tools { margin-left: auto; } .predio-floor { flex: 1; justify-content: center; } }
 /* fim */
 .final{text-align:center;padding:110px 0}
 footer{border-top:1px solid var(--line);padding:30px 0;color:var(--faint);font-size:14px}
@@ -268,12 +315,12 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <nav><div class="wrap">
   <a class="logo" href="#"><img src="img/agentc.png" alt="">Agent Control</a>
-  <div class="links"><a href="#pc">PC</a><a href="#celular">Celular</a><a href="#agentc">AgentC</a><a href="#recursos">Recursos</a><a href="#terminal">Pi e terminal</a><a href="#baixar">Baixar</a></div>
+  <div class="links"><a href="#pc">PC</a><a href="#celular">Celular</a><a href="#predio">Prédio</a><a href="#agentc">AgentC</a><a href="#recursos">Recursos</a><a href="#baixar">Baixar</a><a href="instalar/">Instalar</a></div>
   <a class="btn" href="https://github.com/OWNER/AgentControl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.1 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg>GitHub<span class="stars" id="stars" hidden></span></a>
   <button class="menu-btn" id="menuBtn" aria-label="Abrir o menu" aria-expanded="false" aria-controls="sheet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 </div></nav>
 <div class="progress" id="progress"></div>
-<div class="sheet" id="sheet"><a href="#pc">App do PC</a><a href="#celular">App do celular</a><a href="#agentc">Conheça o AgentC</a><a href="#recursos">Recursos</a><a href="#terminal">Raspberry Pi e terminal</a><a href="#baixar">Baixar</a></div>
+<div class="sheet" id="sheet"><a href="#pc">App do PC</a><a href="#celular">App do celular</a><a href="#predio">Modo Prédio</a><a href="#agentc">Conheça o AgentC</a><a href="#recursos">Recursos</a><a href="#baixar">Baixar</a><a href="instalar/">Como instalar (passo a passo)</a></div>
 
 <header class="hero"><div class="wrap">
   <div class="mascot-stage">
@@ -287,14 +334,14 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </svg>
     <div class="bubble" id="heroBubble"><b id="hbWho">AgentC</b><span id="hbText">Oi! Eu cuido do seu time.</span></div>
   </div>
-  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT<span class="pill-os"> · Windows, Linux, macOS e Android</span></span>
+  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT<span class="pill-os"> · PC, Android e iPhone</span></span>
   <h1 id="title"><span class="word">Seu</span> <span class="word">time</span> <span class="word">de</span> <span class="word grad">agentes</span> <span class="word grad">de</span> <span class="word grad">IA</span> <span class="word">num</span> <span class="word">só</span> <span class="word">lugar.</span></h1>
   <p class="lead reveal-hero">Claude Code, Codex, Gemini, Qwen, Hermes e outros trabalhando juntos. Sala de conversa, ordens com aprovação, HUD no topo da tela, app no celular e o <b style="color:var(--brand-text)">AgentC</b> avisando tudo.</p>
   <div class="cta reveal-hero">
     <a class="btn primary" href="#baixar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 21h16"/></svg>Baixar grátis</a>
     <a class="btn" href="https://github.com/OWNER/AgentControl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m8 6-6 6 6 6M16 6l6 6-6 6"/></svg>Ver o código</a>
   </div>
-  <div class="os-row reveal-hero"><span>Windows 10/11</span><span>·</span><span>macOS (Apple Silicon e Intel)</span><span>·</span><span>Linux x64 e ARM</span><span>·</span><span>Android 8+</span></div>
+  <div class="os-row reveal-hero"><span>Windows 10/11</span><span>·</span><span>macOS</span><span>·</span><span>Linux x64 e ARM</span><span>·</span><span>Android 8+</span><span>·</span><span>iPhone e iPad</span></div>
 </div></header>
 
 <div class="marquee"><div class="track" id="track"></div></div>
@@ -365,6 +412,13 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
   </div>
 </div></section>
 
+<section id="predio"><div class="wrap">
+  <div class="center reveal"><span class="kicker">Novo · Modo Prédio</span><h2>Seu time num escritório de verdade.</h2>
+  <p class="sub">Cada agente vira um bonequinho que anda pelos andares: senta na mesa quando trabalha, vai à sala do chefe quando trava, toma café quando termina e dorme no sofá quando para. Você é o chefe, de terno e gravata vermelha. Toque num bonequinho para mandar uma ordem.</p></div>
+  <div class="predio-demo reveal" id="predioDemo"></div>
+  <p class="sub center" style="margin:14px auto 0;font-size:14px">Demonstração com dados de mentira. No app, é o estado real dos seus agentes · PC, Android e iPhone.</p>
+</div></section>
+
 <section id="agentc"><div class="wrap center">
   <div class="reveal"><span class="kicker">Conheça o AgentC</span><h2>Um mascote que mostra o que está acontecendo.</h2>
   <p class="sub">Ele pisca, olha em volta e reage ao time. Lembra o que você pede ("lembra que…"), dá um resumo quando você chega e ri se você fizer cócegas.</p></div>
@@ -399,7 +453,7 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
 </div></section>
 
 <section id="baixar"><div class="wrap">
-  <div class="center reveal"><span class="kicker">Baixar</span><h2>Escolha o seu sistema.</h2><p class="sub">Grátis e de código aberto. O app do PC já vem com tudo o que precisa para rodar.</p></div>
+  <div class="center reveal"><span class="kicker">Baixar</span><h2>Escolha o seu sistema.</h2><p class="sub">Grátis e de código aberto. Cada sistema tem a sua tela com o passo a passo: <a href="instalar/" style="color:var(--brand-text);text-decoration:underline">ver todos</a>.</p></div>
   <div class="dl" id="dl"></div>
   <div class="term reveal">
     <div class="tb"><i></i><i></i><i></i><button class="copy" id="copy">Copiar</button></div>
@@ -415,22 +469,7 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
   </div>
 </div></section>
 
-<section id="planos"><div class="wrap">
-  <div class="center reveal"><span class="kicker">Planos</span><h2>Grátis no seu PC. Pago quando o time cresce.</h2>
-  <p class="sub">O app é aberto e roda de graça com agentes ilimitados. Os planos pagos liberam mais pessoas trabalhando junto e serviços na nuvem.</p></div>
-  <div class="plans">
-    <div class="plan reveal"><b>Grátis</b><div class="price">R$ 0</div><ul><li>Agentes ilimitados no seu PC</li><li>Sala, chamada e HUD</li><li>App do celular e do iPhone</li><li>Até 3 pessoas no time</li></ul></div>
-    <div class="plan hot reveal"><b>Pro</b><div class="price">R$ 29 <small>/mês</small></div><ul><li>Tudo do Grátis</li><li>Até 5 pessoas</li><li>Acesso de fora sem Tailscale</li><li>Backup da configuração</li></ul></div>
-    <div class="plan reveal"><b>Time</b><div class="price">R$ 19 <small>/pessoa/mês</small></div><ul><li>Tudo do Pro</li><li>Pessoas ilimitadas</li><li>Aprovação em dupla</li><li>Auditoria de 1 ano</li></ul></div>
-    <div class="plan reveal"><b>Empresa</b><div class="price">Sob consulta</div><ul><li>Tudo do Time</li><li>SSO</li><li>Suporte prioritário</li><li>Contrato</li></ul></div>
-  </div>
-  <p class="sub" style="margin:22px auto 0;text-align:center">Assinatura com Pix Automático ou cartão. Em breve.</p>
-</div></section>
 
-<section id="iphone"><div class="wrap">
-  <div class="center reveal"><span class="kicker">iPhone e iPad</span><h2>Use no iPhone pelo Safari, como app.</h2>
-  <p class="sub">1. Instale o Tailscale no iPhone e entre na mesma rede do seu PC. 2. No Safari, abra o endereço do seu PC (o mesmo do app Android). 3. Cole o token. 4. Toque em Compartilhar e em Adicionar à Tela de Início.</p></div>
-</div></section>
 
 <section class="final"><div class="wrap reveal">
   <svg class="agentc" id="endC" viewBox="0 0 240 240" style="width:110px;height:110px;margin:0 auto 20px">
@@ -449,7 +488,7 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
   <span class="logo"><img src="img/agentc.png" alt="" style="width:22px">Agent Control</span>
   <span>Licença MIT<span id="verFoot"></span></span>
   <span style="font-size:12px">Logos dos agentes são marcas dos donos, usados só para indicar compatibilidade.</span>
-  <span style="margin-left:auto;display:flex;gap:18px"><a href="https://github.com/OWNER/AgentControl">Código</a><a href="https://github.com/OWNER/AgentControl/releases">Versões</a><a href="https://github.com/OWNER/AgentControl/issues">Problemas e ideias</a></span>
+  <span style="margin-left:auto;display:flex;gap:18px"><a href="https://github.com/OWNER/AgentControl">Código</a><a href="https://github.com/OWNER/AgentControl/releases">Versões</a><a href="https://github.com/OWNER/AgentControl/issues">Problemas e ideias</a><a href="instalar/">Instalar</a></span>
 </div></footer>
 
 <script type="module">
@@ -706,8 +745,9 @@ const FEATS = [
   ['M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01', 'Ordens com aprovação', 'Deploy, push, merge, apagar e pagar esperam o seu OK, que vale para um comando só.'],
   ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', 'Tudo em Markdown', 'Os agentes conversam por arquivos .md que você lê e versiona. Nada preso num banco fechado.'],
   ['M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5 11a7 7 0 0 0 14 0M12 18v3', 'Chamada no painel', 'Debate, ideias, revisão ou Goal: os agentes falam um de cada vez, com voz se você quiser. No menu ⋯ você expulsa quem quiser, e quem fica sem tokens sai sozinho. A ata fica salva.'],
+  ['M4 21V5l8-3 8 3v16M4 21h16M9 21v-4h6v4', 'Modo Prédio', 'Os agentes viram bonequinhos andando por andares: mesa, copa, sala do chefe e reunião, conforme o estado real de cada um. No PC, Android e iPhone.'],
   ['M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z', 'AgentC que lembra', 'Diga “lembra que…” e ele guarda. Dá um resumo quando você chega, fica quieto de madrugada e silencia por 1 hora com um toque.'],
-  ['M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM11 18h2', 'Celular sempre em dia', 'O app do Android se atualiza pelo seu PC: publique a versão nova e o celular mostra “Atualizar”.'],
+  ['M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM11 18h2', 'Celular sempre em dia', 'O app do Android se atualiza pelo seu PC. No iPhone, a sala vira app pela tela de início do Safari, sem App Store.'],
   ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8', 'Modo Time', 'Convide pessoas com token próprio: dono, membro ou só leitura. Quem está online, @menções na sala e aviso no Slack ou Discord.'],
   ['M12 8v4l3 3M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z', 'Loops que se cuidam', 'Só rodam com ordem nova, esperam memória livre, cortam rodadas longas e tentam de novo quando o modelo não responde.'],
 ];
@@ -724,18 +764,18 @@ const OS = {
 OS.ios = '<svg viewBox="0 0 24 24" fill="none" stroke="#e4e4e7" stroke-width="1.8" stroke-linecap="round"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/></svg>';
 OS.pi = '<svg viewBox="0 0 24 24" fill="none" stroke="#e4e4e7" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></svg>';
 const DL = [
-  ['win', 'Windows', 'Windows 10 e 11 (64 bits). Descompacte e abra o AgentControl.exe.', 'AgentControl-windows-x64.zip', 'Baixar para Windows', null],
-  ['mac', 'macOS', 'Apple Silicon (M1 em diante). Na primeira vez: botão direito → Abrir.', 'AgentControl-macos-arm64.zip', 'Baixar (Apple Silicon)', ['AgentControl-macos-x64.zip', 'Mac com Intel']],
-  ['linux', 'Linux', 'x64 e ARM64, com X11 ou XWayland. Ou use o tools/instalar.sh.', 'AgentControl-linux-x64.tar.gz', 'Baixar (x64)', ['AgentControl-linux-arm64.tar.gz', 'Versão ARM64']],
-  ['android', 'Android', 'Android 8 ou mais novo. Conecta no seu PC pelo Tailscale.', 'AgentControl-android.apk', 'Baixar o APK', null],
-  ['pi', 'Terminal e Raspberry Pi', 'Linux sem tela, SSH ou Raspberry Pi 4/5. Também liga LEDs num Arduino.', '#terminal', 'Como usar', null],
-  ['ios', 'iPhone e iPad', 'Pelo Safari: abra o endereço do seu PC (Tailscale), entre com o token e toque em Adicionar à Tela de Início.', '#iphone', 'Como instalar', null],
+  ['win', 'Windows', 'Windows 10 e 11 (64 bits). Descompacte e abra o AgentControl.exe.', 'AgentControl-windows-x64.zip', 'Baixar para Windows', null, 'windows'],
+  ['mac', 'macOS', 'Apple Silicon (M1 em diante) e Intel. Na primeira vez: botão direito → Abrir.', 'AgentControl-macos-arm64.zip', 'Baixar (Apple Silicon)', ['AgentControl-macos-x64.zip', 'Mac com Intel'], 'mac'],
+  ['linux', 'Linux', 'x64 e ARM64, com X11 ou XWayland. Ou use o tools/instalar.sh.', 'AgentControl-linux-x64.tar.gz', 'Baixar (x64)', ['AgentControl-linux-arm64.tar.gz', 'Versão ARM64'], 'linux'],
+  ['android', 'Android', 'Android 8 ou mais novo. Conecta no seu PC pelo Tailscale.', 'AgentControl-android.apk', 'Baixar o APK', null, 'android'],
+  ['ios', 'iPhone e iPad', 'Sem App Store: pelo Safari, como app na tela de início. Conecta no seu PC pelo Tailscale.', 'instalar/iphone.html', 'Como instalar', null, 'iphone'],
+  ['pi', 'Raspberry Pi e terminal', 'Linux sem tela, SSH ou Raspberry Pi 4/5. Também liga LEDs num Arduino.', 'instalar/raspberry.html', 'Como usar', null, 'raspberry'],
 ];
-$('#dl').innerHTML = DL.map(([k, t, p, f, b, alt]) => `<div class="card reveal"><span class="os">${OS[k]}</span><h3>${t}</h3><p>${p}</p><a class="btn primary" href="${f.startsWith('#') ? f : REL + f}">${b}</a>${alt ? `<a class="alt" href="${REL + alt[0]}">${alt[1]} →</a>` : '<span class="alt" style="visibility:hidden">.</span>'}</div>`).join('');
+$('#dl').innerHTML = DL.map(([k, t, p, f, b, alt, guide]) => `<div class="card reveal"><span class="os">${OS[k]}</span><h3>${t}</h3><p>${p}</p><a class="btn primary" href="${f.startsWith('instalar/') ? f : REL + f}">${b}</a>${alt ? `<a class="alt" href="${REL + alt[0]}">${alt[1]} →</a>` : ''}<a class="alt" href="instalar/${guide}.html">Passo a passo →</a></div>`).join('');
 $$('#dl .reveal').forEach((el, i) => reduce ? (el.style.opacity = 1) : io.observe(el));
 
 /* o download do seu sistema vem marcado */
-const ua = navigator.userAgent, mineOS = /Android/i.test(ua) ? 'android' : /Mac/i.test(ua) && !/iPhone|iPad/i.test(ua) ? 'mac' : /Win/i.test(ua) ? 'win' : /Linux/i.test(ua) ? 'linux' : null;
+const ua = navigator.userAgent, mineOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'ios' : /Android/i.test(ua) ? 'android' : /Mac/i.test(ua) ? 'mac' : /Win/i.test(ua) ? 'win' : /Linux/i.test(ua) ? 'linux' : null;
 if (mineOS) { const c = $$('#dl .card')[DL.findIndex(d => d[0] === mineOS)]; if (c) { c.classList.add('mine'); c.insertAdjacentHTML('afterbegin', '<span class="tag">Seu sistema</span>'); } }
 
 /* versão mais nova e estrelas, direto do GitHub (se a API não responder, a página segue igual) */
@@ -755,7 +795,7 @@ $('#copy').addEventListener('click', async () => {
 });
 
 /* barra de leitura + seção atual no menu */
-const bar = $('#progress'), navLinks = $$('nav .links a');
+const bar = $('#progress'), navLinks = $$('nav .links a[href^="#"]');
 const onScroll = () => {
   const h = document.documentElement.scrollHeight - innerHeight;
   bar.style.transform = `scaleX(${h > 0 ? scrollY / h : 0})`;
@@ -771,6 +811,10 @@ const setMenu = open => { sheet.classList.toggle('open', open); menuBtn.setAttri
 menuBtn.addEventListener('click', () => setMenu(!sheet.classList.contains('open')));
 $$('#sheet a').forEach(a => a.addEventListener('click', () => setMenu(false)));
 addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
+
+/* Modo Prédio: demonstração com dados de mentira (o mesmo código do app) */
+const demoBox = $('#predioDemo');
+new IntersectionObserver((es, ob) => { if (!es.some((e) => e.isIntersecting)) return; ob.disconnect(); import('./js/predio-demo.js').then((m) => m.start(demoBox)).catch(() => { demoBox.textContent = 'Não deu para carregar a demonstração.'; }); }, { rootMargin: '200px' }).observe(demoBox);
 
 /* AgentC do fim comemora ao aparecer */
 $('#endC').closest('.reveal').addEventListener('shown', () => setTimeout(() => { endC.celebrate(); endC.talk(1500); }, 500), { once: true });

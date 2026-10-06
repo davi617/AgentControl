@@ -1,0 +1,13 @@
+name: Ideia
+description: Sugira algo novo para o Agent Control.
+labels: [ideia]
+body:
+  - type: textarea
+    id: ideia
+    attributes:
+      label: Qual a ideia
+    validations: { required: true }
+  - type: textarea
+    id: porque
+    attributes:
+      label: Que problema ela resolve

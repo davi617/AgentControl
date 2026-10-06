@@ -359,3 +359,55 @@ h1 { margin: 0 0 2px; font: 600 24px/1.2 var(--display); }
 .entrar-btn{width:100%;margin-top:12px;padding:14px;border:0;border-radius:14px;background:#F97316;color:#0a0a0a;font-weight:700;font-size:16px}
 .entrar-erro{min-height:22px;margin-top:12px;color:#fca5a5}
 .entrar-dica{opacity:.6;font-size:14px;line-height:1.5}
+
+/* ---------- Prédio: bonequinhos andando pelos andares ---------- */
+.predio { position: relative; display: flex; flex-direction: column; gap: 10px; }
+.predio-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.predio-floors { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
+.predio-floors::-webkit-scrollbar { display: none; }
+.predio-floor { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); cursor: pointer; white-space: nowrap; }
+.predio-floor b { display: grid; place-items: center; min-width: 24px; height: 24px; border-radius: 7px; background: var(--raised); font-size: 12px; }
+.predio-floor span { font-size: 13px; color: var(--text-2); }
+.predio-floor small { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--raised); color: var(--muted); font-size: 11px; display: grid; place-items: center; }
+.predio-floor.on { border-color: var(--brand-line); background: var(--brand-soft); }
+.predio-floor.on b { background: var(--brand); color: var(--on-brand); }
+.predio-tools { display: flex; gap: 6px; }
+.predio-btn { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); cursor: pointer; font-size: 16px; }
+.predio-btn:hover, .predio-floor:hover { border-color: var(--brand); }
+.predio-stage { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--surface); touch-action: none; }
+.predio-canvas { display: block; cursor: pointer; }
+.predio-card { position: absolute; right: 12px; top: 12px; width: min(320px, calc(100% - 24px)); padding: 14px; border-radius: var(--r); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--line-3); box-shadow: 0 18px 40px rgba(0,0,0,.45); backdrop-filter: blur(8px); }
+.predio-card-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.predio-card-h i { width: 10px; height: 10px; border-radius: 50%; }
+.predio-card-h span { color: var(--muted); font-size: 12px; flex: 1; }
+.predio-x { border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--muted); width: 32px; height: 32px; }
+.predio-card dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0 0 10px; font-size: 13px; }
+.predio-card dt { color: var(--muted); }
+.predio-card dd { margin: 0; overflow-wrap: anywhere; }
+.predio-order { display: flex; gap: 6px; }
+.predio-order input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border-radius: var(--r-s); border: 1px solid var(--line-3); background: var(--bg); font-size: 16px; }
+.predio-order .primary { min-height: 40px; padding: 0 14px; }
+.predio-msg { display: block; min-height: 18px; margin-top: 4px; color: var(--muted); }
+.predio-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.predio-acts .btn { height: 36px; }
+.predio-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
+.predio-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.predio-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.predio.full { position: fixed; inset: 0; z-index: 50; padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); background: var(--bg); }
+.predio.full .predio-legend { display: none; }
+@media (max-width: 860px) {
+  .tabs { overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tabs button { min-width: 62px; }
+  .predio-floor span { display: none; }
+  .predio-card { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; }
+}
+/* iPhone instalado na tela de início (PWA): respeita o entalhe e a barra de cima */
+@media (display-mode: standalone) {
+  .top { padding-top: env(safe-area-inset-top); height: calc(var(--top-h) + env(safe-area-inset-top)); }
+}
+@media (max-width: 860px) { .predio-floors { flex-basis: 100%; order: 2; } .predio-tools { margin-left: auto; } .predio-floor { flex: 1; justify-content: center; } }
+/* embutido no app do celular (?embed=1): sem barra lateral, de cima e de abas */
+.embed .side, .embed .top, .embed .view > .head { display: none !important; }
+.embed body { padding-bottom: 0; }
+.embed main { margin: 0; padding: 10px; }

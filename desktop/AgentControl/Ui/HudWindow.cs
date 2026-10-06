@@ -391,7 +391,7 @@ public sealed class HudWindow : Window
         var top = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
         top.Children.Add(K.Face(62, s.Pending > 0 ? K.Warn : K.Brand));
         var col = new StackPanel { Margin = new Thickness(14, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        col.Children.Add(K.T(s.Paused ? $"{Greeting()} · agentes pausados" : $"{Greeting()} · tudo no ar", 11.5, s.Paused ? K.Warn : K.Muted, FontWeight.SemiBold));
+        col.Children.Add(K.T(s.Paused ? $"{Greeting()} · agentes pausados" : !host.QueueUp ? $"{Greeting()} · fila anti-429 desligada" : $"{Greeting()} · tudo no ar", 11.5, s.Paused || !host.QueueUp ? K.Warn : K.Muted, FontWeight.SemiBold));
         var working = s.Agents.Count(a => K.StatusBrush(a.Status) == K.Brand);
         col.Children.Add(K.T($"{s.Agents.Count} agentes · {working} trabalhando", 15.5, K.Text, FontWeight.SemiBold, K.Display).Also(t => t.Margin = new Thickness(0, 2, 0, 9)));
         col.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.Button(s.CallActive ? "Na chamada" : "Chamada", K.IPhone, () => Select(2), height: 34), K.Button("Escrever", K.IChat, host.OpenMini, primary: false, height: 34) } });
@@ -426,7 +426,7 @@ public sealed class HudWindow : Window
         v.Children.Add(Gap(8));
         v.Children.Add(new Cols(3).Add(Quick(K.ITerminal, "Comandos", () => Select(5), badge: s.Pending > 0 ? $"{s.Pending}" : null))
             .Add(Quick(K.IApps, "Tela completa", () => { Collapse(); host.OpenFull(); }))
-            .Add(Quick(K.IPhone, s.CallActive ? "Na chamada" : "Chamada", () => Select(2), s.CallActive ? K.Ok : null)).Panel);
+            .Add(Quick(K.IBuilding, "Prédio", () => { Collapse(); host.OpenPredio(); })).Panel);
 
         v.Children.Add(Gap(16));
         var head = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };

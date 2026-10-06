@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>No Windows · Agent Control</title>
+<meta name="description" content="Instale o Agent Control no Windows 10 e 11.">
+<link rel="icon" href="../img/agentc.png">
+<link rel="apple-touch-icon" href="../img/agentc.png">
+<meta name="theme-color" content="#090909">
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="../assets/sub.css">
+</head>
+<body>
+<div class="glow"></div>
+<nav><div class="wrap">
+  <a class="logo" href="../"><img src="../img/agentc.png" alt="">Agent Control</a>
+  <div class="links"><a href="../#pc">PC</a><a href="../#celular">Celular</a><a href="../#predio">Prédio</a><a href="../instalar/" class="on">Instalar</a></div>
+  <a class="btn" href="#" data-gh=""><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.1 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg>GitHub</a>
+</div></nav>
+<main><div class="wrap">
+<div class="crumb" style="padding-top:28px"><a href="../">Início</a><span>›</span><a href="./">Instalar</a><span>›</span><span>Windows</span></div>
+<header class="page-head" style="padding-top:18px"><div class="os-ic"><svg viewBox="0 0 24 24" fill="#60a5fa"><path d="M3 5.5 10.5 4.5v7H3zM11.5 4.3 21 3v8.5h-9.5zM3 12.5h7.5v7L3 18.5zM11.5 12.5H21V21l-9.5-1.3z"/></svg></div><span class="kicker">Instalar</span><h1>Windows</h1><p class="lead">Launcher, HUD no topo da tela, AgentC, Prédio e ícone na bandeja. Windows 10 e 11, 64 bits.</p></header>
+<div class="cta-row"><a class="btn primary" href="#" data-dl="AgentControl-windows-x64.zip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 21h16"/></svg>Baixar para Windows</a></div>
+<h2>Passo a passo</h2>
+<ol class="steps">
+<li><h3>Instale o Node 24</h3><p>O servidor da sala roda em Node. Baixe a versão LTS em <b>nodejs.org</b> ou rode:</p><div class="code"><pre>winget install OpenJS.NodeJS.LTS</pre></div></li>
+<li><h3>Descompacte o .zip</h3><p>Clique com o botão direito em <b>AgentControl-windows-x64.zip → Extrair tudo</b>. Coloque numa pasta sua (ex.: <kbd>Documentos\AgentControl</kbd>), fora de Arquivos de Programas.</p></li>
+<li><h3>Abra o AgentControl.exe</h3><p>Se o Windows mostrar "O Windows protegeu o computador", toque em <b>Mais informações → Executar assim mesmo</b> (o app ainda não tem certificado pago).</p></li>
+<li><h3>Escolha o seu time</h3><p>Em <b>Ajustes → Seu time</b> marque os agentes que você usa (Claude Code, Codex, Gemini, Qwen…). Depois toque em <b>Ligar tudo</b> na aba Início.</p></li>
+<li><h3>(Opcional) Iniciar com o Windows</h3><p>Em Ajustes, ligue <b>Iniciar com o Windows</b>. O HUD aparece no topo e os serviços sobem sozinhos.</p></li>
+</ol>
+<h2>Para quem prefere o terminal</h2>
+<div class="code"><pre>$ git clone https://github.com/SEU-DONO/AgentControl
+$ cd AgentControl
+$ npm install
+$ npm start   # sala em http://127.0.0.1:20150</pre></div>
+<h2>Deu problema?</h2>
+<details><summary>A sala não abre</summary><p>Veja a aba <b>Logs</b> do Launcher. Normalmente é o Node faltando ou outra coisa usando a porta 20150.</p></details>
+<details><summary>Antivírus reclamou</summary><p>Apps novos sem assinatura paga às vezes caem em alerta. Confira o hash no <kbd>SHA256SUMS.txt</kbd> da versão no GitHub.</p></details>
+
+<h2>Outro aparelho?</h2><div class="other"><a href="iphone.html">iPhone e iPad</a><a href="android.html">Android</a><a href="mac.html">macOS</a><a href="linux.html">Linux</a><a href="raspberry.html">Raspberry Pi e terminal</a></div>
+</div></main>
+<footer><div class="wrap">
+  <span class="logo"><img src="../img/agentc.png" alt="" style="width:20px">Agent Control</span>
+  <span>Licença MIT<span data-ver></span></span>
+  <span style="margin-left:auto;display:flex;gap:18px"><a href="#" data-gh="">Código</a><a href="#" data-gh="/releases">Versões</a><a href="#" data-gh="/issues">Problemas e ideias</a></span>
+</div></footer>
+<script type="module" src="../assets/sub.js"></script>
+</body>
+</html>

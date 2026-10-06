@@ -382,6 +382,7 @@ public sealed class MascotWindow : Window
         Item("full", K.IOpen, "Abrir a tela completa");
         Item("mini", K.IChat, "Falar com os agentes");
         Item("web", K.IPhone, "Chamada com o time");
+        Item("predio", K.IBuilding, "Ver o prédio dos agentes");
         Item("goal", K.IGoal, "Iniciar Modo Goal");
         Item("launcher", K.IHealth, "Abrir o Launcher");
         Item("pausa", K.IPause, "Pausar / retomar os agentes");

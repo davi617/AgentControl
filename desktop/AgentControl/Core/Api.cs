@@ -333,6 +333,8 @@ public sealed class HudApi
     }
 
     public Task<string?> RemovePerson(string id) => Post("/api/team/remove", new { id });
+    /// <summary>Instala a licença paga (texto AC1.…); o servidor confere a assinatura e recusa licença alterada ou vencida.</summary>
+    public Task<string?> InstallLicense(string license) => Post("/api/plan/license", new { license });
 
     public Task<string?> CallSay(string text) => Post("/api/call/say", new { project = Project, text });
     public Task<string?> CallRound() => Post("/api/call/round", new { project = Project });

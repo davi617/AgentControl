@@ -1,0 +1,28 @@
+name: Algo quebrou
+description: Conte o que deu errado no app do PC, do celular, na sala ou no site.
+labels: [bug]
+body:
+  - type: dropdown
+    id: onde
+    attributes:
+      label: Onde
+      options: [App do PC (Launcher/HUD/AgentC), Prédio, Sala no navegador, App do Android, iPhone (Safari), Servidor, Site, Outro]
+    validations: { required: true }
+  - type: input
+    id: sistema
+    attributes:
+      label: Sistema e versão
+      placeholder: "Windows 11 · Agent Control 1.1.1"
+  - type: textarea
+    id: o-que
+    attributes:
+      label: O que aconteceu e o que você esperava
+    validations: { required: true }
+  - type: textarea
+    id: passos
+    attributes:
+      label: Como repetir
+      placeholder: "1. Abri… 2. Toquei em… 3. Apareceu…"
+  - type: markdown
+    attributes:
+      value: "⚠️ Não cole tokens, chaves de API, licenças, e-mails de clientes ou IPs do seu Tailscale."
