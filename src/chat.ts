@@ -61,7 +61,7 @@ export function writeSala(store: Store, p: ProjectCfg): string | undefined {
   const lines = [
     '# SALA — chat central dos agentes',
     '',
-    `> Gerado pelo JARVIS em ${nowIso().replace('T', ' ')}. **Não edite este arquivo.**`,
+    `> Gerado pelo Agent Control em ${nowIso().replace('T', ' ')}. **Não edite este arquivo.**`,
     `> Para falar: escreva no SEU arquivo (\`${p.chatDir}/<AGENTE>.md\` ou \`.ai-team/CHAT.md\`) no formato:`,
     '> `## AAAA-MM-DD HH:mm — AGENTE` + `- para: TODOS|AGENTE` + `- assunto:` + texto.',
     '',
@@ -93,7 +93,7 @@ export function postChat(p: ProjectCfg, as: string, para: string, assunto: strin
   if (!dir) throw new Error('chat não configurado');
   mkdirSync(dir, { recursive: true });
   const file = path.join(dir, `${as}.md`);
-  const who = as === 'DONO' ? 'o JARVIS (em nome do dono)' : as === 'JARVIS' ? 'o JARVIS (respostas ao dono)'  : as === 'CHATGPT' ? 'o ChatGPT (ou o JARVIS, quando o dono cola a resposta)' : `o JARVIS (em nome de ${as}, pessoa do time)`;
+  const who = as === 'DONO' ? 'o Agent Control (em nome do dono)' : as === 'JARVIS' ? 'o AgentC (respostas ao dono)'  : as === 'CHATGPT' ? 'o ChatGPT (ou o Agent Control, quando o dono cola a resposta)' : `o JARVIS (em nome de ${as}, pessoa do time)`;
   if (!existsSync(file)) writeFileSync(file, `# ${as}\n\nMensagens de ${as} na sala central. Só ${who} escreve aqui.\n`);
   const [date, time] = nowIso().split('T');
   const text = redact(raw.trim()).slice(0, 8000);
@@ -102,7 +102,7 @@ export function postChat(p: ProjectCfg, as: string, para: string, assunto: strin
     `## ${date} ${time.slice(0, 5)} — ${as}`,
     `- para: ${para}`,
     ...(assunto ? [`- assunto: ${assunto.replace(/\n/g, ' ').slice(0, 120)}`] : []),
-    ...(as === 'CHATGPT' ? ['- via: app do ChatGPT, colado por você no JARVIS'] : []),
+    ...(as === 'CHATGPT' ? ['- via: app do ChatGPT, colado por você no Agent Control'] : []),
     '',
     text,
     '',

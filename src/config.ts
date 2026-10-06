@@ -67,7 +67,7 @@ export function loadConfig(file: string): Config {
   const cfg = JSON.parse(readFileSync(file, 'utf8')) as Config;
   const base = path.dirname(path.resolve(file));
   // Regra dura do projeto: só loopback. Rede/Tailscale é Fase 4, com autenticação.
-  if (!LOOPBACK.has(cfg.host)) throw new Error(`host "${cfg.host}" recusado: JARVIS só escuta em 127.0.0.1 nesta fase`);
+  if (!LOOPBACK.has(cfg.host)) throw new Error(`host "${cfg.host}" recusado: o Agent Control só escuta em 127.0.0.1 nesta fase`);
   if (cfg.remote?.enabled) {
     // Fase 4: só dentro do tailnet — ou em loopback, estritamente local (teste/emulador).
     if (!LOOPBACK.has(cfg.remote.host) && !isTailscaleIp(cfg.remote.host)) throw new Error(`remote.host "${cfg.remote.host}" recusado: use o IP do Tailscale (100.64.0.0/10) ou 127.0.0.1 para teste local`);

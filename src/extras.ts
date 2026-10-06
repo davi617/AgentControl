@@ -85,8 +85,8 @@ export async function writeDiary(store: Store, p: ProjectCfg, summary: SummaryCf
   try { uso = await gateUsage(summary, 1, fetchImpl) as typeof uso; } catch { /* fila fora do ar */ }
   const md = [
     '---', 'type: diario', `data: ${dia}`, 'tags: [diario, jarvis]', '---',
-    `# Diário do JARVIS · ${dia}`, '',
-    `> Gerado pelo JARVIS (${now.toLocaleTimeString('pt-BR').slice(0, 5)}). Reescrito de hora em hora durante o dia.`, '',
+    `# Diário do Agent Control · ${dia}`, '',
+    `> Gerado pelo Agent Control (${now.toLocaleTimeString('pt-BR').slice(0, 5)}). Reescrito de hora em hora durante o dia.`, '',
     `## Comandos (${cmds.length})`,
     ...(cmds.length ? cmds.map((c) => `- **${c.code}** → ${c.target} · ${c.status} · ${c.text.replace(/\s+/g, ' ').slice(0, 140)}`) : ['- nenhum']), '',
     `## Chamadas (${calls.length})`,

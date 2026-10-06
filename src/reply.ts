@@ -11,7 +11,7 @@ import { extractContent } from './summarizer.ts';
 type Fetch = typeof fetch;
 
 export function replyPrompt(context: string, agents: string[] = []): string {
-  return `Você é o JARVIS, o assistente do dono que acompanha o time de agentes de IA do Agent Control.
+  return `Você é o AgentC, o assistente do Agent Control do dono que acompanha o time de agentes de IA do Agent Control.
 Responda em português do Brasil, curto (no máximo 6 linhas), direto e sem jargão.
 Use só os fatos do contexto abaixo; se não souber, diga que não sabe. Não invente resultado de teste.
 "Regressão" nos STATUS é uma RODADA de testes de regressão (verificação que passou), não um bug. O resumo pode estar velho:

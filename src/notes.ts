@@ -19,7 +19,7 @@ export function addNote(store: Store, p: ProjectCfg, rawText: string): Note {
   const note = store.addNote(p.id, text);
   const file = notesFile(p);
   mkdirSync(path.dirname(file), { recursive: true });
-  if (!existsSync(file)) writeFileSync(file, '# Notas rápidas\n\nAnotações do dono pelo app do JARVIS. Marcadas como feitas continuam aqui riscadas.\n\n');
+  if (!existsSync(file)) writeFileSync(file, '# Notas rápidas\n\nAnotações do dono pelo app do Agent Control. Marcadas como feitas continuam aqui riscadas.\n\n');
   appendFileSync(file, `- [ ] ${note.created_at.slice(0, 16).replace('T', ' ')} — ${text}\n`);
   return note;
 }
@@ -30,7 +30,7 @@ export function syncNotesFile(store: Store, p: ProjectCfg) {
   const lines = notes.map((n) => `- [${n.done ? 'x' : ' '}] ${n.created_at.slice(0, 16).replace('T', ' ')} — ${n.text}`);
   const file = notesFile(p);
   mkdirSync(path.dirname(file), { recursive: true });
-  writeFileSync(file, `# Notas rápidas\n\nAnotações do dono pelo app do JARVIS. Marcadas como feitas continuam aqui riscadas.\n\n${lines.join('\n')}\n`);
+  writeFileSync(file, `# Notas rápidas\n\nAnotações do dono pelo app do Agent Control. Marcadas como feitas continuam aqui riscadas.\n\n${lines.join('\n')}\n`);
 }
 
 export function readNotesFile(p: ProjectCfg): string | null {

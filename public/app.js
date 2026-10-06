@@ -342,7 +342,7 @@ $('#chat-text').addEventListener('keydown', (ev) => {
 $('#copy-gpt').addEventListener('click', async () => {
   const last = chatCache.slice(-25);
   const md = [
-    'Você é o CHATGPT na sala central dos agentes do dono (JARVIS). Abaixo, as últimas mensagens em Markdown.',
+    'Você é o CHATGPT na sala central dos agentes do dono (Agent Control). Abaixo, as últimas mensagens em Markdown.',
     'Responda no MESMO formato, uma mensagem só:',
     '`## AAAA-MM-DD HH:mm — CHATGPT` + `- para: TODOS|AGENTE` + `- assunto: …` + texto.',
     'Regras: sem segredos; sem PASS sem evidência; deploy/push/merge só com aprovação do dono.',

@@ -210,7 +210,7 @@ public sealed class HudApi
             {
                 var sess = await Get("/api/session");
                 csrf = sess is { } se ? Str(se, "csrf") : null;
-                if (string.IsNullOrEmpty(csrf)) return "JARVIS desligado";
+                if (string.IsNullOrEmpty(csrf)) return "Servidor do Agent Control desligado";
             }
             for (var attempt = 0; attempt < 2; attempt++)
             {

@@ -117,7 +117,7 @@ export function ingest(store: Store, p: ProjectCfg, src: SourceFile, initial: bo
       kind: src.kind,
       agent: authorFor(src, s.agent, known),
       heading: s.heading,
-      body: s.body.length > MAX_BODY ? s.body.slice(0, MAX_BODY) + '\n…[cortado pelo JARVIS]' : s.body,
+      body: s.body.length > MAX_BODY ? s.body.slice(0, MAX_BODY) + '\n…[cortado pelo Agent Control]' : s.body,
       hash: s.hash,
       task: s.fields.task ?? null,
       status: canonicalStatus(s.fields.status) ?? statusInText(s.fields.task) ?? null,

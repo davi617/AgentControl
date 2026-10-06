@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Agent Control</string>
-    <string name="sc_voz">Falar com o JARVIS</string>
+    <string name="sc_voz">Falar com o AgentC</string>
     <string name="sc_nota">Nota rápida</string>
     <string name="sc_busca">Buscar em tudo</string>
     <string name="sc_saude">Saúde do PC</string>
