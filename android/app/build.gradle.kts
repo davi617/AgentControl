@@ -18,12 +18,24 @@ android {
         versionName = (project.findProperty("jarvisVersionName") as String?) ?: "1.0.0"
     }
 
+    // Assinatura: com ANDROID_KEYSTORE_FILE (e as senhas) no ambiente, o release sai assinado com a SUA chave, a que
+    // já está nos celulares, e atualiza por cima. Sem isso, usa a chave de debug da máquina que compila.
+    val releaseKeystore: String? = System.getenv("ANDROID_KEYSTORE_FILE")
+    signingConfigs {
+        if (releaseKeystore != null) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            // Sem chave de assinatura própria ainda: o release sai assinado com a chave de debug
-            // para instalar no seu celular. Trocar antes de distribuir para outras pessoas.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (releaseKeystore != null) "release" else "debug")
         }
     }
     compileOptions {
