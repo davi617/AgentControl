@@ -86,3 +86,46 @@ test('menos andares: cabine e chamadas acima do topo somem', () => {
   assert.ok(e.cars.every((c) => c.pos <= 2));
   assert.equal(e.calls.has(4), false);
 });
+
+// ---------- personagem: editor e foto ----------
+import { analyzePhoto, FACE, lookFromSaved, savedFromLook } from '../public/predio.js';
+
+/** Foto de mentira: fundo, cabelo (em cima e, se comprido, dos lados), rosto oval com a pele. */
+function fakePhoto({ n = 160, bg = [40, 120, 200], skin = [200, 150, 110], hair = [40, 25, 15], long = false, bald = false } = {}) {
+  const px = new Uint8ClampedArray(n * n * 4);
+  const cx = n * FACE.cx, cy = n * FACE.cy, rx = n * FACE.rx, ry = n * FACE.ry;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const ex = (x - cx) / rx, ey = (y - cy) / ry, e = Math.hypot(ex, ey);
+    let c = bg;
+    if (!bald && ey < -0.3 && e < 1.3) c = hair; // topo da cabeça
+    if (long && Math.abs(ex) > 0.85 && Math.abs(ex) < 1.35 && ey > -0.5 && ey < 1.3) c = hair; // dos lados até os ombros
+    if (e < 1 && (bald || ey > -0.7)) c = skin;
+    if (bald && ey < -0.3 && e < 1.15) c = skin;
+    const i = (y * n + x) * 4; px[i] = c[0]; px[i + 1] = c[1]; px[i + 2] = c[2]; px[i + 3] = 255;
+  }
+  return [px, n];
+}
+const close = (hex, rgb) => { const v = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)); return v.every((x, k) => Math.abs(x - rgb[k]) <= 6); };
+
+test('foto: tira a cor da pele e do cabelo; cabelo curto não vira comprido', () => {
+  const r = analyzePhoto(...fakePhoto());
+  assert.ok(close(r.skin, [200, 150, 110]), r.skin);
+  assert.ok(close(r.hair, [40, 25, 15]), r.hair);
+  assert.equal(r.style, null);
+});
+
+test('foto: percebe cabelo comprido e careca', () => {
+  assert.equal(analyzePhoto(...fakePhoto({ long: true })).style, 'longo');
+  const bald = analyzePhoto(...fakePhoto({ bald: true }));
+  assert.equal(bald.style, 'careca');
+  assert.equal(bald.hair, null);
+});
+
+test('personagem salvo ida e volta: terno vira paletó com camisa branca e gravata vermelha', () => {
+  const s = { skin: '#8D5A3B', hair: '#1F1A17', style: 'curto', top: 'terno', shirt: '#0F172A', pants: '#1E293B', shoes: '#111111', cap: '#EF4444', acc: 'oculos' };
+  const L = lookFromSaved(s);
+  assert.equal(L.jacket, '#0F172A'); assert.equal(L.shirt, '#F4F4F5'); assert.equal(L.tie, '#DC2626'); assert.equal(L.boss, true);
+  assert.deepEqual(savedFromLook(L), s);
+  const w = { ...s, top: 'moletom', shirt: '#22C55E' };
+  assert.deepEqual(savedFromLook(lookFromSaved(w)), w);
+});

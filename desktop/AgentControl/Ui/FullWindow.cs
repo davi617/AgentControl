@@ -116,6 +116,11 @@ public sealed class FullWindow : Window
         dice.Tip("Sortear as roupas de novo");
         K.Pressable(dice, () => predio.Reroll());
         tools.Children.Add(dice);
+        // personagem com foto: o editor fica na sala (navegador), que salva no servidor; aqui atualiza sozinho
+        var avatar = new Border { Height = 34, Padding = new Thickness(12, 0), CornerRadius = new CornerRadius(10), Background = K.Raised, Child = K.T("🧑 meu personagem", 12.5, K.Text2, FontWeight.SemiBold) };
+        avatar.Tip("Criar seu personagem: roupa, cabelo e a sua foto (abre no navegador)");
+        K.Pressable(avatar, () => Platform.Open($"{HudApi.Base}/#personagem"));
+        tools.Children.Add(avatar);
         var top = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
         DockPanel.SetDock(tools, Dock.Right); top.Children.Add(tools); top.Children.Add(predioFloors);
         var legend = new WrapPanel { Margin = new Thickness(2, 10, 0, 0) };

@@ -237,6 +237,49 @@ h2{font-size:clamp(30px,4.4vw,48px);line-height:1.08;letter-spacing:-.035em;font
 .predio-legend i { width: 8px; height: 8px; border-radius: 50%; }
 .predio.full { position: fixed; inset: 0; z-index: 50; padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); background: var(--bg); }
 .predio.full .predio-legend { display: none; }
+/* ---------- Prédio: editor de personagem (cores, cabelo, roupa e a foto) ---------- */
+.predio-editor { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,.6); }
+.predio-editor[hidden] { display: none; }
+.pe-panel { width: min(800px, 100%); max-height: calc(100dvh - 32px); overflow: auto; border-radius: 20px; background: var(--surface); color: var(--text); border: 1px solid var(--line-3); box-shadow: 0 24px 60px rgba(0,0,0,.5); padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; }
+.pe-h { display: flex; align-items: center; gap: 10px; }
+.pe-h h2 { margin: 0; font-size: 19px; flex: 1; }
+.pe-body { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 22px; }
+.pe-left { display: flex; flex-direction: column; gap: 14px; align-items: center; }
+.pe-preview { width: 200px; height: 230px; border-radius: 16px; }
+.pe-photo { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.pe-shot { width: 200px; height: 200px; border-radius: 16px; border: 2px dashed var(--line-3); background: var(--bg); cursor: grab; touch-action: none; }
+.pe-photo input[type=range] { width: 200px; accent-color: var(--brand); }
+.pe-photo .btn { min-height: 44px; }
+.pe-note { font-size: 12px; color: var(--muted); margin: 0; text-align: center; }
+.pe-found { font-size: 13px; color: var(--brand-text); margin: 0; text-align: center; }
+.pe-found:empty { display: none; }
+.pe-right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.pe-group { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
+.pe-group legend { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 0; margin-bottom: 6px; }
+.pe-sw { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--line-3); cursor: pointer; padding: 0; }
+.pe-sw[aria-pressed="true"] { outline: 3px solid var(--brand); outline-offset: 2px; border-color: var(--surface); }
+.pe-color { width: 36px; height: 36px; border-radius: 50%; border: 2px dashed var(--line-3); padding: 2px; background: none; cursor: pointer; }
+.pe-chip { min-height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--raised); color: var(--text-2); cursor: pointer; font: inherit; font-size: 13px; }
+.pe-chip[aria-pressed="true"] { background: var(--brand-soft); border-color: var(--brand-line); color: var(--brand-text); font-weight: 600; }
+.pe-foot { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--line-2); padding-top: 14px; }
+.pe-foot .btn, .pe-foot .primary { min-height: 44px; }
+.pe-spacer { flex: 1; }
+.pe-msg { width: 100%; margin: 0; font-size: 13px; color: var(--err-text, #F87171); }
+.pe-msg:empty { display: none; }
+@media (max-width: 640px) {
+  .predio-editor { padding: 0; }
+  .pe-panel { max-height: 100dvh; height: 100dvh; border-radius: 0; border: 0; padding: max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom)); }
+  .pe-body { grid-template-columns: 1fr; }
+  .pe-left { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+  .pe-preview { width: 150px; height: 172px; }
+  .pe-photo { width: auto; max-width: 200px; }
+  .pe-shot { width: 150px; height: 150px; }
+  .pe-photo input[type=range] { width: 150px; }
+}
+.predio-editor{--line-2:#252525;--line-3:#333;--text-2:#E4E4E7;--brand-line:rgba(249,115,22,.45);--on-brand:#0A0A0A;font-family:Inter,system-ui,sans-serif}
+.predio-editor .btn{padding:8px 14px;font-size:14px}
+.predio-editor .primary{border:0;border-radius:12px;background:var(--brand);color:#0a0a0a;font-weight:700;padding:0 18px;cursor:pointer;font:inherit;font-weight:700}
+.predio-editor .predio-x{border:0;background:none;font-size:22px;cursor:pointer;color:var(--muted);width:44px;height:44px}
 @media (max-width: 860px) {
   .predio-floor span { display: none; }
   .predio-card { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; }
@@ -338,7 +381,7 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </svg>
     <div class="bubble" id="heroBubble"><b id="hbWho">AgentC</b><span id="hbText">Oi! Eu cuido do seu time.</span></div>
   </div>
-  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT · <a class="verlink" id="verPill" href="https://github.com/OWNER/AgentControl/releases/latest">v1.2.0</a><span class="pill-os"> · PC, Android e iPhone</span></span>
+  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT · <a class="verlink" id="verPill" href="https://github.com/OWNER/AgentControl/releases/latest">v1.2.1</a><span class="pill-os"> · PC, Android e iPhone</span></span>
   <h1 id="title"><span class="word">Seu</span> <span class="word">time</span> <span class="word">de</span> <span class="word grad">agentes</span> <span class="word grad">de</span> <span class="word grad">IA</span> <span class="word">num</span> <span class="word">só</span> <span class="word">lugar.</span></h1>
   <p class="lead reveal-hero">Claude Code, Codex, Gemini, Qwen, Hermes e outros trabalhando juntos. Sala de conversa, ordens com aprovação, HUD no topo da tela, app no celular e o <b style="color:var(--brand-text)">AgentC</b> avisando tudo.</p>
   <div class="cta reveal-hero">
@@ -458,7 +501,7 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <section id="baixar"><div class="wrap">
   <div class="center reveal"><span class="kicker">Baixar</span><h2>Escolha o seu sistema.</h2><p class="sub">Grátis e de código aberto. Cada sistema tem a sua tela com o passo a passo: <a href="instalar/" style="color:var(--brand-text);text-decoration:underline">ver todos</a>.</p></div>
-  <div class="relbar reveal" id="relbar"><span class="relbadge" id="relTag">Versão 1.2.0</span><span class="reldate" id="relDate">6 de outubro de 2026</span><a class="relnotes" id="relNotes" href="https://github.com/OWNER/AgentControl/releases/tag/v1.2.0">Ver o que mudou →</a></div>
+  <div class="relbar reveal" id="relbar"><span class="relbadge" id="relTag">Versão 1.2.1</span><span class="reldate" id="relDate">6 de outubro de 2026</span><a class="relnotes" id="relNotes" href="https://github.com/OWNER/AgentControl/releases/tag/v1.2.1">Ver o que mudou →</a></div>
   <div class="dl" id="dl"></div>
   <div class="term reveal">
     <div class="tb"><i></i><i></i><i></i><button class="copy" id="copy">Copiar</button></div>
@@ -787,7 +830,7 @@ if (mineOS) { const c = $$('#dl .card')[DL.findIndex(d => d[0] === mineOS)]; if 
 fetch(PUBLIC_API).then(r => r.ok ? r.json() : null).then(j => {
   if (j && j.stargazers_count > 0) { const s = $('#stars'); s.textContent = '★ ' + j.stargazers_count; s.hidden = false; }
 }).catch(() => {});
-// A versão já vem escrita na página (v1.2.0); a API do GitHub só troca se saiu uma mais nova.
+// A versão já vem escrita na página (v1.2.1); a API do GitHub só troca se saiu uma mais nova.
 function showVersion(tag, iso) {
   const v = String(tag).replace(/[^\w.\-]/g, ''), num = v.replace(/^v/, '');
   $('#verFoot').innerHTML = ` · versão <span class="ver">${v}</span>`;
@@ -795,7 +838,7 @@ function showVersion(tag, iso) {
   $('#relTag').textContent = 'Versão ' + num; $('#relNotes').href = PUBLIC_GITHUB + '/releases/tag/' + v;
   const d = iso && new Date(iso); if (d && !isNaN(d)) $('#relDate').textContent = d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
-showVersion('v1.2.0', null); $('#verFoot').innerHTML = ' · versão <span class="ver">v1.2.0</span>';
+showVersion('v1.2.1', null); $('#verFoot').innerHTML = ' · versão <span class="ver">v1.2.1</span>';
 fetch(PUBLIC_API + '/releases/latest').then(r => r.ok ? r.json() : null).then(j => {
   if (!j || !j.tag_name) return;
   showVersion(j.tag_name, j.published_at);

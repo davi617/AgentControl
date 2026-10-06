@@ -16,6 +16,7 @@ import { searchAll } from './search.ts';
 import { about, commandsPerDay, gateUsage, listCalls } from './extras.ts';
 import { OWNER, mentions, teamFor, type Role, type Who } from './team.ts';
 import { PlanStore, publicPlan } from './plans.ts';
+import { lookOwnerOk, sanitizeLook } from './looks.ts';
 
 const TEAM_POSTS = ['/api/team/invite', '/api/team/remove', '/api/team/role', '/api/plan/license'];
 const CALL_POSTS = ['/api/call/start', '/api/call/say', '/api/call/next', '/api/call/end', '/api/call/turn', '/api/call/round', '/api/call/kick'];
@@ -23,7 +24,7 @@ const WRITE_POSTS = [
   '/api/models', '/api/agents/pause', '/api/call/attach',
   '/api/notes', '/api/notes/done', '/api/notes/delete',
   '/api/vault/favorite', '/api/shortcuts', '/api/shortcuts/delete', '/api/shortcuts/run',
-  '/api/alerts/prefs',
+  '/api/alerts/prefs', '/api/looks',
 ];
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
@@ -186,7 +187,7 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     }
     // Papéis: "leitura" só vê; aprovar comando protegido e mexer no time é só do dono.
     if (isPost && who.role === 'leitura') { send(403, { error: 'seu acesso é só de leitura' }); return; }
-    if (isPost && (url.pathname === '/api/commands/decide' || TEAM_POSTS.includes(url.pathname) || url.pathname === '/api/agents/pause' || url.pathname === '/api/models') && who.role !== 'dono') {
+    if (isPost && (url.pathname === '/api/commands/decide' || TEAM_POSTS.includes(url.pathname) || url.pathname === '/api/agents/pause' || url.pathname === '/api/models' || url.pathname === '/api/looks') && who.role !== 'dono') {
       send(403, { error: 'só o dono do time pode fazer isso' });
       return;
     }
@@ -251,7 +252,7 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     }
     if (isPost && WRITE_POSTS.includes(url.pathname) && url.pathname !== '/api/models' && url.pathname !== '/api/agents/pause' && url.pathname !== '/api/call/attach') {
       readBody(req, 4_096).then((raw) => {
-        let body: { project?: string; text?: string; id?: number; done?: boolean; path?: string; title?: string; label?: string; target?: string; prefs?: Record<string, boolean> };
+        let body: { project?: string; text?: string; id?: number | string; done?: boolean; path?: string; title?: string; label?: string; target?: string; prefs?: Record<string, boolean>; look?: unknown };
         try { body = JSON.parse(raw); } catch { send(400, { error: 'JSON inválido' }); return; }
         const p = j.project(body.project);
         if (!p) { send(404, { error: 'projeto desconhecido' }); return; }
@@ -303,6 +304,15 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
               j.store.setAlertPrefs(p.id, body.prefs && typeof body.prefs === 'object' ? body.prefs : {});
               send(200, j.store.alertPrefs(p.id));
               return;
+            case '/api/looks': {
+              // personagem do prédio: { id, look } grava; { id, look: null } volta ao sorteado pelo nome
+              if (!lookOwnerOk(body.id, p.agents.map((a) => a.id))) { send(400, { error: 'personagem de quem?' }); return; }
+              const look = body.look === null ? null : sanitizeLook(body.look);
+              if (body.look !== null && !look) { send(400, { error: 'personagem inválido' }); return; }
+              j.store.setLook(p.id, body.id, look);
+              send(200, j.store.looks(p.id));
+              return;
+            }
           }
         } catch (e) { send(409, { error: (e as Error).message }); }
       }).catch(() => send(413, { error: 'pedido grande demais' }));
@@ -489,6 +499,9 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         return;
       case '/api/alerts/prefs':
         send(200, j.store.alertPrefs(p.id));
+        return;
+      case '/api/looks':
+        send(200, j.store.looks(p.id));
         return;
       case '/api/usage': {
         const dias = Math.min(Math.max(Number(url.searchParams.get('dias')) || 7, 1), 30);

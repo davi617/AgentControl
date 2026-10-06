@@ -41,7 +41,12 @@ public sealed class PredioView : Control
     }
     sealed class Floor { public string Kind = "", Name = ""; public List<Room> Rooms = []; }
     // chefe: Pants = paletó, Shirt = camisa, Cap = gravata
-    sealed record Look(bool Boss, Color Skin, Color Hair, string Style, Color Shirt, Color Pants, Color Shoes, Color Cap, string Top, string Acc);
+    sealed record Look(bool Boss, Color Skin, Color Hair, string Style, Color Shirt, Color Pants, Color Shoes, Color Cap, string Top, string Acc)
+    {
+        /// <summary>Personagem salvo de terno: paletó e gravata separados da calça e do boné.</summary>
+        public Color? Jacket { get; init; }
+        public Color? Tie { get; init; }
+    }
     /// <summary>Ponto do caminho. Wait = marca de espera do elevador; Elevator = pedir o elevador para o andar To; Board = entrar nesta cabine.</summary>
     sealed record Way(int Floor, double X, double Y)
     {
@@ -164,6 +169,22 @@ public sealed class PredioView : Control
     };
 
     static Color[] Cols(params string[] h) => h.Select(K.C).ToArray();
+
+    // personagens salvos no servidor (feitos no editor da sala, com ou sem foto): id → cores e estilos
+    Dictionary<string, Dictionary<string, string>> saved = [];
+    Look LookOf(string id, bool boss) => saved.TryGetValue(id, out var c) && FromSaved(c) is { } l ? l : LookFor(id, boss, salt);
+    static Look? FromSaved(Dictionary<string, string> c)
+    {
+        try
+        {
+            string S(string k) => c.TryGetValue(k, out var v) ? v : "";
+            var top = S("top"); var terno = top == "terno";
+            if (!Styles.Contains(S("style"))) return null;
+            return new Look(terno, K.C(S("skin")), K.C(S("hair")), S("style"), terno ? K.C("#F4F4F5") : K.C(S("shirt")), K.C(S("pants")), K.C(S("shoes")), K.C(S("cap")), top, S("acc"))
+            { Jacket = terno ? K.C(S("shirt")) : null, Tie = terno ? K.C("#DC2626") : null };
+        }
+        catch { return null; }
+    }
     static uint Seed(string s) { uint h = 2166136261; foreach (var c in s) { h ^= c; h *= 16777619; } return h; }
 
     static Look LookFor(string name, bool boss, int salt)
@@ -336,13 +357,13 @@ public sealed class PredioView : Control
     double Now => (DateTime.Now - started).TotalSeconds;
 
     public void GoFloor(int i) { ViewFloor = Math.Clamp(i, 0, floors.Count - 1); FloorsChanged?.Invoke(); InvalidateVisual(); }
-    public void Reroll() { salt++; foreach (var p in people.Values) p.Look = LookFor(p.Id, p.IsBoss, salt); }
+    public void Reroll() { salt++; foreach (var p in people.Values) p.Look = LookOf(p.Id, p.IsBoss); }
 
     Person Ensure(string id, bool boss = false)
     {
         if (people.TryGetValue(id, out var p)) return p;
         // todo mundo chega pela recepção do térreo
-        p = new Person { Id = id, IsBoss = boss, Look = LookFor(id, boss, salt), X = 120 + rnd.NextDouble() * 110, Y = 250, Phase = rnd.NextDouble() * 6, Lane = (rnd.NextDouble() - .5) * 30, WanderAt = Now + 20 + rnd.NextDouble() * 40, ChatAt = Now + 10 };
+        p = new Person { Id = id, IsBoss = boss, Look = LookOf(id, boss), X = 120 + rnd.NextDouble() * 110, Y = 250, Phase = rnd.NextDouble() * 6, Lane = (rnd.NextDouble() - .5) * 30, WanderAt = Now + 20 + rnd.NextDouble() * 40, ChatAt = Now + 10 };
         people[id] = p;
         return p;
     }
@@ -461,6 +482,7 @@ public sealed class PredioView : Control
     public void Update(HudSnapshot s)
     {
         var ids = s.Agents.Select(a => a.Id).ToHashSet();
+        if (!LooksEqual(saved, s.Looks)) { saved = s.Looks; foreach (var p in people.Values) p.Look = LookOf(p.Id, p.IsBoss); }
         foreach (var id in people.Keys.Where(k => k != "VOCÊ" && !ids.Contains(k)).ToList()) people.Remove(id);
         var need = 2 + Math.Max(1, (int)Math.Ceiling(s.Agents.Count / (double)PerFloor));
         if (floors.Count != need)
@@ -511,6 +533,9 @@ public sealed class PredioView : Control
         }
         FloorsChanged?.Invoke();
     }
+
+    static bool LooksEqual(Dictionary<string, Dictionary<string, string>> a, Dictionary<string, Dictionary<string, string>> b) =>
+        a.Count == b.Count && a.All(kv => b.TryGetValue(kv.Key, out var o) && o.Count == kv.Value.Count && kv.Value.All(f => o.TryGetValue(f.Key, out var v) && v == f.Value));
 
     static string Trim(string s, int n) { s = System.Text.RegularExpressions.Regex.Replace(s, @"\s+", " ").Trim(); return s.Length > n ? s[..n] + "…" : s; }
 
@@ -810,7 +835,7 @@ public sealed class PredioView : Control
         var cel = p.Celebrate > 0; var sit = !p.Moving && p.Sitting; var back = p.FaceUp && !sit; var sleep = p.Mood == "parado" && sit;
         var bob = p.Moving ? Math.Abs(walk) * 1.4 : cel ? Math.Abs(Math.Sin(t * 10)) * 9 : Math.Sin(t * 2 + p.Phase) * .35;
         var boss = L.Boss; var st = L.Style; var top = L.Top;
-        var torso = B(boss ? L.Pants : L.Shirt);
+        var torso = B(boss ? L.Jacket ?? L.Pants : L.Shirt);
         var fore = !boss && top != "moletom" ? B(L.Skin) : torso;
         IBrush skin = B(L.Skin), hair = B(L.Hair);
         var outline = new Pen(new SolidColorBrush(Color.FromArgb(128, 20, 16, 12)), .7);
@@ -847,7 +872,8 @@ public sealed class PredioView : Control
         else if (top == "terno")
         {
             g.DrawGeometry(B(L.Shirt), null, S["camisaV"]); g.DrawGeometry(B("#0F172A"), null, S["lapelaL"]); g.DrawGeometry(B("#0F172A"), null, S["lapelaR"]);
-            Rr(-1.7, -39.2, 3.4, 2.8, .9, B(L.Cap)); g.DrawGeometry(B(L.Cap), null, S["gravata"]); g.DrawGeometry(A(46, 0, 0, 0), null, S["gravataSombra"]);
+            var tie = B(L.Tie ?? L.Cap);
+            Rr(-1.7, -39.2, 3.4, 2.8, .9, tie); g.DrawGeometry(tie, null, S["gravata"]); g.DrawGeometry(A(46, 0, 0, 0), null, S["gravataSombra"]);
             g.DrawGeometry(B("#F4F4F5"), null, S["lenco"]); Dot(g, -3.2, -24.4, .75, B("#0F172A"));
         }
         else if (top == "listrada")
