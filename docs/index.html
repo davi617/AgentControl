@@ -303,6 +303,10 @@ nav .links a.on{color:var(--text)}
 .card.mine{border-color:rgba(249,115,22,.55);box-shadow:0 0 0 1px rgba(249,115,22,.25)}
 .card .tag{position:absolute;top:16px;right:16px;font-size:11.5px;font-weight:700;color:var(--brand-text);background:var(--brand-soft);border:1px solid rgba(249,115,22,.35);border-radius:99px;padding:2px 10px}
 .ver{color:var(--brand-text);font-weight:600}
+.verlink{color:var(--brand-text);font-weight:700}.verlink:hover{text-decoration:underline}
+.relbar{display:flex;gap:10px 14px;align-items:center;justify-content:center;flex-wrap:wrap;margin:26px auto 0;font-size:14px;color:var(--muted)}
+.relbadge{padding:4px 12px;border-radius:99px;font-weight:700;color:var(--brand-text);background:var(--brand-soft);border:1px solid rgba(249,115,22,.4)}
+.relnotes{color:var(--brand-text);font-weight:600}.relnotes:hover{text-decoration:underline}
 /* foco visível no teclado */
 a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--brand-text);outline-offset:3px;border-radius:12px}
 #heroC{cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -334,7 +338,7 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </svg>
     <div class="bubble" id="heroBubble"><b id="hbWho">AgentC</b><span id="hbText">Oi! Eu cuido do seu time.</span></div>
   </div>
-  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT<span class="pill-os"> · PC, Android e iPhone</span></span>
+  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT · <a class="verlink" id="verPill" href="https://github.com/OWNER/AgentControl/releases/latest">v1.2.0</a><span class="pill-os"> · PC, Android e iPhone</span></span>
   <h1 id="title"><span class="word">Seu</span> <span class="word">time</span> <span class="word">de</span> <span class="word grad">agentes</span> <span class="word grad">de</span> <span class="word grad">IA</span> <span class="word">num</span> <span class="word">só</span> <span class="word">lugar.</span></h1>
   <p class="lead reveal-hero">Claude Code, Codex, Gemini, Qwen, Hermes e outros trabalhando juntos. Sala de conversa, ordens com aprovação, HUD no topo da tela, app no celular e o <b style="color:var(--brand-text)">AgentC</b> avisando tudo.</p>
   <div class="cta reveal-hero">
@@ -454,6 +458,7 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <section id="baixar"><div class="wrap">
   <div class="center reveal"><span class="kicker">Baixar</span><h2>Escolha o seu sistema.</h2><p class="sub">Grátis e de código aberto. Cada sistema tem a sua tela com o passo a passo: <a href="instalar/" style="color:var(--brand-text);text-decoration:underline">ver todos</a>.</p></div>
+  <div class="relbar reveal" id="relbar"><span class="relbadge" id="relTag">Versão 1.2.0</span><span class="reldate" id="relDate">6 de outubro de 2026</span><a class="relnotes" id="relNotes" href="https://github.com/OWNER/AgentControl/releases/tag/v1.2.0">Ver o que mudou →</a></div>
   <div class="dl" id="dl"></div>
   <div class="term reveal">
     <div class="tb"><i></i><i></i><i></i><button class="copy" id="copy">Copiar</button></div>
@@ -782,9 +787,18 @@ if (mineOS) { const c = $$('#dl .card')[DL.findIndex(d => d[0] === mineOS)]; if 
 fetch(PUBLIC_API).then(r => r.ok ? r.json() : null).then(j => {
   if (j && j.stargazers_count > 0) { const s = $('#stars'); s.textContent = '★ ' + j.stargazers_count; s.hidden = false; }
 }).catch(() => {});
+// A versão já vem escrita na página (v1.2.0); a API do GitHub só troca se saiu uma mais nova.
+function showVersion(tag, iso) {
+  const v = String(tag).replace(/[^\w.\-]/g, ''), num = v.replace(/^v/, '');
+  $('#verFoot').innerHTML = ` · versão <span class="ver">${v}</span>`;
+  $('#verPill').textContent = v; $('#verPill').href = PUBLIC_GITHUB + '/releases/latest';
+  $('#relTag').textContent = 'Versão ' + num; $('#relNotes').href = PUBLIC_GITHUB + '/releases/tag/' + v;
+  const d = iso && new Date(iso); if (d && !isNaN(d)) $('#relDate').textContent = d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+showVersion('v1.2.0', null); $('#verFoot').innerHTML = ' · versão <span class="ver">v1.2.0</span>';
 fetch(PUBLIC_API + '/releases/latest').then(r => r.ok ? r.json() : null).then(j => {
   if (!j || !j.tag_name) return;
-  $('#verFoot').innerHTML = ` · versão <span class="ver">${j.tag_name.replace(/[^\w.\-]/g, '')}</span>`;
+  showVersion(j.tag_name, j.published_at);
 }).catch(() => {});
 
 /* copiar os comandos do terminal (só as linhas com $) */

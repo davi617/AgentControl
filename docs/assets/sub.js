@@ -5,7 +5,7 @@ const owner = location.hostname.endsWith('.github.io') ? location.hostname.slice
 const project = location.hostname.endsWith('.github.io') ? (location.pathname.split('/').filter(Boolean)[0] || 'AgentControl') : 'AgentControl';
 const repo = meta || (owner ? `${owner}/${project}` : '');
 const gh = repo ? `https://github.com/${repo}` : 'https://github.com/search?q=AgentControl&type=repositories';
-document.querySelectorAll('[data-gh]').forEach((a) => { a.href = gh + a.dataset.gh; });
+document.querySelectorAll('[data-gh]').forEach((a) => { a.href = repo ? gh + a.dataset.gh : gh; });
 document.querySelectorAll('[data-dl]').forEach((a) => { a.href = repo ? `${gh}/releases/latest/download/${a.dataset.dl}` : `${gh}`; });
 
 const ua = navigator.userAgent;
@@ -23,7 +23,10 @@ document.querySelectorAll('.code').forEach((box) => {
   box.append(b);
 });
 
+// Versão já escrita (v1.2.0); a API do GitHub só troca se saiu uma mais nova.
+const setVer = (v) => { document.querySelectorAll('[data-ver]').forEach((e) => { e.textContent = ` · versão ${v}`; }); document.querySelectorAll('[data-versao]').forEach((e) => { e.textContent = v; if (e.tagName === 'A') e.href = repo ? `${gh}/releases/tag/${v}` : gh; }); };
+setVer('v1.2.0');
 if (repo) fetch(`https://api.github.com/repos/${repo}/releases/latest`).then((r) => (r.ok ? r.json() : null)).then((j) => {
   const v = j?.tag_name?.replace(/[^\w.\-]/g, '');
-  if (v) document.querySelectorAll('[data-ver]').forEach((e) => { e.textContent = ` · versão ${v}`; });
+  if (v) setVer(v);
 }).catch(() => {});
