@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Shapes;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -50,7 +51,7 @@ public sealed class LauncherWindow : Window
     readonly StackPanel agentRows = new();
     // Comandos
     readonly WrapPanel cmdTargets = new();
-    readonly TextBox cmdBox = new() { Watermark = "Ordem para o time (ex.: rode os testes do login e me diga o que falhou)", FontSize = 14, Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, VerticalAlignment = VerticalAlignment.Center, AcceptsReturn = false };
+    readonly TextBox cmdBox = new() { PlaceholderText = "Ordem para o time (ex.: rode os testes do login e me diga o que falhou)", FontSize = 14, Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, VerticalAlignment = VerticalAlignment.Center, AcceptsReturn = false };
     readonly TextBlock cmdToast = K.T("", 12.5, K.Ok);
     readonly StackPanel pendingPanel = new() { Spacing = 8 };
     readonly StackPanel historyPanel = new();
@@ -333,7 +334,7 @@ public sealed class LauncherWindow : Window
         util.Children.Add(Link("Configuração", K.ISettings, () => svc.OpenPath(svc.SettingsPath)));
         util.Children.Add(Link("Sala no Obsidian", K.IBook, () => svc.OpenObsidianNote(svc.Settings.SalaNote)));
         util.Children.Add(Link("Chamada no painel", K.IPhone, () => _ = OpenPanel("call")));
-        util.Children.Add(Link("Prédio dos agentes", K.IBuilding, () => Platform.OpenAppWindow($"http://127.0.0.1:{svc.Settings.JarvisPort}/#predio")));
+        util.Children.Add(Link("Prédio dos agentes", K.IBuilding, () => _ = OpenPanel("predio")));
         left.Children.Add(util);
         body.Children.Add(Scroll(left));
         var right = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = agentCards };
@@ -806,7 +807,7 @@ public sealed class LauncherWindow : Window
         }
         Draw();
         col.Children.Add(chips);
-        var name = new TextBox { Watermark = "Outro agente (nome, ex.: AIDER)", FontSize = 13, Width = 280, Background = K.Raised, BorderThickness = new Thickness(0), CaretBrush = K.Brand, Padding = new Thickness(10, 8) };
+        var name = new TextBox { PlaceholderText = "Outro agente (nome, ex.: AIDER)", FontSize = 13, Width = 280, Background = K.Raised, BorderThickness = new Thickness(0), CaretBrush = K.Brand, Padding = new Thickness(10, 8) };
         var add = K.Button("Adicionar", K.IAdd, () =>
         {
             var n = (name.Text ?? "").Trim().ToUpperInvariant();
@@ -944,7 +945,7 @@ public sealed class LauncherWindow : Window
             }
         }
         col.Children.Add(list);
-        var name = new TextBox { Watermark = "Nome da pessoa", FontSize = 13, Width = 240, Background = K.Raised, BorderThickness = new Thickness(0), CaretBrush = K.Brand, Padding = new Thickness(10, 8) };
+        var name = new TextBox { PlaceholderText = "Nome da pessoa", FontSize = 13, Width = 240, Background = K.Raised, BorderThickness = new Thickness(0), CaretBrush = K.Brand, Padding = new Thickness(10, 8) };
         var role = "membro";
         var roles = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         void DrawRoles()
@@ -1038,7 +1039,7 @@ public sealed class LauncherWindow : Window
         var line = K.T("Carregando…", 13, K.Text2, FontWeight.SemiBold);
         col.Children.Add(line);
         col.Children.Add(K.Wrap("O app é grátis e completo no seu PC. Plano pago libera mais pessoas no Modo Time e serviços na nuvem. Depois de pagar, cole aqui a licença (texto que começa com AC1.).", 12.5, K.Muted));
-        var box = new TextBox { Watermark = "Cole a licença (AC1.…)", FontFamily = K.Mono, FontSize = 12, Background = K.Raised, BorderThickness = new Thickness(0), Padding = new Thickness(10, 8), Width = 520, AcceptsReturn = false };
+        var box = new TextBox { PlaceholderText = "Cole a licença (AC1.…)", FontFamily = K.Mono, FontSize = 12, Background = K.Raised, BorderThickness = new Thickness(0), Padding = new Thickness(10, 8), Width = 520, AcceptsReturn = false };
         var toast = K.T("", 12.5, K.Muted);
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
         string? payUrl = null;

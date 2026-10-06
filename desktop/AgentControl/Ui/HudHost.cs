@@ -83,6 +83,7 @@ public sealed class HudHost
             else if (msg == "hud") { if (hidden) ShowAll(); OpenHud(0); }
             else if (msg == "mini") { if (hidden) ShowAll(); OpenMini(); }
             else if (msg == "call") { if (hidden) ShowAll(); OpenHud(2); }
+            else if (msg == "predio") { if (hidden) ShowAll(); OpenPredio(); }
             else if (msg == "esconder") HideAll();
             else if (msg == "demo") { if (hidden) ShowAll(); Mascot.Celebrate(); DispatcherTimer.RunOnce(() => Mascot.Say("AgentC", "Oi! Assim eu fico quando um agente fala com você: a boca mexe e a onda sai de mim."), TimeSpan.FromSeconds(2.6)); }
         }));
@@ -97,8 +98,8 @@ public sealed class HudHost
 
     public void KickRefresh() { _ = Poll(); }
 
-    /// <summary>Modo Prédio: os agentes como bonequinhos andando pelos andares (página da sala, aba Prédio).</summary>
-    public void OpenPredio() => Platform.OpenAppWindow($"http://127.0.0.1:{Settings.JarvisPort}/#predio");
+    /// <summary>Modo Prédio: os agentes como bonequinhos andando pelos andares, dentro da tela completa (sem navegador).</summary>
+    public void OpenPredio() { Full.Open(); Full.ShowView(FullWindow.View.Predio, animate: false); }
 
     public async Task Poll()
     {

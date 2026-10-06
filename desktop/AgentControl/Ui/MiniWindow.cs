@@ -40,7 +40,7 @@ public sealed class MiniWindow : Window
 
         input = new TextBox
         {
-            Watermark = "Escreva para os agentes… (ou \"lembra que…\" para o AgentC)", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, MaxHeight = 150, FontSize = 13.5, FontFamily = K.Ui,
+            PlaceholderText = "Escreva para os agentes… (ou \"lembra que…\" para o AgentC)", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, MaxHeight = 150, FontSize = 13.5, FontFamily = K.Ui,
             Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, Padding = new Thickness(0),
         };
         input.AddHandler(KeyDownEvent, (_, e) =>
