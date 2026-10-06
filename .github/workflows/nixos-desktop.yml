@@ -28,7 +28,7 @@ jobs:
           env_dir="$(nix-build tools/nixos.nix --no-out-link)"
           "$env_dir/bin/agent-control-env" -c 'bash tools/ci/nixos-smoke.sh'
           test -f artifacts/result.json
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: nixos-environment

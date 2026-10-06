@@ -40,7 +40,7 @@ jobs:
         run: |
           node_root="$(dirname "$(dirname "$(command -v node)")")"
           docker run --rm -v "$PWD:/workspace" -v "$node_root:/opt/node:ro" -w /workspace "$IMAGE" sh -c 'if command -v apk >/dev/null; then apk add --no-cache bash; fi; exec bash tools/ci/linux-distro-smoke.sh'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: linux-${{ matrix.distro }}
