@@ -396,7 +396,7 @@ public static class K
     /// <summary>Janela flutuante sem borda, transparente, por cima de tudo e fora da barra de tarefas.</summary>
     public static void Floating(Window w)
     {
-        w.SystemDecorations = SystemDecorations.None;
+        w.WindowDecorations = WindowDecorations.None;
         w.TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         w.Background = Brushes.Transparent;
         w.Topmost = true; w.ShowInTaskbar = false; w.CanResize = false; w.ShowActivated = false;

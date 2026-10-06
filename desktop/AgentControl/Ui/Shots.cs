@@ -46,10 +46,10 @@ public static class Shots
             host.OpenFull();
             await Task.Delay(2500);
             Save(host.Full, Path.Combine(dir, "completa.png"));
-            foreach (var (v, nome) in new[] { (FullWindow.View.Agents, "agentes"), (FullWindow.View.Commands, "comandos"), (FullWindow.View.Usage, "uso"), (FullWindow.View.Health, "saude"), (FullWindow.View.Models, "modelos"), (FullWindow.View.Overview, "visao") })
+            foreach (var (v, nome) in new[] { (FullWindow.View.Agents, "agentes"), (FullWindow.View.Commands, "comandos"), (FullWindow.View.Usage, "uso"), (FullWindow.View.Health, "saude"), (FullWindow.View.Models, "modelos"), (FullWindow.View.Overview, "visao"), (FullWindow.View.Predio, "predio") })
             {
                 host.Full.ShowView(v, animate: false);
-                await Task.Delay(2200);
+                await Task.Delay(v == FullWindow.View.Predio ? 24000 : 2200); // no prédio, os bonequinhos sobem a escada antes
                 Save(host.Full, Path.Combine(dir, nome + ".png"));
             }
         }

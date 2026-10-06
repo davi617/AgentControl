@@ -19,7 +19,7 @@ namespace AgentControl.Ui;
 /// </summary>
 public sealed class FullWindow : Window
 {
-    public enum View { Chat, Agents, Commands, Usage, Health, Models, Overview }
+    public enum View { Chat, Agents, Commands, Usage, Health, Models, Overview, Predio }
     readonly HudHost host;
     readonly Border shell;
     readonly TranslateTransform drop = new();
@@ -34,6 +34,10 @@ public sealed class FullWindow : Window
     readonly TextBox input;
     readonly TextBlock toLabel = K.T("Todos", 12, K.Muted, FontWeight.SemiBold);
     readonly Grid chatView = new() { RowDefinitions = new RowDefinitions("*,Auto") };
+    // Prédio: um só para a janela toda (os bonequinhos continuam onde estavam ao trocar de tela)
+    readonly PredioView predio = new();
+    readonly StackPanel predioFloors = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
+    readonly DockPanel predioPanel = new() { Margin = new Thickness(20, 0, 20, 18) };
     List<(string Agent, string Text, string Ts)> chat = [];
     Dictionary<string, (string Model, string Effort)> models = [];
     List<HudApi.Cmd> cmds = [];
@@ -50,7 +54,7 @@ public sealed class FullWindow : Window
     public FullWindow(HudHost host)
     {
         this.host = host;
-        SystemDecorations = SystemDecorations.None;
+        WindowDecorations = WindowDecorations.None;
         TransparencyLevelHint = [WindowTransparencyLevel.Transparent];
         Background = Brushes.Transparent; CanResize = false; ShowInTaskbar = true; Title = "Agent Control";
         Width = 1180; Height = 760; FontFamily = K.Ui; Foreground = K.Text; Icon = Program.AppIcon();
@@ -62,7 +66,7 @@ public sealed class FullWindow : Window
         K.DragOrClick(this, brand, null);
         DockPanel.SetDock(brand, Dock.Top); side.Children.Add(brand);
         var items = new StackPanel { Margin = new Thickness(10, 0), Spacing = 2 };
-        foreach (var (v, icon, text) in new[] { (View.Chat, K.IChat, "Conversa"), (View.Agents, K.IPeople, "Agentes"), (View.Commands, K.ISend, "Comandos"), (View.Usage, K.IUsage, "Uso"), (View.Health, K.IHealth, "Saúde do PC"), (View.Models, K.ISettings, "Modelos e força"), (View.Overview, K.IHome, "Visão geral") })
+        foreach (var (v, icon, text) in new[] { (View.Chat, K.IChat, "Conversa"), (View.Predio, K.IBuilding, "Prédio"), (View.Agents, K.IPeople, "Agentes"), (View.Commands, K.ISend, "Comandos"), (View.Usage, K.IUsage, "Uso"), (View.Health, K.IHealth, "Saúde do PC"), (View.Models, K.ISettings, "Modelos e força"), (View.Overview, K.IHome, "Visão geral") })
         {
             var bg = new SolidColorBrush(Colors.Transparent);
             var ic = K.Icon(icon, 16, K.Muted);
@@ -88,7 +92,7 @@ public sealed class FullWindow : Window
         // ---------- conversa ----------
         input = new TextBox
         {
-            Watermark = "Mensagem para o time", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 160, FontSize = 14.5, FontFamily = K.Ui,
+            PlaceholderText = "Mensagem para o time", AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MaxHeight = 160, FontSize = 14.5, FontFamily = K.Ui,
             Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, VerticalAlignment = VerticalAlignment.Center, Padding = new Thickness(4, 6), MinHeight = 0,
         };
         input.AddHandler(KeyDownEvent, (_, e) => { if (e.Key == Key.Enter && !e.KeyModifiers.HasFlag(KeyModifiers.Shift)) { e.Handled = true; _ = Send(); } }, RoutingStrategies.Tunnel);
@@ -106,6 +110,24 @@ public sealed class FullWindow : Window
         scroll.Content = new Border { Padding = new Thickness(24, 8, 24, 24), Child = messages };
         chatView.Children.Add(scroll); Grid.SetRow(composer, 1); chatView.Children.Add(composer);
 
+        // ---------- prédio ----------
+        var tools = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, HorizontalAlignment = HorizontalAlignment.Right };
+        var dice = new Border { Height = 34, Padding = new Thickness(12, 0), CornerRadius = new CornerRadius(10), Background = K.Raised, Child = K.T("🎲 roupas", 12.5, K.Text2, FontWeight.SemiBold) };
+        dice.Tip("Sortear as roupas de novo");
+        K.Pressable(dice, () => predio.Reroll());
+        tools.Children.Add(dice);
+        var top = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
+        DockPanel.SetDock(tools, Dock.Right); top.Children.Add(tools); top.Children.Add(predioFloors);
+        var legend = new WrapPanel { Margin = new Thickness(2, 10, 0, 0) };
+        foreach (var k in new[] { "trabalhando", "revisando", "travado", "terminou", "parado", "chamada" })
+            legend.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 0, 16, 0), Children = { new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(PredioView.Moods[k].Color) }, K.T(PredioView.Moods[k].Label, 12, K.Muted) } });
+        legend.Children.Add(K.T("· clique num bonequinho para ver o que faz; clique duas vezes para mandar ordem", 12, K.Faint));
+        DockPanel.SetDock(top, Dock.Top); predioPanel.Children.Add(top);
+        DockPanel.SetDock(legend, Dock.Bottom); predioPanel.Children.Add(legend);
+        predioPanel.Children.Add(new Border { CornerRadius = new CornerRadius(16), ClipToBounds = true, BorderBrush = K.Line, BorderThickness = new Thickness(1), Child = predio });
+        predio.FloorsChanged += () => Dispatcher.UIThread.Post(DrawFloors);
+        predio.OrderRequested += id => { cmdTo = id; ShowView(View.Commands); };
+
         var main = new DockPanel();
         DockPanel.SetDock(head, Dock.Top); main.Children.Add(head);
         main.Children.Add(body);
@@ -118,6 +140,29 @@ public sealed class FullWindow : Window
         };
         Content = shell;
         KeyDown += (_, e) => { if (e.Key == Key.Escape) CloseAnimated(); };
+    }
+
+    string floorsSig = "";
+    /// <summary>Abas dos andares (com quantos bonequinhos estão em cada um).</summary>
+    void DrawFloors()
+    {
+        var info = predio.FloorInfo;
+        var sig = string.Join("|", info.Select(i => i.Name + i.Count)) + predio.ViewFloor;
+        if (sig == floorsSig) return;
+        floorsSig = sig;
+        predioFloors.Children.Clear();
+        for (var i = 0; i < info.Count; i++)
+        {
+            var on = i == predio.ViewFloor; var idx = i;
+            var label = info[i].Name.Contains(" · ") ? info[i].Name.Split(" · ")[1] : info[i].Name;
+            var chip = new Border
+            {
+                Height = 34, Padding = new Thickness(10, 0), CornerRadius = new CornerRadius(10), Background = on ? K.Brand : K.Raised,
+                Child = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Children = { K.T(i == 0 ? "T" : $"{i}º", 12.5, on ? K.OnBrand : K.Text, FontWeight.Bold), K.T(label, 12.5, on ? K.OnBrand : K.Text2, FontWeight.SemiBold), K.T($"{info[i].Count}", 11.5, on ? K.OnBrand : K.Muted) } },
+            };
+            K.Pressable(chip, () => { predio.GoFloor(idx); DrawFloors(); });
+            predioFloors.Children.Add(chip);
+        }
     }
 
     /// <summary>Desce do topo da tela, como se viesse puxada da HUD.</summary>
@@ -155,7 +200,7 @@ public sealed class FullWindow : Window
             n.Text.Foreground = on ? K.Text : K.Text2;
             n.Text.FontWeight = on ? FontWeight.SemiBold : FontWeight.Medium;
         }
-        title.Text = v switch { View.Chat => "Conversa", View.Agents => "Agentes", View.Commands => "Comandos", View.Usage => "Uso dos agentes", View.Health => "Saúde do PC", View.Models => "Modelos e força", _ => "Visão geral" };
+        title.Text = v switch { View.Chat => "Conversa", View.Agents => "Agentes", View.Commands => "Comandos", View.Usage => "Uso dos agentes", View.Health => "Saúde do PC", View.Models => "Modelos e força", View.Predio => "Prédio", _ => "Visão geral" };
         sig = ""; chatSig = "";
         Refresh();
         if (animate && body.Content is Visual fe) K.EnterUp(fe, 0, 10);
@@ -175,6 +220,8 @@ public sealed class FullWindow : Window
         GoalFoot(s);
         if (!s.Online) { body.Content = OfflineView(); sig = "off"; return; }
         if (view == View.Chat) { body.Content = chatView; if (s.Chat.FirstOrDefault().Ts != chat.LastOrDefault().Ts) _ = LoadChat(); return; }
+        predio.Update(s);
+        if (view == View.Predio) { if (body.Content != predioPanel) body.Content = predioPanel; lastView = view; return; }
         var newSig = Signature(s);
         if (newSig == sig) return;
         sig = newSig;
@@ -323,7 +370,7 @@ public sealed class FullWindow : Window
     Control CommandsView()
     {
         var v = new StackPanel();
-        var box = new TextBox { Watermark = "Comando para um agente (ex.: rode os testes do login)", FontSize = 14, FontFamily = K.Ui, Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0) };
+        var box = new TextBox { PlaceholderText = "Comando para um agente (ex.: rode os testes do login)", FontSize = 14, FontFamily = K.Ui, Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0) };
         var toTx = K.T(cmdTo == "TODOS" ? "Todos" : K.Nice(cmdTo), 12, cmdTo == "TODOS" ? K.Muted : K.BrandText, FontWeight.SemiBold);
         var toB = new Border { CornerRadius = new CornerRadius(14), Padding = new Thickness(12, 5, 12, 6), Background = K.Raised, Child = toTx, VerticalAlignment = VerticalAlignment.Center };
         toB.Tip("Para quem (clique para trocar)");

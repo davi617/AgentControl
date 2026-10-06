@@ -692,7 +692,7 @@ public sealed class HudWindow : Window
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(40) };
             timer.Tick += (_, _) =>
             {
-                if (row.GetVisualRoot() is null && (DateTime.Now - t0).TotalSeconds > 1) { timer.Stop(); return; }
+                if (TopLevel.GetTopLevel(row) is null && (DateTime.Now - t0).TotalSeconds > 1) { timer.Stop(); return; }
                 var t = (DateTime.Now - t0).TotalSeconds;
                 for (var i = 0; i < dots.Count; i++) ((TranslateTransform)dots[i].RenderTransform!).Y = -3.5 * Math.Max(0, Math.Sin(t * 6 - i * .8));
             };
@@ -704,7 +704,7 @@ public sealed class HudWindow : Window
     /// <summary>Caixa de texto simples do painel. Enter envia (send) ou chama enter.</summary>
     Control TextField(string hint, string text, Action<string> changed, Action? enter, Func<string, Task>? send = null)
     {
-        var box = new TextBox { Watermark = hint, Text = text, FontSize = 13, FontFamily = K.Ui, Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0), Padding = new Thickness(0) };
+        var box = new TextBox { PlaceholderText = hint, Text = text, FontSize = 13, FontFamily = K.Ui, Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0), Padding = new Thickness(0) };
         box.GotFocus += (_, _) => typing = true;
         box.LostFocus += (_, _) => typing = false;
         box.TextChanged += (_, _) => changed(box.Text ?? "");
@@ -826,7 +826,7 @@ public sealed class HudWindow : Window
     Control Composer(string hint, string to, Action<string> setTo, Func<string, string, Task> send, bool withLeader)
     {
         string Label(string id) => id == "TODOS" ? "Todos" : id == "LEADER" ? "Líder" : K.Nice(id);
-        var box = new TextBox { Watermark = hint, FontSize = 13, FontFamily = K.Ui, Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0), Padding = new Thickness(0) };
+        var box = new TextBox { PlaceholderText = hint, FontSize = 13, FontFamily = K.Ui, Background = Brushes.Transparent, BorderThickness = new Thickness(0), CaretBrush = K.Brand, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(6, 0), Padding = new Thickness(0) };
         box.GotFocus += (_, _) => typing = true;
         box.LostFocus += (_, _) => typing = false;
         var toTx = K.T(Label(to), 11.5, to == "TODOS" ? K.Muted : K.BrandText, FontWeight.SemiBold);
