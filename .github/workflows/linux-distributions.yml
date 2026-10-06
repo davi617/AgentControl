@@ -25,7 +25,7 @@ jobs:
           - {distro: ubuntu-arm64, image: 'ubuntu:24.04', rid: linux-arm64, runner: ubuntu-24.04-arm}
           - {distro: debian-arm64, image: 'debian:12', rid: linux-arm64, runner: ubuntu-24.04-arm}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with: {node-version: 24}
       - uses: actions/setup-dotnet@v4
