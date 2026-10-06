@@ -1,0 +1,146 @@
+# Release: gera o app do PC (Windows, macOS Apple Silicon e Intel, Linux x64 e ARM64) e o APK do Android,
+# calcula o SHA256SUMS.txt e publica tudo numa release nova. Rodar em Actions → Release → Run workflow.
+#
+# A release nasce como rascunho; cada build sobe o próprio arquivo e só no fim, com tudo pronto, ela é publicada.
+# Se algum build falhar, o rascunho é apagado e dá para rodar de novo.
+#
+# Assinatura do APK (opcional): o app do celular só atualiza por cima se o APK tiver a MESMA assinatura do que já está
+# instalado. Para manter a sua, cadastre em Settings → Secrets → Actions: ANDROID_KEYSTORE_B64 (o .keystore em base64),
+# ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS e ANDROID_KEY_PASSWORD. Sem eles, o APK sai assinado com uma chave de
+# teste nova (serve para instalar do zero, mas não atualiza por cima de um app assinado com outra chave).
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versão, só números (ex.: 1.2.0). A tag vira v1.2.0'
+        required: true
+      notes:
+        description: 'Texto da release (vazio = texto padrão)'
+        required: false
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+env:
+  VERSION: ${{ inputs.version }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  rascunho:
+    name: Criar rascunho da release
+    runs-on: ubuntu-latest
+    outputs:
+      criado: ${{ steps.criar.outputs.criado }}
+    steps:
+      - name: Conferir a versão
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Versão inválida: use só números, ex.: 1.2.0"; exit 1; }
+      - name: Criar o rascunho
+        id: criar
+        env:
+          NOTES: ${{ inputs.notes }}
+        run: |
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then echo "A release v$VERSION já existe."; exit 1; fi
+          [ -n "$NOTES" ] || NOTES="Agent Control $VERSION. App do PC (Windows, macOS, Linux), app do Android (APK) e SHA256SUMS.txt para conferir os downloads."
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --draft --target "$GITHUB_SHA" --title "Agent Control $VERSION" --notes "$NOTES"
+          echo "criado=true" >> "$GITHUB_OUTPUT"
+
+  pc:
+    name: App do PC (${{ matrix.nome }})
+    needs: rascunho
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { nome: windows-x64, os: windows-latest, rid: win-x64, arquivo: AgentControl-windows-x64.zip }
+          - { nome: macos-arm64, os: macos-latest, rid: osx-arm64, arquivo: AgentControl-macos-arm64.zip }
+          - { nome: macos-x64, os: macos-latest, rid: osx-x64, arquivo: AgentControl-macos-x64.zip }
+          - { nome: linux-x64, os: ubuntu-latest, rid: linux-x64, arquivo: AgentControl-linux-x64.tar.gz }
+          - { nome: linux-arm64, os: ubuntu-latest, rid: linux-arm64, arquivo: AgentControl-linux-arm64.tar.gz }
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '8.0.x'
+      - name: Compilar (self-contained, um arquivo só)
+        shell: bash
+        run: |
+          dotnet publish desktop/AgentControl/AgentControl.csproj -c Release -r "${{ matrix.rid }}" --self-contained true \
+            -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none -p:Version="$VERSION" -o publish
+      - name: Empacotar
+        shell: bash
+        run: python3 tools/ci/empacotar.py publish "${{ matrix.arquivo }}" || python tools/ci/empacotar.py publish "${{ matrix.arquivo }}"
+      - name: Subir para a release
+        shell: bash
+        run: gh release upload "v$VERSION" "${{ matrix.arquivo }}" --repo "$GITHUB_REPOSITORY" --clobber
+
+  android:
+    name: App do Android (APK)
+    needs: rascunho
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Chave de assinatura (se cadastrada)
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.keystore"
+            echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
+            echo "Assinando com a chave cadastrada."
+          else
+            echo "::warning::Sem ANDROID_KEYSTORE_B64: o APK sai com chave de teste nova e não atualiza por cima de um app assinado com outra chave."
+          fi
+      - name: Compilar o APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        working-directory: android
+        run: |
+          # versionCode precisa sempre crescer: minutos desde 2026-01-01 (mesma conta do tools/publicar-app.ps1)
+          CODE=$(( ( $(date -u +%s) - $(date -u -d 2026-01-01 +%s) ) / 60 ))
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --console=plain -q -PjarvisVersionCode="$CODE" -PjarvisVersionName="$VERSION"
+          cp app/build/outputs/apk/release/app-release.apk ../AgentControl-android.apk
+      - name: Subir para a release
+        run: gh release upload "v$VERSION" AgentControl-android.apk --repo "$GITHUB_REPOSITORY" --clobber
+
+  publicar:
+    name: Conferir e publicar
+    needs: [pc, android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Gerar o SHA256SUMS.txt
+        run: |
+          mkdir dl && cd dl
+          gh release download "v$VERSION" --repo "$GITHUB_REPOSITORY" --pattern 'AgentControl-*'
+          [ "$(ls AgentControl-* | wc -l)" -eq 6 ] || { echo "Esperava 6 arquivos, vieram: $(ls)"; exit 1; }
+          sha256sum AgentControl-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          gh release upload "v$VERSION" SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Publicar
+        run: gh release edit "v$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+
+  limpar:
+    name: Apagar rascunho se algo falhou
+    needs: [rascunho, pc, android, publicar]
+    # Só mexe em rascunho criado por esta mesma execução: uma release já publicada nunca é apagada.
+    if: (failure() || cancelled()) && needs.rascunho.outputs.criado == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apagar o rascunho
+        run: |
+          if [ "$(gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" --json isDraft -q .isDraft)" = "true" ]; then
+            gh release delete "v$VERSION" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag
+          else
+            echo "A release v$VERSION já está publicada: não apago."
+          fi
