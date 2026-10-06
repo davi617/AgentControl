@@ -126,6 +126,59 @@ export function lookFor(name, boss = false, salt = 0) {
   return { boss: false, skin: pick(r, SKIN), hair: pick(r, HAIR), style: pick(r, HAIRSTYLE), shirt: pick(r, SHIRT), pants: pick(r, PANTS), shoes: pick(r, SHOES), cap: pick(r, SHIRT), top: pick(r, TOPS), acc: pick(r, ACC) };
 }
 
+// ---------- personagem: o que o dono escolhe para ele e para cada agente ----------
+export const LOOK_STYLES = [['curto', 'Curto'], ['longo', 'Comprido'], ['cacheado', 'Cacheado'], ['rabo', 'Rabo de cavalo'], ['coque', 'Coque'], ['topete', 'Topete'], ['careca', 'Careca'], ['bone', 'Boné']];
+export const LOOK_TOPS = [['camiseta', 'Camiseta'], ['listrada', 'Listrada'], ['moletom', 'Moletom'], ['polo', 'Polo'], ['terno', 'Terno']];
+export const LOOK_ACCS = [['nenhum', 'Nada'], ['oculos', 'Óculos'], ['fone', 'Fone'], ['barba', 'Barba']];
+
+/** Personagem salvo (só cores e estilos, igual ao servidor) → o formato que o drawPerson usa. */
+export function lookFromSaved(c) {
+  const terno = c.top === 'terno';
+  return { boss: terno, skin: c.skin, hair: c.hair, style: c.style, top: c.top, shirt: terno ? '#F4F4F5' : c.shirt, jacket: c.shirt, pants: c.pants, shoes: c.shoes, cap: c.cap, tie: '#DC2626', acc: c.acc };
+}
+/** O contrário: começa o editor do jeito que o bonequinho está agora. */
+export function savedFromLook(L) {
+  const top = L.top ?? (L.boss ? 'terno' : 'camiseta');
+  return { skin: L.skin, hair: L.hair, style: L.style, top, shirt: top === 'terno' ? (L.jacket ?? '#1E293B') : L.shirt, pants: L.pants, shoes: L.shoes, cap: L.cap ?? '#EF4444', acc: L.acc ?? 'nenhum' };
+}
+
+/** Onde o rosto deve ficar no quadrado da foto (a oval que aparece no editor). */
+export const FACE = { cx: 0.5, cy: 0.5, rx: 0.25, ry: 0.32 };
+const hex = (c) => '#' + c.map((v) => Math.round(v).toString(16).padStart(2, '0')).join('').toUpperCase();
+
+/**
+ * Lê a foto (pixels RGBA de um quadrado n×n com o rosto dentro da oval FACE) e devolve o que dá para tirar dela:
+ * cor da pele (bochechas), cor do cabelo (faixa acima da testa), cabelo comprido (dos lados do rosto) e careca
+ * (testa da cor da pele). Barba e óculos ficam para a pessoa escolher (cabelo comprido engana fácil).
+ * Tudo no aparelho; a foto não vai a lugar nenhum.
+ */
+export function analyzePhoto(px, n) {
+  const cx = n * FACE.cx, cy = n * FACE.cy, rx = n * FACE.rx, ry = n * FACE.ry;
+  const region = (x0, y0, x1, y1) => {
+    const out = [];
+    for (let y = Math.max(0, Math.round(y0)); y < Math.min(n, Math.round(y1)); y += 2)
+      for (let x = Math.max(0, Math.round(x0)); x < Math.min(n, Math.round(x1)); x += 2) { const i = (y * n + x) * 4; out.push([px[i], px[i + 1], px[i + 2]]); }
+    return out;
+  };
+  const median = (list) => [0, 1, 2].map((k) => { const v = list.map((c) => c[k]).sort((a, b) => a - b); return v[v.length >> 1] ?? 0; });
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+  const lum = (c) => 0.299 * c[0] + 0.587 * c[1] + 0.114 * c[2];
+  const share = (list, ref, d) => (list.length ? list.filter((c) => dist(c, ref) < d).length / list.length : 0);
+
+  const face = region(cx - 0.45 * rx, cy - 0.05 * ry, cx + 0.45 * rx, cy + 0.4 * ry);
+  const skinLike = face.filter((c) => lum(c) > 35 && lum(c) < 245 && c[0] >= c[2] && c[0] - c[2] > 8);
+  const skin = median(skinLike.length > face.length * 0.2 ? skinLike : face);
+  // fundo: os cantos de cima da foto (para não confundir parede com cabelo)
+  const k = n * 0.12, bg = median([...region(0, 0, k, k), ...region(n - k, 0, n, k)]);
+  const top = region(cx - 0.5 * rx, cy - 1.08 * ry, cx + 0.5 * rx, cy - 0.8 * ry);
+  const hairish = top.filter((c) => dist(c, skin) > 45 && dist(c, bg) > 40);
+  const bald = top.length > 0 && hairish.length < top.length * 0.25;
+  const hair = bald ? null : median(hairish);
+  const left = region(cx - 1.25 * rx, cy + 0.05 * ry, cx - 0.92 * rx, cy + 0.6 * ry), right = region(cx + 0.92 * rx, cy + 0.05 * ry, cx + 1.25 * rx, cy + 0.6 * ry);
+  const long = !!hair && dist(hair, bg) > 40 && share(left, hair, 50) > 0.35 && share(right, hair, 50) > 0.35;
+  return { skin: hex(skin), hair: hair ? hex(hair) : null, style: bald ? 'careca' : long ? 'longo' : null };
+}
+
 // ---------- estado do agente → lugar ----------
 export function moodOf(a, now = Date.now()) {
   const st = String(a?.latest?.status ?? '').toUpperCase();
@@ -565,7 +618,8 @@ export function createPredio(root, hooks = {}) {
 
   mk('−', 'Afastar', () => setZoom(zoom / 1.25));
   mk('+', 'Aproximar', () => setZoom(zoom * 1.25));
-  mk('🎲', 'Sortear roupas', () => { salt++; store.set('predio.roupas', String(salt)); for (const p of people.values()) p.look = lookFor(p.id, p.boss, salt); });
+  mk('🎲', 'Sortear roupas (quem tem personagem salvo fica igual)', () => { salt++; store.set('predio.roupas', String(salt)); for (const p of people.values()) p.look = lookOf(p.id, p.boss); });
+  mk('🧑', 'Meu personagem: roupa, cabelo e a sua foto', (e) => openEditor('VOCÊ', e.currentTarget));
   const fsBtn = mk('⛶', 'Tela cheia', () => toggleFull());
 
   function toggleFull() {
@@ -596,12 +650,200 @@ export function createPredio(root, hooks = {}) {
   }
   function goFloor(i) { view = Math.max(0, Math.min(floors.length - 1, i)); store.set('predio.andar', String(view)); follow = null; renderFloors(); }
 
+  // ---------- personagem (editor): cores, cabelo, roupa e a foto que vira personagem ----------
+  // salvos: id → personagem (só cores e estilos). No app vem do servidor; na demonstração do site fica neste aparelho.
+  let saved = {};
+  if (!hooks.saveLook) { try { saved = JSON.parse(store.get('predio.looks', '{}')) || {}; } catch { saved = {}; } }
+  const lookOf = (id, boss) => (saved[id] ? lookFromSaved(saved[id]) : lookFor(id, boss, salt));
+  const editor = el('div', 'predio-editor'); editor.hidden = true;
+  document.body.append(editor);
+  let edit = null; // { id, look, opener, photo: { bmp, x, y, z }, found }
+  const PE = 200; // tamanho do quadrado da foto (px de tela)
+
+  function openEditor(id, opener) {
+    const p = people.get(id);
+    edit = { id, look: savedFromLook(p ? p.look : lookOf(id, id === 'VOCÊ')), opener, photo: null, found: '' };
+    closeCard();
+    renderEditor();
+    editor.hidden = false;
+    editor.querySelector('.pe-x')?.focus();
+    requestAnimationFrame(previewFrame);
+  }
+  function closeEditor() {
+    editor.hidden = true;
+    edit?.photo?.bmp?.close?.();
+    const o = edit?.opener; edit = null;
+    o?.focus?.();
+  }
+  editor.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closeEditor(); } });
+  editor.addEventListener('click', (e) => { if (e.target === editor) closeEditor(); });
+
+  function renderEditor() {
+    const boss = edit.id === 'VOCÊ';
+    const panel = el('div', 'pe-panel');
+    panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-modal', 'true'); panel.setAttribute('aria-labelledby', 'pe-title');
+    const h = el('div', 'pe-h');
+    const title = el('h2', null, boss ? 'Seu personagem' : `Personagem de ${edit.id}`); title.id = 'pe-title';
+    const x = el('button', 'predio-x pe-x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Fechar'); x.addEventListener('click', closeEditor);
+    h.append(title, x);
+
+    // esquerda: como fica + a foto
+    const left = el('div', 'pe-left');
+    const prev = el('canvas', 'pe-preview'); prev.width = 400; prev.height = 460; prev.setAttribute('role', 'img'); prev.setAttribute('aria-label', 'Como o personagem fica');
+    const photo = el('div', 'pe-photo');
+    const shot = el('canvas', 'pe-shot'); shot.width = PE * 2; shot.height = PE * 2;
+    shot.setAttribute('role', 'img'); shot.setAttribute('aria-label', 'Sua foto (arraste para pôr o rosto na oval)');
+    const file = el('input'); file.type = 'file'; file.accept = 'image/*'; file.hidden = true;
+    const pick = el('button', 'btn', edit.photo ? 'Trocar a foto' : 'Pôr minha foto'); pick.type = 'button';
+    pick.addEventListener('click', () => file.click());
+    shot.addEventListener('click', () => { if (!edit.photo) file.click(); });
+    const zoomIn = el('input'); zoomIn.type = 'range'; zoomIn.min = '1'; zoomIn.max = '3'; zoomIn.step = '0.05'; zoomIn.value = String(edit.photo?.z ?? 1);
+    zoomIn.setAttribute('aria-label', 'Aproximar a foto'); zoomIn.hidden = !edit.photo;
+    zoomIn.addEventListener('input', () => { edit.photo.z = Number(zoomIn.value); drawShot(shot); readPhoto(); });
+    const found = el('p', 'pe-found', edit.found); found.setAttribute('aria-live', 'polite');
+    const note = el('p', 'pe-note', edit.photo ? 'Arraste e aproxime até o rosto caber na oval. Ela fica só neste aparelho: o Agent Control guarda só as cores.' : 'Pegamos da foto a cor da pele e do cabelo e o tipo de cabelo. A foto fica só neste aparelho.');
+    file.addEventListener('change', async () => {
+      const f = file.files?.[0]; file.value = '';
+      if (!f) return;
+      try {
+        const bmp = await createImageBitmap(f);
+        edit.photo?.bmp?.close?.();
+        edit.photo = { bmp, x: 0, y: 0, z: 1 };
+        readPhoto(true);
+        renderEditor();
+      } catch { edit.found = 'Não consegui abrir essa foto. Tente outra (JPG ou PNG).'; renderEditor(); }
+    });
+    // arrastar a foto
+    let drag = null;
+    shot.addEventListener('pointerdown', (e) => { if (!edit.photo) return; drag = { x: e.clientX, y: e.clientY, px: edit.photo.x, py: edit.photo.y }; shot.setPointerCapture(e.pointerId); });
+    shot.addEventListener('pointermove', (e) => { if (!drag) return; edit.photo.x = drag.px + (e.clientX - drag.x) / PE; edit.photo.y = drag.py + (e.clientY - drag.y) / PE; drawShot(shot); });
+    const drop = () => { if (drag) { drag = null; readPhoto(); } };
+    shot.addEventListener('pointerup', drop); shot.addEventListener('pointercancel', drop);
+    photo.append(shot, zoomIn, pick, file, found, note);
+    left.append(prev, photo);
+
+    // direita: as escolhas
+    const right = el('div', 'pe-right');
+    const L = edit.look;
+    const group = (label) => { const fs = el('fieldset', 'pe-group'); fs.append(el('legend', null, label)); right.append(fs); return fs; };
+    const chips = (label, key, list) => {
+      const g = group(label);
+      for (const [v, name] of list) {
+        const b = el('button', 'pe-chip', name); b.type = 'button'; b.setAttribute('aria-pressed', String(L[key] === v));
+        b.addEventListener('click', () => { L[key] = v; renderEditor(); });
+        g.append(b);
+      }
+    };
+    const swatches = (label, key, list) => {
+      const g = group(label);
+      const all = list.includes(L[key]) ? list : [L[key], ...list];
+      all.forEach((c, i) => {
+        const b = el('button', 'pe-sw'); b.type = 'button'; b.style.background = c;
+        b.setAttribute('aria-label', `${label}: ${i === 0 && !list.includes(c) ? 'da foto ou escolhida' : `opção ${i + 1}`}`);
+        b.setAttribute('aria-pressed', String(L[key] === c));
+        b.addEventListener('click', () => { L[key] = c; renderEditor(); });
+        g.append(b);
+      });
+      const pickColor = el('input', 'pe-color'); pickColor.type = 'color'; pickColor.value = L[key].toLowerCase();
+      pickColor.setAttribute('aria-label', `${label}: escolher outra cor`);
+      pickColor.addEventListener('change', () => { L[key] = pickColor.value.toUpperCase(); renderEditor(); });
+      g.append(pickColor);
+    };
+    swatches('Pele', 'skin', SKIN);
+    chips('Cabelo', 'style', LOOK_STYLES);
+    if (L.style === 'bone') swatches('Cor do boné', 'cap', SHIRT);
+    swatches('Cor do cabelo', 'hair', HAIR);
+    chips('Roupa', 'top', LOOK_TOPS);
+    swatches(L.top === 'terno' ? 'Cor do terno' : 'Cor da roupa', 'shirt', L.top === 'terno' ? ['#1E293B', '#0F172A', '#27272A', '#1E3A8A', '#3F3F46', '#78350F'] : SHIRT);
+    swatches('Calça', 'pants', PANTS);
+    swatches('Tênis', 'shoes', SHOES);
+    chips('Acessório', 'acc', LOOK_ACCS);
+
+    // embaixo: sortear, voltar ao sorteado, salvar
+    const foot = el('div', 'pe-foot');
+    const msg = el('p', 'pe-msg'); msg.setAttribute('role', 'status');
+    const btn = (label, cls, fn) => { const b = el('button', cls, label); b.type = 'button'; b.addEventListener('click', fn); foot.append(b); return b; };
+    btn('Sortear roupa', 'btn', () => { const r = lookFor(edit.id + Math.random(), false); Object.assign(L, { top: r.top, shirt: r.shirt, pants: r.pants, shoes: r.shoes, cap: r.cap }); renderEditor(); });
+    if (saved[edit.id]) btn('Voltar ao sorteado', 'btn', () => saveEdit(null, msg));
+    foot.append(el('span', 'pe-spacer'));
+    btn('Cancelar', 'btn', closeEditor);
+    btn('Salvar', 'primary pe-save', () => saveEdit({ ...L }, msg));
+    foot.append(msg);
+
+    const body = el('div', 'pe-body'); body.append(left, right);
+    panel.append(h, body, foot);
+    // depois de redesenhar, o foco volta para o mesmo controle (teclado e leitor de tela não se perdem)
+    const ctrls = (root) => [...root.querySelectorAll('button, input')];
+    const at = editor.contains(document.activeElement) ? ctrls(editor).indexOf(document.activeElement) : -1;
+    editor.replaceChildren(panel);
+    if (at >= 0) ctrls(panel)[at]?.focus();
+    drawShot(shot);
+  }
+
+  /** Desenha a foto no quadrado, escurece fora do círculo do rosto e marca o círculo. */
+  function drawShot(c) {
+    const g = c.getContext('2d'), n = c.width;
+    g.clearRect(0, 0, n, n);
+    if (edit?.photo) {
+      placePhoto(g, n);
+      g.save(); g.fillStyle = 'rgba(0,0,0,.45)'; g.beginPath(); g.rect(0, 0, n, n); g.ellipse(n * FACE.cx, n * FACE.cy, n * FACE.rx, n * FACE.ry, 0, 0, Math.PI * 2, true); g.fill('evenodd'); g.restore();
+      g.strokeStyle = '#F97316'; g.lineWidth = 3; g.setLineDash([10, 8]); g.beginPath(); g.ellipse(n * FACE.cx, n * FACE.cy, n * FACE.rx, n * FACE.ry, 0, 0, Math.PI * 2); g.stroke(); g.setLineDash([]);
+    } else {
+      g.fillStyle = light ? '#857F76' : '#71717A'; g.textAlign = 'center'; g.font = `600 ${n * 0.075}px system-ui`;
+      g.fillText('Toque para pôr', n / 2, n * 0.47); g.fillText('uma foto sua', n / 2, n * 0.57);
+    }
+  }
+  function placePhoto(g, n) {
+    const { bmp, x, y, z } = edit.photo;
+    const s = Math.max(n / bmp.width, n / bmp.height) * z;
+    const w = bmp.width * s, h = bmp.height * s;
+    g.drawImage(bmp, (n - w) / 2 + x * n, (n - h) / 2 + y * n, w, h);
+  }
+  /** Tira as cores e o cabelo da foto (num quadrado pequeno, só no aparelho) e aplica no personagem. */
+  function readPhoto(first = false) {
+    if (!edit?.photo) return;
+    const n = 160, c = document.createElement('canvas'); c.width = c.height = n;
+    const g = c.getContext('2d', { willReadFrequently: true });
+    placePhoto(g, n);
+    const r = analyzePhoto(g.getImageData(0, 0, n, n).data, n);
+    const L = edit.look, got = ['cor da pele'];
+    L.skin = r.skin;
+    if (r.hair) { L.hair = r.hair; got.push('cor do cabelo'); }
+    if (r.style) { L.style = r.style; got.push(r.style === 'careca' ? 'careca' : 'cabelo comprido'); }
+    else if (first && (L.style === 'careca' || L.style === 'longo')) L.style = 'curto';
+    edit.found = `Peguei da foto: ${got.join(', ')}. Confira e troque o que quiser.`;
+    if (!first) renderEditor();
+  }
+
+  function previewFrame(ts) {
+    if (!edit || editor.hidden) return;
+    const c = editor.querySelector('.pe-preview');
+    if (c) {
+      const g = c.getContext('2d'), t = ts / 1000;
+      g.clearRect(0, 0, c.width, c.height);
+      g.fillStyle = light ? '#E8E4DF' : '#181818'; g.fillRect(0, 0, c.width, c.height);
+      const phase = Math.floor(t / 3) % 3; // parado, andando, de costas
+      drawPerson(g, { look: lookFromSaved(edit.look), sx: c.width / 2, sy: c.height - 50, scale: 5.4, phase: 0, face: 1, moving: phase === 1, faceUp: phase === 2, sit: false, mood: 'trabalhando', blink: (t % 3.2) < 0.12, celebrate: 0 }, t);
+    }
+    requestAnimationFrame(previewFrame);
+  }
+
+  async function saveEdit(look, msg) {
+    const id = edit.id;
+    try {
+      if (hooks.saveLook) saved = (await hooks.saveLook(id, look)) ?? saved;
+      else { if (look) saved[id] = look; else delete saved[id]; store.set('predio.looks', JSON.stringify(saved)); }
+      const p = people.get(id); if (p) p.look = lookOf(p.id, p.boss);
+      closeEditor();
+    } catch (err) { msg.textContent = `Não salvei: ${err.message}`; }
+  }
+
   // ---------- pessoas ----------
   function ensure(id, boss = false) {
     let p = people.get(id);
     if (!p) {
       // todo mundo chega pela recepção do térreo
-      p = { id, boss, look: lookFor(id, boss, salt), floor: 0, x: 120 + Math.random() * 110, y: 250, path: [], moving: false, face: 1, phase: Math.random() * 6, lane: (Math.random() - 0.5) * 30, mood: 'parado', sit: false, typing: false, blink: false, bubble: null, celebrate: 0, wanderAt: 0, target: null, info: null, scale: 1, sx: 0, sy: 0 };
+      p = { id, boss, look: lookOf(id, boss), floor: 0, x: 120 + Math.random() * 110, y: 250, path: [], moving: false, face: 1, phase: Math.random() * 6, lane: (Math.random() - 0.5) * 30, mood: 'parado', sit: false, typing: false, blink: false, bubble: null, celebrate: 0, wanderAt: 0, target: null, info: null, scale: 1, sx: 0, sy: 0 };
       people.set(id, p);
     }
     return p;
@@ -1193,6 +1435,9 @@ export function createPredio(root, hooks = {}) {
     const b1 = el('button', 'btn', follow === p.id ? 'Parar de seguir' : 'Seguir'); b1.type = 'button';
     b1.addEventListener('click', () => { follow = follow === p.id ? null : p.id; if (follow && zoom === 1) setZoom(1.8); openCard(p); });
     acts.append(b1);
+    const b3 = el('button', 'btn', p.boss ? 'Meu personagem' : 'Personagem'); b3.type = 'button';
+    b3.addEventListener('click', () => openEditor(p.id, b3));
+    acts.append(b3);
     if (!p.boss && hooks.sendCommand) {
       const f = el('form', 'predio-order');
       const inp = el('input'); inp.maxLength = 1000; inp.placeholder = `Ordem para ${p.id}…`; inp.setAttribute('aria-label', `Ordem para ${p.id}`);
@@ -1229,6 +1474,10 @@ export function createPredio(root, hooks = {}) {
       ensure('VOCÊ', true);
       const ids = new Set(s.agents.map((a) => a.id));
       for (const id of [...people.keys()]) if (id !== 'VOCÊ' && !ids.has(id)) { people.delete(id); release(id); }
+      if (s.looks && typeof s.looks === 'object' && JSON.stringify(s.looks) !== JSON.stringify(saved)) {
+        saved = s.looks;
+        for (const p of people.values()) p.look = lookOf(p.id, p.boss);
+      }
       for (const a of s.agents) ensure(a.id).info = a;
       const need = 3 + Math.max(1, Math.ceil(s.agents.length / PER_FLOOR)) - 1;
       if (floors.length !== need) {
@@ -1258,6 +1507,8 @@ export function createPredio(root, hooks = {}) {
     hide() { running = false; },
     get floors() { return floors; },
     get people() { return people; },
+    /** Abre o editor de personagem (você ou um agente). */
+    editLook(id = 'VOCÊ') { openEditor(id, document.activeElement); },
   };
   return api;
 }

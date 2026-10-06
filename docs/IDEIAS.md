@@ -1,6 +1,9 @@
 # Ideias do Agent Control
 
 ## Entrou agora (Prédio)
+- **Seu personagem (com foto):** botão 🧑 no Prédio. Escolha pele, cabelo, roupa, calça, tênis e acessório, ou ponha
+  uma foto: o app tira dela a cor da pele, a cor do cabelo e se é comprido ou careca. A foto fica só no aparelho; o
+  servidor guarda só as cores. Dá para fazer o personagem de cada agente também (cartão → "Personagem").
 - **Elevador:** dois elevadores na sala do canto de cada andar, no lugar da escada. Quem troca de andar aperta o
   botão, espera na marca, entra (até 4 por cabine), a porta fecha e o visor conta os andares; sai no andar certo.
   Seguindo alguém, a tela troca de andar junto com a cabine. A fila vira um contador ("3 esperando o elevador").

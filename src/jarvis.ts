@@ -135,7 +135,7 @@ export class Jarvis extends EventEmitter {
   }
 
   state(p: ProjectCfg) {
-    return { goal: activeGoalId(p) ?? null, agents: agents(this.store, p), locks: locks(p), tasks: tasks(p) };
+    return { goal: activeGoalId(p) ?? null, agents: agents(this.store, p), locks: locks(p), tasks: tasks(p), looks: this.store.looks(p.id) };
   }
 
   recent(p: ProjectCfg): Entry[] {

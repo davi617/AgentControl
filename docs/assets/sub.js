@@ -23,9 +23,9 @@ document.querySelectorAll('.code').forEach((box) => {
   box.append(b);
 });
 
-// Versão já escrita (v1.2.0); a API do GitHub só troca se saiu uma mais nova.
+// Versão já escrita (v1.2.1); a API do GitHub só troca se saiu uma mais nova.
 const setVer = (v) => { document.querySelectorAll('[data-ver]').forEach((e) => { e.textContent = ` · versão ${v}`; }); document.querySelectorAll('[data-versao]').forEach((e) => { e.textContent = v; if (e.tagName === 'A') e.href = repo ? `${gh}/releases/tag/${v}` : gh; }); };
-setVer('v1.2.0');
+setVer('v1.2.1');
 if (repo) fetch(`https://api.github.com/repos/${repo}/releases/latest`).then((r) => (r.ok ? r.json() : null)).then((j) => {
   const v = j?.tag_name?.replace(/[^\w.\-]/g, '');
   if (v) setVer(v);

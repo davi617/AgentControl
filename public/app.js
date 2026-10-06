@@ -48,7 +48,9 @@ function showTab(name) {
   if (name === 'chat') $('#thread').lastElementChild?.scrollIntoView({ block: 'end' });
 }
 document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
-addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TAB_TITLE[h]) showTab(h); });
+addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TAB_TITLE[h]) showTab(h); if (h === 'personagem') openPersonagem(); });
+// #personagem (o app do PC abre aqui): vai para o Prédio com o editor do seu personagem aberto
+function openPersonagem() { showTab('predio'); predio.editLook('VOCÊ'); }
 
 // ---------- prédio (bonequinhos) ----------
 const predio = createPredio($('#predio-root'), {
@@ -64,6 +66,17 @@ const predio = createPredio($('#predio-root'), {
     return data.reply;
   },
   openApprovals: () => showTab('comandos'),
+  /** Personagem do prédio: só cores e estilos vão para o servidor (a foto fica no aparelho). null = volta ao sorteado. */
+  async saveLook(id, look) {
+    const r = await fetch('/api/looks', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
+      body: JSON.stringify({ project: state.project, id, look }),
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error ?? r.status);
+    return data;
+  },
 });
 
 // ---------- util ----------
@@ -861,6 +874,7 @@ if ('serviceWorker' in navigator && isSecureContext) navigator.serviceWorker.reg
   const first = projects.find((p) => p.id === saved)?.id ?? projects[0]?.id;
   sel.value = first;
   const fromHash = location.hash.slice(1);
-  showTab(TAB_TITLE[fromHash] ? fromHash : store.get('jarvis.tab', 'chat'));
+  showTab(TAB_TITLE[fromHash] ? fromHash : fromHash === 'personagem' ? 'predio' : store.get('jarvis.tab', 'chat'));
   await selectProject(first);
+  if (fromHash === 'personagem') openPersonagem();
 })();

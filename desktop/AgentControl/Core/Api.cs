@@ -34,6 +34,8 @@ public sealed record HudSnapshot(
     /// <summary>Chamada aberta: quem está nela e as últimas falas (mais antiga primeiro).</summary>
     public IReadOnlyList<string> CallWho { get; init; } = [];
     public IReadOnlyList<(string Speaker, string Text)> CallLog { get; init; } = [];
+    /// <summary>Personagens do Modo Prédio salvos no servidor (id → skin, hair, style, top, shirt, pants, shoes, cap, acc).</summary>
+    public Dictionary<string, Dictionary<string, string>> Looks { get; init; } = [];
 }
 
 /// <summary>
@@ -185,7 +187,12 @@ public sealed class HudApi
         if (limits.Result is { } lim && lim.TryGetProperty("agents", out var la) && la.ValueKind == JsonValueKind.Array)
             foreach (var row in la.EnumerateArray())
                 try { var q = JsonSerializer.Deserialize<AgentQuota>(row.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); if (q is not null) quotas[q.Agent] = q; } catch { }
-        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin, Limits = quotas, CallWho = cwho, CallLog = clog };
+        var looks = new Dictionary<string, Dictionary<string, string>>();
+        if (s.TryGetProperty("looks", out var lk) && lk.ValueKind == JsonValueKind.Object)
+            foreach (var who in lk.EnumerateObject())
+                if (who.Value.ValueKind == JsonValueKind.Object)
+                    looks[who.Name] = who.Value.EnumerateObject().Where(f => f.Value.ValueKind == JsonValueKind.String).ToDictionary(f => f.Name, f => f.Value.GetString() ?? "");
+        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin, Limits = quotas, CallWho = cwho, CallLog = clog, Looks = looks };
     }
 
     /// <summary>Pede a próxima fala da chamada. Devolve (quem, texto) ou null se ninguém falou (fim, pausa, esperando o dono).</summary>
