@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "dev.agentcontrol.app"
-    compileSdk = 36
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "dev.agentcontrol.app"
