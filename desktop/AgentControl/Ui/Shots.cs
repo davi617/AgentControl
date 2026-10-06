@@ -49,7 +49,14 @@ public static class Shots
             foreach (var (v, nome) in new[] { (FullWindow.View.Agents, "agentes"), (FullWindow.View.Commands, "comandos"), (FullWindow.View.Usage, "uso"), (FullWindow.View.Health, "saude"), (FullWindow.View.Models, "modelos"), (FullWindow.View.Overview, "visao"), (FullWindow.View.Predio, "predio") })
             {
                 host.Full.ShowView(v, animate: false);
-                await Task.Delay(v == FullWindow.View.Predio ? 24000 : 2200); // no prédio, os bonequinhos sobem a escada antes
+                if (v == FullWindow.View.Predio)
+                {
+                    // no prédio, os bonequinhos pegam o elevador antes: um print no meio do caminho e outro com todos na mesa
+                    await Task.Delay(9000);
+                    Save(host.Full, Path.Combine(dir, "predio-elevador.png"));
+                    await Task.Delay(16000);
+                }
+                else await Task.Delay(2200);
                 Save(host.Full, Path.Combine(dir, nome + ".png"));
             }
         }
