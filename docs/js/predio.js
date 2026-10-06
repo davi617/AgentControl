@@ -75,6 +75,17 @@ function makeFloor(kind, n) {
     banh.spots = [{ x: 400, y: 620 }, { x: 470, y: 620 }];
     const corr = room('Correio', ...BOTTOM[2], false); corr.furniture.push({ t: 'estante', x: 700, y: 470 }, { t: 'estante', x: 880, y: 470 }, { t: 'caixas', x: 790, y: 640 });
     corr.spots = [{ x: 760, y: 560 }, { x: 830, y: 560 }];
+    // decoração: tapetes, letreiro, aquário, máquina de lanche, luminárias, flores e quadros
+    rec.furniture.push({ t: 'tapete', x: 175, y: 215, w: 210, h: 90, c: '#7C2D12' }, { t: 'letreiro', x: 175, y: 44 }, { t: 'aquario', x: 75, y: 250 });
+    copa.furniture.push({ t: 'vending', x: 430, y: 72 }, { t: 'bebedouro', x: 505, y: 66 }, { t: 'tapete', x: 465, y: 220, w: 200, h: 120, c: '#78350F' });
+    desc.furniture.push({ t: 'tapete', x: 750, y: 175, w: 230, h: 200, c: '#3B0764' }, { t: 'luminaria', x: 650, y: 180 }, { t: 'arte', x: 860, y: 40, c: '#F472B6' });
+    jogos.furniture.push({ t: 'tapete', x: 1030, y: 160, w: 200, h: 120, c: '#1E3A8A' }, { t: 'arte', x: 950, y: 40, c: '#22D3EE' });
+    jardim.furniture.push({ t: 'flores', x: 120, y: 610 }, { t: 'flores', x: 250, y: 470 }, { t: 'flores', x: 300, y: 520 });
+    corr.furniture.push({ t: 'arte', x: 790, y: 680, c: '#FACC15' });
+    // datas do ano: abóboras em outubro, bandeirinhas em junho/julho, árvore em dezembro
+    const mes = new Date().getMonth() + 1;
+    if (mes === 10) rec.furniture.push({ t: 'abobora', x: 110, y: 120 }, { t: 'abobora', x: 245, y: 120 });
+    if (mes === 12) rec.furniture.push({ t: 'arvoreNatal', x: 290, y: 235 });
     f.rooms = [rec, copa, desc, jogos, jardim, banh, corr, stairs];
   } else if (kind === 'diretoria') {
     f.name = '1º andar · Diretoria';
@@ -96,6 +107,11 @@ function makeFloor(kind, n) {
     lounge.idle = true;
     const arq = room('Arquivo', ...BOTTOM[2], false); arq.furniture.push({ t: 'estante', x: 690, y: 470 }, { t: 'estante', x: 790, y: 470 }, { t: 'estante', x: 890, y: 470 });
     arq.spots = [{ x: 790, y: 600 }];
+    chefe.furniture.push({ t: 'tapete', x: 175, y: 160, w: 230, h: 120, c: '#7F1D1D' }, { t: 'trofeus', x: 60, y: 165 }, { t: 'luminaria', x: 290, y: 170 });
+    reun.furniture.push({ t: 'tapete', x: 605, y: 172, w: 430, h: 170, c: '#1E293B' }, { t: 'luminaria', x: 410, y: 60 }, { t: 'luminaria', x: 800, y: 60 });
+    aprov.furniture.push({ t: 'planta', x: 1140, y: 280 }, { t: 'tapete', x: 1030, y: 225, w: 180, h: 90, c: '#14532D' });
+    lounge.furniture.push({ t: 'tapete', x: 485, y: 560, w: 230, h: 90, c: '#4C1D95' }, { t: 'arte', x: 390, y: 428, c: '#FB923C' });
+    sec.furniture.push({ t: 'arte', x: 180, y: 428, c: '#60A5FA' });
     f.rooms = [chefe, reun, aprov, sec, lounge, arq, stairs];
   } else {
     f.name = `${n}º andar · Time`;
@@ -103,7 +119,8 @@ function makeFloor(kind, n) {
       const r = room(`Sala ${n}${String.fromCharCode(65 + i)}`, a, b, true);
       const desks = seats(r, 2, 120);
       for (const d of desks) r.furniture.push({ t: 'mesaPc', x: d.x, y: d.y + 12 });
-      r.furniture.push({ t: 'planta', x: b - 25, y: 55 });
+      r.furniture.push({ t: 'planta', x: b - 25, y: 55 }, { t: 'tapete', x: (a + b) / 2, y: 205, w: b - a - 70, h: 70, c: ['#1E3A8A', '#14532D', '#7C2D12', '#4C1D95'][i] }, { t: 'arte', x: a + 34, y: 40, c: ['#F472B6', '#22D3EE', '#FACC15', '#A3E635'][i] }, { t: 'quadroTarefas', x: (a + b) / 2, y: 44 });
+      r.office = true;
       r.desks = desks.map((d) => ({ ...d, sit: 1 }));
       r.spots = [{ x: (a + b) / 2, y: 260 }];
       return r;
@@ -115,6 +132,8 @@ function makeFloor(kind, n) {
     foco.spots = [{ x: 420, y: 530, sit: 1 }, { x: 550, y: 530, sit: 1 }];
     const imp = room('Impressora', ...BOTTOM[2], false); imp.furniture.push({ t: 'impressora', x: 700, y: 470 }, { t: 'arquivo', x: 900, y: 470 }, { t: 'planta', x: 670, y: 665 });
     imp.spots = [{ x: 700, y: 530 }];
+    copa.furniture.push({ t: 'vending', x: 240, y: 655 }, { t: 'tapete', x: 190, y: 545, w: 170, h: 100, c: '#78350F' });
+    foco.furniture.push({ t: 'luminaria', x: 370, y: 640 }, { t: 'luminaria', x: 600, y: 640 });
     f.rooms = [...offices, copa, foco, imp, stairs];
   }
   return f;
@@ -239,8 +258,56 @@ function drawFurniture(ctx, f, P, k, t, night) {
     case 'telao': box(f.x, f.y, 260, 16, '#0A0A0A', 3); break;
     case 'painel': box(f.x, f.y, 200, 18, '#0A0A0A', 3); break;
     case 'impressora': box(f.x, f.y, 60, 36, '#D4D4D8', 5); box(f.x, f.y + 4, 40, 6, '#F4F4F5', 1); break;
+    case 'tapete': break; // vai na camada fixa (chão)
+    case 'arte': break; // quadro na parede: camada fixa
+    case 'letreiro': { const a = P(f.x, f.y); const on = !night || Math.sin(t * 7) > -0.92; ctx.font = `800 ${Math.max(8, 12 * k)}px system-ui`; ctx.textAlign = 'center'; ctx.shadowColor = '#F97316'; ctx.shadowBlur = on ? 10 * k : 0; ctx.fillStyle = on ? '#FDBA74' : '#7C2D12'; const lw = ctx.measureText('AGENT CONTROL').width; ctx.fillText('AGENT CONTROL', Math.max(a.x, lw / 2 + 6), a.y + 4 * k); ctx.shadowBlur = 0; break; }
+    case 'aquario': { box(f.x, f.y, 56, 34, '#0C4A6E', 5, '#38BDF8'); for (let i = 0; i < 3; i++) dot(f.x - 18 + ((t * (8 + i * 5) + i * 17) % 36), f.y - 6 + i * 6, 2.6, ['#F97316', '#FACC15', '#F472B6'][i]); dot(f.x + 14, f.y - 10 - ((t * 12) % 10), 1.4, 'rgba(255,255,255,.6)'); break; }
+    case 'vending': box(f.x, f.y, 40, 52, '#B91C1C', 5); box(f.x - 5, f.y - 4, 22, 34, '#0F172A', 2); for (let i = 0; i < 3; i++) box(f.x - 5, f.y - 14 + i * 10, 18, 4, ['#FACC15', '#22C55E', '#38BDF8'][i], 1); box(f.x + 13, f.y - 8, 6, 10, '#E4E4E7', 1); break;
+    case 'bebedouro': box(f.x, f.y + 6, 22, 22, '#E4E4E7', 4); dot(f.x, f.y - 8, 10, 'rgba(147,197,253,.85)'); break;
+    case 'luminaria': { dot(f.x, f.y + 8, 7, '#3F3F46'); box(f.x, f.y - 6, 3, 26, '#52525B', 1); if (night) { const a = P(f.x, f.y - 18); const g = ctx.createRadialGradient(a.x, a.y, 0, a.x, a.y, 70 * k); g.addColorStop(0, 'rgba(253,224,71,.35)'); g.addColorStop(1, 'rgba(253,224,71,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.arc(a.x, a.y, 70 * k, 0, Math.PI * 2); ctx.fill(); } dot(f.x, f.y - 18, 9, night ? '#FDE047' : '#FEF3C7'); break; }
+    case 'flores': for (let i = 0; i < 5; i++) dot(f.x + Math.cos(i * 1.3) * 12, f.y + Math.sin(i * 1.3) * 8, 3.5, ['#F472B6', '#FACC15', '#F87171', '#C084FC', '#FB923C'][i]); break;
+    case 'trofeus': box(f.x, f.y, 34, 90, '#78350F', 3); for (let i = 0; i < 3; i++) { dot(f.x, f.y - 28 + i * 28, 7, '#FACC15'); box(f.x, f.y - 20 + i * 28, 8, 5, '#CA8A04', 1); } break;
+    case 'abobora': dot(f.x, f.y, 11, '#EA580C'); dot(f.x - 6, f.y, 8, '#F97316'); dot(f.x + 6, f.y, 8, '#F97316'); box(f.x, f.y - 12, 3, 6, '#166534', 1); break;
+    case 'arvoreNatal': { const a = P(f.x, f.y); ctx.fillStyle = '#166534'; ctx.beginPath(); ctx.moveTo(a.x, a.y - 40 * k); ctx.lineTo(a.x - 22 * k, a.y + 10 * k); ctx.lineTo(a.x + 22 * k, a.y + 10 * k); ctx.closePath(); ctx.fill(); for (let i = 0; i < 6; i++) dot(f.x - 12 + (i % 3) * 12, f.y - 20 + Math.floor(i / 3) * 16, 2.6, Math.sin(t * 3 + i) > 0 ? '#FACC15' : '#EF4444'); dot(f.x, f.y - 42, 4, '#FDE047'); break; }
+    case 'quadroTarefas': box(f.x, f.y, 140, 26, '#F4F4F5', 3, '#A1A1AA'); break;
     case 'stairs': break;
   }
+}
+
+/** Coisas do chão e da parede que não mudam: desenhadas uma vez na camada fixa (cache). */
+function drawStaticDecor(g, f, P, k) {
+  for (const r of f.rooms) for (const fu of r.furniture) {
+    if (fu.t === 'tapete') {
+      const a = P(fu.x - fu.w / 2, fu.y - fu.h / 2), b = P(fu.x + fu.w / 2, fu.y + fu.h / 2);
+      g.globalAlpha = 0.55; g.fillStyle = fu.c; rr(g, Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y), 14 * k); g.fill();
+      g.globalAlpha = 0.35; g.strokeStyle = '#FFFFFF'; g.lineWidth = Math.max(1, 1.5 * k); g.setLineDash([4 * k, 4 * k]);
+      rr(g, Math.min(a.x, b.x) + 6 * k, Math.min(a.y, b.y) + 6 * k, Math.abs(b.x - a.x) - 12 * k, Math.abs(b.y - a.y) - 12 * k, 10 * k); g.stroke();
+      g.setLineDash([]); g.globalAlpha = 1;
+    } else if (fu.t === 'arte') {
+      const a = P(fu.x - 17, fu.y - 9), b = P(fu.x + 17, fu.y + 9);
+      const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y), w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y);
+      g.fillStyle = '#A16207'; g.fillRect(x - 2, y - 2, w + 4, h + 4);
+      g.fillStyle = fu.c; g.fillRect(x, y, w, h);
+      g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.arc(x + w * 0.3, y + h * 0.4, Math.min(w, h) * 0.22, 0, Math.PI * 2); g.fill();
+      g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.moveTo(x, y + h); g.lineTo(x + w * 0.55, y + h * 0.35); g.lineTo(x + w, y + h); g.closePath(); g.fill();
+    }
+  }
+}
+
+/** AgentC, o mascote do escritório: um robozinho hexagonal que passeia pelos andares. */
+function drawPet(ctx, pet, t) {
+  ctx.save();
+  ctx.translate(pet.sx, pet.sy - 4 * pet.scale - Math.abs(Math.sin(t * 6)) * (pet.moving ? 3 : 1) * pet.scale);
+  ctx.scale(pet.scale, pet.scale);
+  ctx.fillStyle = 'rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(0, 4, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) { const a = Math.PI / 6 + (i * Math.PI) / 3; ctx.lineTo(Math.cos(a) * 11, -10 + Math.sin(a) * 11); }
+  ctx.closePath(); ctx.fillStyle = '#141414'; ctx.fill(); ctx.strokeStyle = '#F97316'; ctx.lineWidth = 2.6; ctx.stroke();
+  const blink = (t % 3.5) < 0.12;
+  ctx.fillStyle = '#F4F4F4';
+  if (blink) { ctx.fillRect(-5 + pet.face, -10, 3.5, 1.2); ctx.fillRect(1.5 + pet.face, -10, 3.5, 1.2); }
+  else { ctx.fillRect(-4.5 + pet.face, -14, 3, 7); ctx.fillRect(1.5 + pet.face, -14, 3, 7); }
+  ctx.restore();
 }
 
 // ---------- componente ----------
@@ -277,6 +344,12 @@ export function createPredio(root, hooks = {}) {
   const people = new Map(); // id → bonequinho
   let pending = 0, callData = null, running = false, last = 0, dpr = 1, k = 1, portrait = false, ox = 0, oy = 0, cw = 0, ch = 0;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  // camada fixa (chão, paredes, tapetes, quadros, nomes das salas): desenhada só quando algo muda
+  const bg = document.createElement('canvas'); let bgKey = '';
+  let light = false, themeAt = 0, lastDraw = 0;
+  const confetti = [];
+  const pet = { floor: 0, x: 600, y: 360, path: [], moving: false, face: 1, scale: 1, sx: 0, sy: 0, restUntil: 0, bubble: null };
+  const CHATTER = [['Bora um café?', 'Bora! ☕'], ['Viu o deploy?', 'Passou liso ✓'], ['Que bug chato…', 'Te ajudo depois'], ['Bom trabalho hoje!', 'Valeu! 🙌'], ['O chefe aprovou?', 'Ainda não 😅'], ['Ping-pong?', 'Só uma partida!'], ['Terminei a minha', 'Boa! 🎉']];
 
   mk('−', 'Afastar', () => setZoom(zoom / 1.25));
   mk('+', 'Aproximar', () => setZoom(zoom * 1.25));
@@ -367,7 +440,9 @@ export function createPredio(root, hooks = {}) {
       const idx = i++;
       release(p.id);
       if (inCall.has(p.id)) { p.mood = 'chamada'; const s = reun.spots[ci++ % reun.spots.length]; taken.set(`1:${s.x}:${s.y}`, p.id); goTo(p, { floor: 1, ...s }); continue; }
+      const before = p.mood;
       p.mood = moodOf(p.info);
+      if (before && before !== 'terminou' && p.mood === 'terminou') p.party = true;
       if (p.mood === 'trabalhando' || p.mood === 'revisando') goTo(p, deskOf(idx));
       else if (p.mood === 'travado') { const s = chefe.spots[qi++ % chefe.spots.length]; goTo(p, { floor: 1, ...s }); }
       else if (p.mood === 'terminou') goTo(p, freeSpot(0, (r) => r.name === 'Copa' || r.name === 'Jogos', p.id) ?? deskOf(idx));
@@ -380,6 +455,25 @@ export function createPredio(root, hooks = {}) {
 
   /** De vez em quando quem trabalha vai buscar um café na copa do andar e volta; quem está à toa troca de lugar. */
   function wander(now) {
+    // chefe com aprovação esperando: de vez em quando vai conferir o painel e volta para a mesa
+    const boss = people.get('VOCÊ');
+    if (boss && pending > 0 && !boss.path.length && boss.mood === 'chefe' && now > (boss.checkAt ?? 0) && !(callData && callData.status !== 'ENCERRADA')) {
+      boss.checkAt = now + 45_000 + Math.random() * 30_000;
+      const aprov = floors[1].rooms.find((r) => r.board), chefe = floors[1].rooms.find((r) => r.queue);
+      boss.back = { floor: 1, ...chefe.boss };
+      goTo(boss, { floor: 1, ...aprov.spots[0] });
+      boss.bubble = { text: `${pending} aprovação(ões) esperando…`, until: now + 4000 };
+    }
+    // conversa no corredor: dois parados perto um do outro trocam uma frase
+    const idle = [...people.values()].filter((q) => !q.boss && !q.path.length && !q.typing && now > (q.chatAt ?? 0) && (!q.bubble || q.bubble.until < now));
+    for (let a = 0; a < idle.length; a++) for (let b = a + 1; b < idle.length; b++) {
+      const x = idle[a], y = idle[b];
+      if (x.floor !== y.floor || Math.hypot(x.x - y.x, x.y - y.y) > 110 || Math.random() > 0.02) continue;
+      const [q, r] = CHATTER[Math.floor(Math.random() * CHATTER.length)];
+      x.bubble = { text: q, until: now + 3000 }; x.face = y.x > x.x ? 1 : -1; y.face = -x.face;
+      setTimeout(() => { y.bubble = { text: r, until: performance.now() + 3000 }; }, 1800);
+      x.chatAt = y.chatAt = now + 40_000 + Math.random() * 40_000;
+    }
     let i = 0;
     for (const p of people.values()) {
       if (p.boss) continue;
@@ -421,8 +515,36 @@ export function createPredio(root, hooks = {}) {
     if (Math.abs(dx) > 0.5) p.face = dx < 0 ? -1 : 1;
     if (d <= v) {
       p.x = n.x; p.y = n.y; p.path.shift();
-      if (!p.path.length && p.mood === 'terminou') p.celebrate = 1.6;
+      if (!p.path.length && p.mood === 'terminou') { p.celebrate = 1.6; if (p.party) { p.party = false; burst(p.floor, p.x, p.y - 30); } }
     } else { p.x += (dx / d) * v; p.y += (dy / d) * v; }
+  }
+
+  function burst(floor, x, y) {
+    if (reduce) return;
+    for (let i = 0; i < 36; i++) confetti.push({ floor, x, y, vx: (Math.random() - 0.5) * 160, vy: -60 - Math.random() * 140, life: 1.6 + Math.random(), c: ['#F97316', '#FACC15', '#22C55E', '#38BDF8', '#F472B6', '#A855F7'][i % 6], r: Math.random() * 6 });
+  }
+  function stepConfetti(dt) {
+    for (let i = confetti.length - 1; i >= 0; i--) { const c = confetti[i]; c.life -= dt; c.vy += 260 * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.r += dt * 8; if (c.life <= 0) confetti.splice(i, 1); }
+  }
+  /** O mascote anda por pontos aleatórios do andar; às vezes troca de andar pela escada. */
+  function stepPet(dt, now) {
+    if (!pet.path.length) {
+      pet.moving = false;
+      if (now < pet.restUntil) return;
+      pet.restUntil = now + 2500 + Math.random() * 6000;
+      let floor = pet.floor;
+      if (Math.random() < 0.15) floor = Math.floor(Math.random() * floors.length);
+      const rooms = floors[floor].rooms.filter((r) => !r.stairs && r.spots.length);
+      const r = rooms[Math.floor(Math.random() * rooms.length)];
+      const s = Math.random() < 0.3 ? corridorAt(80 + Math.random() * 840, (Math.random() - 0.5) * 50) : { x: r.x0 + 30 + Math.random() * (r.x1 - r.x0 - 60), y: r.y0 + 60 + Math.random() * (r.y1 - r.y0 - 100) };
+      pet.path = route(floors, { floor: pet.floor, x: pet.x, y: pet.y }, { floor, ...s }, 12);
+      return;
+    }
+    const n = pet.path[0];
+    if (n.floor !== pet.floor) { pet.floor = n.floor; pet.x = n.x; pet.y = n.y; pet.path.shift(); return; }
+    const dx = n.x - pet.x, dy = n.y - pet.y, d = Math.hypot(dx, dy), v = 70 * dt;
+    pet.moving = true; if (Math.abs(dx) > 0.5) pet.face = dx < 0 ? -1 : 1;
+    if (d <= v) { pet.x = n.x; pet.y = n.y; pet.path.shift(); } else { pet.x += (dx / d) * v; pet.y += (dy / d) * v; }
   }
 
   // ---------- desenho do andar ----------
@@ -452,84 +574,114 @@ export function createPredio(root, hooks = {}) {
   const rectW = (x0, y0, x1, y1) => { const a = P(x0, y0), b = P(x1, y1); return [Math.min(a.x, b.x), Math.min(a.y, b.y), Math.abs(b.x - a.x), Math.abs(b.y - a.y)]; };
 
   // texto centrado que nunca sai da tela (no celular em pé o prédio fica de lado)
-  function label(text, x, y) {
-    const w = ctx.measureText(text).width;
-    ctx.textAlign = 'center';
-    ctx.fillText(text, Math.max(w / 2 + 4, Math.min(cw - w / 2 - 4, x)), Math.max(12, Math.min(ch - 4, y)));
+  function label(text, x, y, g = ctx) {
+    const w = g.measureText(text).width;
+    g.textAlign = 'center';
+    g.fillText(text, Math.max(w / 2 + 4, Math.min(cw - w / 2 - 4, x)), Math.max(12, Math.min(ch - 4, y)));
   }
 
-  function drawFloor(t) {
-    const f = floors[view];
-    const hour = new Date().getHours();
-    const night = hour >= 19 || hour < 6;
-    const css = getComputedStyle(root);
-    const light = css.getPropertyValue('--bg').trim().toUpperCase() === '#F0EEEB';
-    ctx.fillStyle = light ? '#D9D4CC' : '#0B0B0C';
-    ctx.fillRect(0, 0, cw, ch);
+  /** Camada fixa: fundo, chão, corredor, salas, tapetes, quadros, paredes, janelas e nomes das salas. */
+  function drawStatic(g, f, night) {
     const zk = k * zoom;
-    // chão do prédio
-    ctx.fillStyle = light ? '#ECE7E0' : '#17171A';
-    ctx.fillRect(...rectW(30, 30, 1170, 690));
-    // corredor
-    ctx.fillStyle = light ? '#E2DCD3' : '#1F1F23';
-    ctx.fillRect(...rectW(30, CORR.y0, 1170, CORR.y1));
-    ctx.strokeStyle = light ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.04)'; ctx.lineWidth = 1;
-    for (let x = 60; x < 1170; x += 60) { const a = P(x, CORR.y0 + 8), b = P(x, CORR.y1 - 8); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    g.fillStyle = light ? '#D9D4CC' : '#0B0B0C';
+    g.fillRect(0, 0, cw, ch);
+    g.fillStyle = light ? '#ECE7E0' : '#17171A';
+    g.fillRect(...rectW(30, 30, 1170, 690));
+    g.fillStyle = light ? '#E2DCD3' : '#1F1F23';
+    g.fillRect(...rectW(30, CORR.y0, 1170, CORR.y1));
+    g.strokeStyle = light ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.04)'; g.lineWidth = 1;
+    for (let x = 60; x < 1170; x += 60) { const a = P(x, CORR.y0 + 8), b = P(x, CORR.y1 - 8); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
     for (const r of f.rooms) {
-      ctx.fillStyle = r.green ? (light ? '#BBE5C4' : '#132A1A') : r.stairs ? (light ? '#D6D0C6' : '#141416') : r.boss ? (light ? '#E9DCCB' : '#1E1914') : r.meeting ? (light ? '#E3E0EE' : '#16151F') : (light ? '#F3EEE7' : '#151518');
-      ctx.fillRect(...rectW(r.x0 + 3, r.y0 + 3, r.x1 - 3, r.y1 - 3));
-      // piso de madeira/carpete: linhas leves
-      ctx.strokeStyle = light ? 'rgba(0,0,0,.035)' : 'rgba(255,255,255,.025)';
-      for (let y = r.y0 + 24; y < r.y1; y += 24) { const a = P(r.x0 + 4, y), b = P(r.x1 - 4, y); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+      g.fillStyle = r.green ? (light ? '#BBE5C4' : '#132A1A') : r.stairs ? (light ? '#D6D0C6' : '#141416') : r.boss ? (light ? '#E9DCCB' : '#1E1914') : r.meeting ? (light ? '#E3E0EE' : '#16151F') : (light ? '#F3EEE7' : '#151518');
+      g.fillRect(...rectW(r.x0 + 3, r.y0 + 3, r.x1 - 3, r.y1 - 3));
+      g.strokeStyle = light ? 'rgba(0,0,0,.035)' : 'rgba(255,255,255,.025)';
+      for (let y = r.y0 + 24; y < r.y1; y += 24) { const a = P(r.x0 + 4, y), b = P(r.x1 - 4, y); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
       if (r.stairs) {
-        ctx.fillStyle = light ? '#BFB6A8' : '#26262B';
-        for (let y = r.y0 + 40; y < r.y1 - 10; y += 22) ctx.fillRect(...rectW(r.x0 + 30, y, r.x1 - 30, y + 12));
+        g.fillStyle = light ? '#BFB6A8' : '#26262B';
+        for (let y = r.y0 + 40; y < r.y1 - 10; y += 22) g.fillRect(...rectW(r.x0 + 30, y, r.x1 - 30, y + 12));
         const c = P((r.x0 + r.x1) / 2, r.y1 - 30);
-        ctx.fillStyle = light ? '#57534E' : '#A1A1AA'; ctx.font = `600 ${Math.max(9, 12 * zk)}px system-ui`; ctx.textAlign = 'center';
-        ctx.fillText(view < floors.length - 1 ? '▲ sobe' : '', c.x, c.y - 14 * zk);
-        ctx.fillText(view > 0 ? '▼ desce' : '', c.x, c.y + 2 * zk);
+        g.fillStyle = light ? '#57534E' : '#A1A1AA'; g.font = `600 ${Math.max(9, 12 * zk)}px system-ui`; g.textAlign = 'center';
+        g.fillText(view < floors.length - 1 ? '▲ sobe' : '', c.x, c.y - 14 * zk);
+        g.fillText(view > 0 ? '▼ desce' : '', c.x, c.y + 2 * zk);
       }
     }
-    // paredes com portas
-    ctx.strokeStyle = light ? '#57534E' : '#3F3F46'; ctx.lineWidth = Math.max(2, 5 * zk); ctx.lineCap = 'square';
-    const line = (x0, y0, x1, y1) => { const a = P(x0, y0), b = P(x1, y1); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); };
+    drawStaticDecor(g, f, P, zk);
+    // bandeirinhas de festa junina no corredor (junho e julho)
+    const mes = new Date().getMonth() + 1;
+    if (mes === 6 || mes === 7) {
+      const cols = ['#EF4444', '#FACC15', '#22C55E', '#3B82F6', '#F97316', '#A855F7'];
+      for (let x = 50, i = 0; x < 1150; x += 26, i++) { const a = P(x, CORR.y0 + 6), b = P(x + 20, CORR.y0 + 6), c = P(x + 10, CORR.y0 + 20); g.fillStyle = cols[i % cols.length]; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.lineTo(c.x, c.y); g.closePath(); g.fill(); }
+    }
+    g.strokeStyle = light ? '#57534E' : '#3F3F46'; g.lineWidth = Math.max(2, 5 * zk); g.lineCap = 'square';
+    const line = (x0, y0, x1, y1) => { const a = P(x0, y0), b = P(x1, y1); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); };
     line(30, 30, 1170, 30); line(1170, 30, 1170, 690); line(1170, 690, 30, 690); line(30, 690, 30, 30);
     for (const r of f.rooms) {
       const yWall = r.top ? CORR.y0 : CORR.y1;
       line(r.x0, yWall, r.door.x - 34, yWall); line(r.door.x + 34, yWall, r.x1, yWall);
       if (r.x0 > 30) line(r.x0, r.y0, r.x0, r.y1);
     }
-    // janelas (dia/noite) na parede de fora
     for (let x = 80; x < 1150; x += 140) {
-      ctx.fillStyle = night ? 'rgba(250,204,21,.55)' : 'rgba(125,211,252,.7)';
-      ctx.fillRect(...rectW(x, 26, x + 70, 34));
-      ctx.fillRect(...rectW(x, 686, x + 70, 694));
+      g.fillStyle = night ? 'rgba(250,204,21,.55)' : 'rgba(125,211,252,.7)';
+      g.fillRect(...rectW(x, 26, x + 70, 34));
+      g.fillRect(...rectW(x, 686, x + 70, 694));
     }
-    // nomes das salas
-    ctx.textAlign = 'center'; ctx.font = `600 ${Math.max(9, 13 * zk)}px system-ui`;
+    g.textAlign = 'center'; g.font = `600 ${Math.max(9, 13 * zk)}px system-ui`;
     for (const r of f.rooms) {
-      const c = P(r.stairs ? (r.x0 + r.x1) / 2 : r.x0 + (r.x1 - r.x0) * (r.top ? 0.5 : 0.5), r.top ? r.y1 - 12 : r.y1 - 14);
-      ctx.fillStyle = light ? 'rgba(41,43,50,.55)' : 'rgba(244,244,245,.38)';
-      label(r.name.toUpperCase(), c.x, c.y);
+      const c = P((r.x0 + r.x1) / 2, r.top ? r.y1 - 12 : r.y1 - 14);
+      g.fillStyle = light ? 'rgba(41,43,50,.55)' : 'rgba(244,244,245,.38)';
+      label(r.name.toUpperCase(), c.x, c.y, g);
     }
-    // relógio no corredor
     const clk = P(600, (CORR.y0 + CORR.y1) / 2);
-    ctx.fillStyle = light ? 'rgba(41,43,50,.35)' : 'rgba(244,244,245,.18)';
-    ctx.font = `700 ${Math.max(10, 22 * zk)}px system-ui`;
-    ctx.fillText(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), clk.x, clk.y + 8 * zk);
+    g.fillStyle = light ? 'rgba(41,43,50,.35)' : 'rgba(244,244,245,.18)';
+    g.font = `700 ${Math.max(10, 22 * zk)}px system-ui`;
+    g.fillText(new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }), clk.x, clk.y + 8 * zk);
+  }
+
+  function drawFloor(t) {
+    const f = floors[view];
+    const now = new Date();
+    const hour = now.getHours();
+    const night = hour >= 19 || hour < 6;
+    if (performance.now() > themeAt) { themeAt = performance.now() + 1000; light = getComputedStyle(root).getPropertyValue('--bg').trim().toUpperCase() === '#F0EEEB'; }
+    const zk = k * zoom;
+    // tela retina (celular, iPhone, Mac): desenha em pixels de verdade, não num canto pequeno
+    const key = [view, floors.length, cw, ch, dpr, zoom.toFixed(3), cam.x.toFixed(1), cam.y.toFixed(1), light, night, portrait, now.getMinutes()].join('|');
+    if (key !== bgKey) {
+      bgKey = key;
+      if (bg.width !== canvas.width || bg.height !== canvas.height) { bg.width = canvas.width; bg.height = canvas.height; }
+      const g = bg.getContext('2d');
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      drawStatic(g, f, night);
+    }
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.drawImage(bg, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // móveis + pessoas, ordenados pela altura na tela
     const items = [];
-    for (const r of f.rooms) for (const fu of r.furniture) if (fu.x != null) items.push({ sy: P(fu.x, fu.y + (fu.t.startsWith('mesa') ? 14 : 0)).y, draw: () => drawFurniture(ctx, fu, P, zk, t, night) });
+    for (const r of f.rooms) for (const fu of r.furniture) if (fu.x != null && fu.t !== 'tapete' && fu.t !== 'arte') items.push({ sy: P(fu.x, fu.y + (fu.t.startsWith('mesa') ? 14 : 0)).y, draw: () => drawFurniture(ctx, fu, P, zk, t, night) });
     for (const p of people.values()) {
       if (p.floor !== view) continue;
       const s = P(p.x, p.y);
       p.sx = s.x; p.sy = s.y; p.scale = Math.max(0.55, 1.25 * zk);
       items.push({ sy: s.y, draw: () => drawPerson(ctx, p, t) });
     }
+    if (pet.floor === view) { const s = P(pet.x, pet.y); pet.sx = s.x; pet.sy = s.y; pet.scale = Math.max(0.5, 1.1 * zk); items.push({ sy: s.y, draw: () => drawPet(ctx, pet, t) }); }
     items.sort((a, b) => a.sy - b.sy);
     for (const it of items) it.draw();
+    // quadro de tarefas de cada sala do time: quem senta ali e no que está trabalhando
+    if (f.kind === 'time' && zk > 0.45) {
+      ctx.font = `600 ${Math.max(7, 8.5 * zk)}px system-ui`; ctx.fillStyle = '#18181B';
+      for (const r of f.rooms.filter((x) => x.office)) {
+        const lines = [...people.values()].filter((q) => q.target && q.target.floor === view && r.desks.some((d) => d.x === q.target.x && d.y === q.target.y)).map((q) => `${q.id}: ${q.info?.latest?.task ?? 'esperando ordem'}`);
+        lines.slice(0, 2).forEach((txt, i) => { const a = P((r.x0 + r.x1) / 2, 39 + i * 10); let x = txt; while (ctx.measureText(x).width > 128 * zk && x.length > 6) x = x.slice(0, -2); label(x === txt ? x : x + '…', a.x, a.y); });
+      }
+    }
+    // confete de quem terminou
+    for (const c of confetti) { if (c.floor !== view) continue; const a = P(c.x, c.y); ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(c.r); ctx.globalAlpha = Math.min(1, c.life); ctx.fillStyle = c.c; ctx.fillRect(-3 * zk, -1.5 * zk, 6 * zk, 3 * zk); ctx.restore(); }
     // painel de aprovações e telão da reunião
     if (f.kind === 'diretoria') {
+      const done = [...people.values()].filter((q) => q.mood === 'terminou').length;
+      const tr = P(60, 222); ctx.font = `700 ${Math.max(8, 10 * zk)}px system-ui`; ctx.fillStyle = '#FACC15'; label(`${done} ✓ hoje`, tr.x, tr.y);
       const pa = P(1030, 45);
       ctx.font = `700 ${Math.max(9, 12 * zk)}px system-ui`; ctx.fillStyle = pending ? '#F87171' : '#4ADE80';
       label(pending ? `${pending} esperando você` : 'nada pendente', pa.x, pa.y + 4 * zk);
@@ -537,20 +689,35 @@ export function createPredio(root, hooks = {}) {
       ctx.fillStyle = callData && callData.status !== 'ENCERRADA' ? '#FB923C' : '#71717A';
       label(callData && callData.status !== 'ENCERRADA' ? `● chamada: ${String(callData.topic ?? '').slice(0, 40)}` : 'sala livre', tl.x, tl.y + 4 * zk);
     }
-    // nomes, estado e balões por cima de tudo
-    for (const p of people.values()) {
-      if (p.floor !== view) continue;
+    if (pet.floor === view && pet.bubble && pet.bubble.until > performance.now()) drawTag({ ...pet, id: 'AgentC', mood: 'chamada', boss: false, info: null }, zk, t, true);
+    // nomes, estado e balões por cima de tudo; etiquetas que se encostam descem uma linha
+    const placed = [];
+    ctx.font = `700 ${Math.max(9, 10.5 * Math.min(zk * 1.2, 1.4))}px system-ui`;
+    for (const p of [...people.values()].filter((q) => q.floor === view).sort((a, b) => a.sy - b.sy)) {
+      const w = ctx.measureText(p.boss ? 'VOCÊ · chefe' : p.id).width + 16;
+      let y = p.sy + 6;
+      while (placed.some((r) => Math.abs(r.x - p.sx) < (r.w + w) / 2 + 2 && Math.abs(r.y - y) < 17)) y += 17;
+      placed.push({ x: p.sx, y, w });
+      p.tagY = y;
       drawTag(p, zk, t);
     }
     if (night) { ctx.fillStyle = 'rgba(10,15,40,.18)'; ctx.fillRect(0, 0, cw, ch); }
   }
 
-  function drawTag(p, zk, t) {
+  function drawTag(p, zk, t, petOnly = false) {
     const s = p.scale;
     const name = p.boss ? 'VOCÊ · chefe' : p.id;
+    if (petOnly) {
+      const hy = p.sy - 34 * s;
+      ctx.font = `500 ${Math.max(10, 11 * Math.min(zk * 1.2, 1.4))}px system-ui`;
+      const bw = ctx.measureText(p.bubble.text).width + 18, bx = Math.max(4, Math.min(cw - bw - 4, p.sx - bw / 2));
+      ctx.fillStyle = 'rgba(253,186,116,.97)'; rr(ctx, bx, hy - 26, bw, 22, 10); ctx.fill();
+      ctx.fillStyle = '#18181B'; ctx.textAlign = 'left'; ctx.fillText(p.bubble.text, bx + 9, hy - 11);
+      return;
+    }
     ctx.font = `700 ${Math.max(9, 10.5 * Math.min(zk * 1.2, 1.4))}px system-ui`;
     const w = ctx.measureText(name).width + 16;
-    const x = p.sx - w / 2, y = p.sy + 6;
+    const x = p.sx - w / 2, y = p.tagY ?? p.sy + 6;
     ctx.fillStyle = selected === p.id ? 'rgba(249,115,22,.95)' : 'rgba(9,9,11,.82)';
     rr(ctx, x, y, w, 16, 8); ctx.fill();
     ctx.fillStyle = STATUS_COLOR[p.mood] ?? '#71717A';
@@ -583,10 +750,15 @@ export function createPredio(root, hooks = {}) {
 
   function frame(ts) {
     if (!running) return;
+    // 30 quadros por segundo bastam para bonequinhos: metade do trabalho da CPU/bateria
+    if (ts - lastDraw < 32) { requestAnimationFrame(frame); return; }
+    lastDraw = ts;
     const dt = Math.min(0.1, (ts - (last || ts)) / 1000);
     last = ts;
     const t = ts / 1000;
     wander(ts);
+    stepConfetti(reduce ? 0 : dt);
+    stepPet(reduce ? 0 : dt, ts);
     for (const p of people.values()) {
       step(p, reduce ? 1 : dt, ts);
       p.blink = (t + p.phase) % 4 < 0.12;
@@ -635,6 +807,12 @@ export function createPredio(root, hooks = {}) {
       if (d < 30 * Math.max(1, p.scale) && d < best) { best = d; hit = p; }
     }
     if (hit) return openCard(hit);
+    if (pet.floor === view && Math.hypot(sx - pet.sx, sy - (pet.sy - 10 * pet.scale)) < 22 * Math.max(1, pet.scale)) {
+      const frases = ['Oi! Eu sou o AgentC 🤖', 'Cuido do time pra você.', 'Psiu: tem café na copa ☕', 'Todo mundo trabalhando!', 'Me faz cócegas não! 😆'];
+      pet.bubble = { text: frases[Math.floor(Math.random() * frases.length)], until: performance.now() + 3500 };
+      pet.restUntil = performance.now() + 3500; pet.path = [];
+      return;
+    }
     // tocar na escada sobe ou desce
     const w = unP(sx, sy);
     if (w.x > STAIRS.x0 && w.y > STAIRS.y0) { goFloor(w.y < 560 ? view + 1 : view - 1); return; }
@@ -713,7 +891,7 @@ export function createPredio(root, hooks = {}) {
     /** Falas novas da sala viram balão em cima do bonequinho. */
     chat(entries) {
       for (const e of entries ?? []) {
-        const id = e.agent === 'DONO' || e.agent === 'DONO' ? 'VOCÊ' : e.agent;
+        const id = e.agent === 'USUARIO' || e.agent === 'DONO' ? 'VOCÊ' : e.agent;
         const p = people.get(id); if (!p) continue;
         const text = String(e.body ?? e.heading ?? '').replace(/^\s*-\s*(para|assunto|via)\s*:.*$/gim, '').replace(/[*_`#>]/g, '').replace(/\s+/g, ' ').trim();
         if (!text) continue;

@@ -18,7 +18,7 @@
   <span class="muted small" style="margin-left:auto;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Pagamento seguro</span>
 </div></nav>
 <main><div class="wrap">
-  <header class="page-head"><span class="kicker">Pagamento</span><h1>Escolha o plano.</h1>
+  <header class="page-head"><span class="kicker">Pagamento</span> <span id="rev" class="tag" style="position:static;margin-left:8px" hidden>Em revisão</span><h1>Escolha o plano.</h1>
   <p class="lead">O Agent Control é grátis e completo no seu PC. Os planos pagos liberam mais pessoas no time e serviços na nuvem. Cancele quando quiser.</p></header>
 
   <div id="aviso" class="note" hidden></div>
@@ -59,6 +59,7 @@ async function load() {
   if (saas) {
     try { const r = await fetch(new URL('planos', saas.endsWith('/') ? saas : saas + '/'), { headers: { Accept: 'application/json' } }); if (r.ok) { const j = await r.json(); if (Array.isArray(j.planos)) cfg = { ...cfg, ...j }; } } catch { /* usa o config.json */ }
   }
+  if (cfg.status === 'em_revisao') $('#rev').hidden = false;
   if (!cfg.aberto && cfg.aviso) { $('#aviso').textContent = cfg.aviso; $('#aviso').hidden = false; }
   const want = new URLSearchParams(location.search).get('plano');
   const box = $('#plans');
@@ -89,7 +90,7 @@ function choose(p) {
   $('#total').textContent = total();
   const can = cfg.aberto && (https(cfg.saas || '') || https(p.checkout || '') || p.preco == null);
   $('#go').disabled = !can;
-  $('#go').textContent = p.preco == null ? 'Falar com a gente' : can ? 'Ir para o pagamento' : 'Em breve';
+  $('#go').textContent = p.preco == null ? 'Falar com a gente' : can ? 'Ir para o pagamento' : cfg.status === 'em_revisao' ? 'Pagamento em revisão' : 'Em breve';
   history.replaceState(null, '', `?plano=${encodeURIComponent(p.id)}`);
 }
 $('#people').addEventListener('input', () => { $('#total').textContent = total(); });

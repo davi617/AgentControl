@@ -4,10 +4,51 @@
   "licencaUrl": "",
   "moeda": "BRL",
   "aberto": false,
-  "aviso": "O pagamento online ainda não foi liberado. Os planos pagos chegam em breve; o app continua grátis e completo no seu PC.",
+  "aviso": "O pagamento está em revisão: por enquanto ainda não dá para assinar. O Agent Control continua grátis e completo no seu PC. Quando liberar, o botão de pagar aparece aqui.",
   "planos": [
-    { "id": "pro", "nome": "Pro", "preco": 29, "periodo": "mês", "pessoas": 5, "recursos": ["Tudo do Grátis", "Até 5 pessoas no time", "Acesso de fora sem Tailscale", "Backup da configuração"], "checkout": "" },
-    { "id": "time", "nome": "Time", "preco": 19, "periodo": "pessoa/mês", "porPessoa": true, "pessoas": null, "recursos": ["Tudo do Pro", "Pessoas ilimitadas", "Aprovação em dupla", "Auditoria de 1 ano"], "checkout": "" },
-    { "id": "empresa", "nome": "Empresa", "preco": null, "periodo": "", "pessoas": null, "recursos": ["Tudo do Time", "SSO", "Suporte prioritário", "Contrato"], "checkout": "" }
-  ]
+    {
+      "id": "pro",
+      "nome": "Pro",
+      "preco": 29,
+      "periodo": "mês",
+      "pessoas": 5,
+      "recursos": [
+        "Tudo do Grátis",
+        "Até 5 pessoas no time",
+        "Acesso de fora sem Tailscale",
+        "Backup da configuração"
+      ],
+      "checkout": ""
+    },
+    {
+      "id": "time",
+      "nome": "Time",
+      "preco": 19,
+      "periodo": "pessoa/mês",
+      "porPessoa": true,
+      "pessoas": null,
+      "recursos": [
+        "Tudo do Pro",
+        "Pessoas ilimitadas",
+        "Aprovação em dupla",
+        "Auditoria de 1 ano"
+      ],
+      "checkout": ""
+    },
+    {
+      "id": "empresa",
+      "nome": "Empresa",
+      "preco": null,
+      "periodo": "",
+      "pessoas": null,
+      "recursos": [
+        "Tudo do Time",
+        "SSO",
+        "Suporte prioritário",
+        "Contrato"
+      ],
+      "checkout": ""
+    }
+  ],
+  "status": "em_revisao"
 }
