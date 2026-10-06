@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pagamento · Agent Control</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="../img/agentc.png">
+<meta name="theme-color" content="#090909">
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="../assets/sub.css">
+</head>
+<body>
+<div class="glow"></div>
+<nav><div class="wrap">
+  <a class="logo" href="../"><img src="../img/agentc.png" alt="">Agent Control</a>
+  <span class="muted small" style="margin-left:auto;display:flex;align-items:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Pagamento seguro</span>
+</div></nav>
+<main><div class="wrap">
+  <header class="page-head"><span class="kicker">Pagamento</span> <span id="rev" class="tag" style="position:static;margin-left:8px" hidden>Em revisão</span><h1>Escolha o plano.</h1>
+  <p class="lead">O Agent Control é grátis e completo no seu PC. Os planos pagos liberam mais pessoas no time e serviços na nuvem. Cancele quando quiser.</p></header>
+
+  <div id="aviso" class="note" hidden></div>
+  <div class="plans" id="plans" role="group" aria-label="Planos"></div>
+
+  <form class="pay" id="pay" hidden>
+    <h3 id="payTitle">Pagar</h3>
+    <label id="peopleRow" hidden>Quantas pessoas no time (contando você)<input id="people" type="number" min="2" max="500" value="2" inputmode="numeric"></label>
+    <label>Seu e-mail (a licença chega nele)<input id="email" type="email" autocomplete="email" required maxlength="200" placeholder="voce@exemplo.com"></label>
+    <p class="muted small" id="total"></p>
+    <button class="btn primary" id="go" type="submit">Ir para o pagamento</button>
+    <p class="muted small">Você paga no site do meio de pagamento (Pix ou cartão). Nenhum dado de cartão passa por aqui.</p>
+    <p id="err" class="small" style="color:#fca5a5" role="alert"></p>
+  </form>
+
+  <h2>Já pagou?</h2>
+  <form class="pay" id="lic">
+    <label>Código do pedido (começa com AC)<input id="pedido" maxlength="44" autocomplete="off" placeholder="AC…" pattern="AC[A-Za-z0-9]{16,40}"></label>
+    <button class="btn" type="submit">Pegar minha licença</button>
+    <div id="licOut" hidden><p class="muted small">Copie e cole no app: <b>Launcher → Ajustes → Plano → Colar licença</b>.</p><div class="lic" id="licText"></div><div class="cta-row"><button class="btn primary" type="button" id="licCopy">Copiar licença</button></div></div>
+    <p id="licMsg" class="muted small" role="status"></p>
+  </form>
+  <p class="muted small" style="margin-top:22px">Dúvidas sobre cobrança? Abra um chamado em <a href="#" data-gh="/issues" style="text-decoration:underline">Problemas e ideias</a> (sem dados de pagamento).</p>
+</div></main>
+<footer><div class="wrap"><span class="logo"><img src="../img/agentc.png" alt="" style="width:20px">Agent Control</span><span>Licença MIT</span><span style="margin-left:auto"><a href="../">Voltar ao site</a></span></div></footer>
+<script type="module">
+import '../assets/sub.js';
+const $ = (s) => document.querySelector(s);
+const el = (t, c, x) => { const n = document.createElement(t); if (c) n.className = c; if (x != null) n.textContent = String(x); return n; };
+const brl = (v) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0 });
+const https = (u) => { try { const x = new URL(u); return x.protocol === 'https:' ? x.href : null; } catch { return null; } };
+let cfg = { planos: [] }, chosen = null;
+
+async function load() {
+  try { cfg = await (await fetch('config.json', { cache: 'no-store' })).json(); } catch { /* fica vazio */ }
+  const saas = https(cfg.saas || '');
+  // Gerido pelo SaaS: preços e disponibilidade vêm de lá (o config.json fica só de reserva).
+  if (saas) {
+    try { const r = await fetch(new URL('planos', saas.endsWith('/') ? saas : saas + '/'), { headers: { Accept: 'application/json' } }); if (r.ok) { const j = await r.json(); if (Array.isArray(j.planos)) cfg = { ...cfg, ...j }; } } catch { /* usa o config.json */ }
+  }
+  if (cfg.status === 'em_revisao') $('#rev').hidden = false;
+  if (!cfg.aberto && cfg.aviso) { $('#aviso').textContent = cfg.aviso; $('#aviso').hidden = false; }
+  const want = new URLSearchParams(location.search).get('plano');
+  const box = $('#plans');
+  for (const p of cfg.planos ?? []) {
+    const b = el('button', 'plan'); b.type = 'button'; b.dataset.id = p.id; b.setAttribute('aria-pressed', 'false');
+    b.append(el('b', null, p.nome));
+    const price = el('div', 'price', p.preco == null ? 'Sob consulta' : brl(p.preco));
+    if (p.preco != null && p.periodo) price.append(el('small', null, ` /${p.periodo}`));
+    b.append(price);
+    const ul = el('ul'); for (const r of p.recursos ?? []) ul.append(el('li', null, r)); b.append(ul);
+    b.addEventListener('click', () => choose(p));
+    box.append(b);
+    if (p.id === want) choose(p);
+  }
+}
+
+function total() {
+  if (!chosen || chosen.preco == null) return '';
+  const n = chosen.porPessoa ? Math.max(2, Number($('#people').value) || 2) : 1;
+  return `Total: ${brl(chosen.preco * n)} por mês${chosen.porPessoa ? ` (${n} pessoas)` : ''}.`;
+}
+function choose(p) {
+  chosen = p;
+  document.querySelectorAll('.plan').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.id === p.id)));
+  $('#pay').hidden = false;
+  $('#payTitle').textContent = `Plano ${p.nome}`;
+  $('#peopleRow').hidden = !p.porPessoa;
+  $('#total').textContent = total();
+  const can = cfg.aberto && (https(cfg.saas || '') || https(p.checkout || '') || p.preco == null);
+  $('#go').disabled = !can;
+  $('#go').textContent = p.preco == null ? 'Falar com a gente' : can ? 'Ir para o pagamento' : cfg.status === 'em_revisao' ? 'Pagamento em revisão' : 'Em breve';
+  history.replaceState(null, '', `?plano=${encodeURIComponent(p.id)}`);
+}
+$('#people').addEventListener('input', () => { $('#total').textContent = total(); });
+
+$('#pay').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('#err').textContent = '';
+  if (!chosen) return;
+  if (chosen.preco == null) { const a = document.querySelector('[data-gh="/issues"]'); if (a) location.href = a.href; return; }
+  const saas = https(cfg.saas || '');
+  const email = $('#email').value.trim();
+  try {
+    let url = null;
+    if (saas) {
+      const r = await fetch(new URL('checkout', saas.endsWith('/') ? saas : saas + '/'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ plano: chosen.id, email, pessoas: chosen.porPessoa ? Number($('#people').value) : undefined }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.erro || j.error || `HTTP ${r.status}`);
+      url = https(j.url || '');
+      if (j.pedido) { try { sessionStorage.setItem('ac.pedido', j.pedido); } catch { /* privado */ } }
+    } else url = https(chosen.checkout || '');
+    if (!url) throw new Error('pagamento indisponível agora');
+    location.href = url;
+  } catch (err) { $('#err').textContent = `Não deu para abrir o pagamento: ${err.message}. Tente de novo em alguns minutos.`; }
+});
+
+// Retirada da licença: a Edge Function responde { pago, plano, licenca } pelo código aleatório do pedido.
+try { const p = new URLSearchParams(location.search).get('pedido') || sessionStorage.getItem('ac.pedido'); if (p) $('#pedido').value = p; } catch { /* privado */ }
+$('#lic').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const id = $('#pedido').value.trim().toUpperCase();
+  const base = https(cfg.licencaUrl || '');
+  $('#licOut').hidden = true;
+  if (!/^AC[A-Z0-9]{16,40}$/.test(id)) { $('#licMsg').textContent = 'Confira o código do pedido.'; return; }
+  if (!base) { $('#licMsg').textContent = 'A entrega automática ainda não foi ligada. Sua licença chega por e-mail.'; return; }
+  $('#licMsg').textContent = 'Procurando…';
+  try {
+    const u = new URL(base); u.searchParams.set('pedido', id);
+    const r = await fetch(u, { headers: { Accept: 'application/json' } });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 404) { $('#licMsg').textContent = 'Pedido não encontrado.'; return; }
+    if (!r.ok) throw new Error(j.erro || `HTTP ${r.status}`);
+    if (!j.pago) { $('#licMsg').textContent = 'O pagamento ainda não foi confirmado. Pix costuma cair em segundos; cartão em alguns minutos.'; return; }
+    $('#licText').textContent = String(j.licenca ?? '');
+    $('#licOut').hidden = false;
+    $('#licMsg').textContent = `Pago ✓ Plano ${j.plano}.`;
+  } catch (err) { $('#licMsg').textContent = `Não consegui buscar agora: ${err.message}`; }
+});
+$('#licCopy').addEventListener('click', async () => { try { await navigator.clipboard.writeText($('#licText').textContent); $('#licCopy').textContent = 'Copiada ✓'; } catch { $('#licCopy').textContent = 'Selecione e copie'; } });
+load();
+</script>
+</body>
+</html>

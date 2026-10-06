@@ -30,6 +30,7 @@ const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'pu
 const STATIC: Record<string, [string, string]> = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+  '/predio.js': ['predio.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8'],
   '/icon.svg': ['icon.svg', 'image/svg+xml'],
   // iPhone/iPad e navegador de qualquer celular: app instalável pela tela de início (PWA) e tela de entrar.
@@ -37,7 +38,13 @@ const STATIC: Record<string, [string, string]> = {
   '/apple-touch-icon.png': ['apple-touch-icon.png', 'image/png'],
   '/entrar': ['entrar.html', 'text/html; charset=utf-8'],
   '/entrar.js': ['entrar.js', 'text/javascript; charset=utf-8'],
+  '/sw.js': ['sw.js', 'text/javascript; charset=utf-8'],
+  '/icon-192.png': ['icon-192.png', 'image/png'],
+  '/icon-512.png': ['icon-512.png', 'image/png'],
+  '/icon-maskable-512.png': ['icon-maskable-512.png', 'image/png'],
 };
+/** Abrem sem token no remoto: só a tela de entrar e o que ela precisa (nada com dado do time). */
+const OPEN_STATIC = new Set(['/entrar', '/entrar.js', '/icon.svg', '/apple-touch-icon.png', '/manifest.webmanifest', '/style.css', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png']);
 
 const SECURITY_HEADERS = {
   'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
@@ -45,7 +52,31 @@ const SECURITY_HEADERS = {
   'Referrer-Policy': 'no-referrer',
   'X-Frame-Options': 'DENY',
   'Cache-Control': 'no-store',
+  // Microfone só para a chamada; câmera, localização, pagamento e USB desligados. Nada de outra origem lê ou abre a sala.
+  'Permissions-Policy': 'camera=(), geolocation=(), payment=(), usb=(), microphone=(self)',
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Resource-Policy': 'same-origin',
 };
+
+/**
+ * Freio contra adivinhar o token na tela de entrar: 8 erros por IP em 15 min bloqueiam aquele IP por 15 min.
+ * Fica na memória (reiniciar o servidor zera), o que basta: o token tem 256 bits e o remoto só existe no tailnet.
+ */
+export class LoginGuard {
+  private fails = new Map<string, { n: number; first: number; until: number }>();
+  private max: number;
+  private windowMs: number;
+  constructor(max = 8, windowMs = 15 * 60_000) { this.max = max; this.windowMs = windowMs; }
+  blocked(ip: string, now = Date.now()): boolean { const f = this.fails.get(ip); return !!f && f.until > now; }
+  fail(ip: string, now = Date.now()): void {
+    const f = this.fails.get(ip);
+    if (!f || now - f.first > this.windowMs) { this.fails.set(ip, { n: 1, first: now, until: 0 }); return; }
+    f.n++;
+    if (f.n >= this.max) f.until = now + this.windowMs;
+    if (this.fails.size > 10_000) this.fails.clear(); // não deixa a memória crescer sem fim
+  }
+  ok(ip: string): void { this.fails.delete(ip); }
+}
 
 function readBody(req: http.IncomingMessage, limit: number): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -79,6 +110,7 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     : new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]);
 
   const team = teamFor(j.cfg.db === ':memory:' ? null : path.dirname(j.cfg.db));
+  const guard = new LoginGuard();
   const plans = new PlanStore(j.cfg.db === ':memory:' ? null : path.dirname(j.cfg.db));
   const handle = (req: http.IncomingMessage, res: http.ServerResponse) => {
     // Quem está pedindo: no PC é o dono; no remoto, o token principal é o dono e um token de convite é a pessoa do time.
@@ -87,6 +119,13 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     // Navegador (iPhone/PWA) não manda Bearer: depois de /entrar, o token vai num cookie HttpOnly. Pedido por cookie
     // é credencial automática do navegador, então as escritas por esse caminho exigem o token CSRF (como no PC).
     let viaCookie = false, anon = false;
+    // Sair (iPhone/PWA): apaga o cookie. Vale com ou sem token válido; Origin de outro site é recusado.
+    if ((req.url ?? '').split('?')[0] === '/api/logout' && req.method === 'POST') {
+      const o = req.headers.origin;
+      const okOrigin = !o || o.replace(/^https?:\/\//, '') === req.headers.host;
+      res.writeHead(okOrigin ? 200 : 403, { ...SECURITY_HEADERS, 'Content-Type': 'application/json', ...(okOrigin ? { 'Set-Cookie': 'ac_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' } : {}) }).end(okOrigin ? '{"ok":true}' : '{"error":"origem recusada"}');
+      return;
+    }
     if (remote) {
       const pathOnly = (req.url ?? '/').split('?')[0];
       const auth = String(req.headers.authorization ?? '');
@@ -96,14 +135,21 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
       const guest = tok ? team.byToken(tok) : null;
       if (tok && sameSecret(tok, remote.token)) who = OWNER;
       else if (guest) who = guest;
-      else if (STATIC[pathOnly] && ['/entrar', '/entrar.js', '/icon.svg', '/apple-touch-icon.png', '/manifest.webmanifest', '/style.css'].includes(pathOnly)) {
+      else if (STATIC[pathOnly] && OPEN_STATIC.has(pathOnly)) {
         anon = true; // tela de entrar e ícones abrem sem token (e não contam como ninguém)
       } else if (pathOnly === '/api/login' && req.method === 'POST') {
+        const ip = req.socket.remoteAddress ?? '?';
+        const json = { ...SECURITY_HEADERS, 'Content-Type': 'application/json' };
+        // Login só da própria tela de entrar: outro site não consegue logar o navegador com um token dele.
+        const o = req.headers.origin;
+        if (o && o.replace(/^https?:\/\//, '') !== `${remote.host}:${port}` || req.headers.host !== `${remote.host}:${port}`) { res.writeHead(403, json).end('{"error":"origem recusada"}'); return; }
+        if (guard.blocked(ip)) { res.writeHead(429, { ...json, 'Retry-After': '900' }).end('{"error":"muitas tentativas; espere 15 minutos"}'); return; }
         readBody(req, 1_024).then((raw) => {
           let t = '';
           try { t = String(JSON.parse(raw).token ?? '').trim(); } catch { /* vazio */ }
-          if (!t || !(sameSecret(t, remote.token) || team.byToken(t))) { res.writeHead(401, { ...SECURITY_HEADERS, 'Content-Type': 'application/json' }).end('{"error":"token não confere"}'); return; }
-          res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': 'application/json', 'Set-Cookie': `ac_token=${encodeURIComponent(t)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000` }).end('{"ok":true}');
+          if (!t || !(sameSecret(t, remote.token) || team.byToken(t))) { guard.fail(ip); res.writeHead(401, json).end('{"error":"token não confere"}'); return; }
+          guard.ok(ip);
+          res.writeHead(200, { ...json, 'Set-Cookie': `ac_token=${encodeURIComponent(t)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000` }).end('{"ok":true}');
         }).catch(() => res.writeHead(413, SECURITY_HEADERS).end());
         return;
       } else if ((req.headers.accept ?? '').includes('text/html')) {
@@ -367,8 +413,8 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     }
 
     // Time: quem sou eu e quem mais está aqui (presença).
-    if (url.pathname === '/api/team') { send(200, { me: who, people: team.list(), plano: publicPlan(plans.state()) }); return; }
-    if (url.pathname === '/api/plan') { send(200, publicPlan(plans.state())); return; }
+    if (url.pathname === '/api/team') { send(200, { me: who, people: team.list(), plano: { ...publicPlan(plans.state()), pagarUrl: j.cfg.pagarUrl ?? null } }); return; }
+    if (url.pathname === '/api/plan') { send(200, { ...publicPlan(plans.state()), pagarUrl: j.cfg.pagarUrl ?? null }); return; }
     if (url.pathname === '/api/session') {
       // Outro site não consegue ler esta resposta (sem CORS + checagem de Host), então o token não vaza.
       send(200, { csrf });

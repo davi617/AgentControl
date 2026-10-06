@@ -15,7 +15,7 @@ j.on('summary', ({ summary }) => console.log(`[resumo] ${summary.status} ${summa
 
 const server = createServer(j);
 server.listen(cfg.port, cfg.host, () => {
-  console.log(`JARVIS na sala: http://${cfg.host}:${cfg.port}  (somente local)`);
+  console.log(`Agent Control na sala: http://${cfg.host}:${cfg.port}  (somente local)`);
 });
 
 // Fase 4 (desligado por padrão): app do celular pelo Tailscale, com token.
@@ -31,7 +31,7 @@ if (cfg.remote?.enabled) {
   const rport = cfg.remote.port ?? cfg.port;
   remote = createServer(j, { host: cfg.remote.host, token, port: rport });
   remote.listen(rport, cfg.remote.host, () => {
-    console.log(`JARVIS remoto: http://${cfg.remote!.host}:${rport}  (só Tailscale/loopback, exige token)`);
+    console.log(`Agent Control remoto: http://${cfg.remote!.host}:${rport}  (só Tailscale/loopback, exige token)`);
   });
 }
 

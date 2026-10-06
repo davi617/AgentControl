@@ -284,7 +284,7 @@ test('chat: resposta colada do app do ChatGPT vai para CHAT/CHATGPT.md marcada',
   const h = { Origin: base, 'X-JARVIS-CSRF': await csrfOf(), 'Content-Type': 'application/json' };
   const r = await fetch(`${base}/api/chat`, { method: 'POST', headers: h, body: JSON.stringify({ project: 'test', as: 'CHATGPT', text: 'Concordo com o plano.', to: 'CLAUDE' }) });
   assert.equal(r.status, 201);
-  assert.match(readFileSync(path.join(vault, 'CHAT', 'CHATGPT.md'), 'utf8'), /- para: CLAUDE\n- via: app do ChatGPT, colado por você no JARVIS/);
+  assert.match(readFileSync(path.join(vault, 'CHAT', 'CHATGPT.md'), 'utf8'), /- para: CLAUDE\n- via: app do ChatGPT, colado por você no Agent Control/);
   const bad = await fetch(`${base}/api/chat`, { method: 'POST', headers: h, body: JSON.stringify({ project: 'test', text: 'x', to: '../../etc' }) });
   assert.equal(bad.status, 400);
 });

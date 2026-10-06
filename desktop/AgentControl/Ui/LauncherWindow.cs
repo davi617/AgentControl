@@ -257,10 +257,11 @@ public sealed class LauncherWindow : Window
             var allOn = router == ServiceState.Online && gate == ServiceState.Online && jarvis == ServiceState.Online;
             var exposed = router == ServiceState.Exposed || gate == ServiceState.Exposed;
             var working = snap.Agents.Count(a => K.StatusBrush(a.Status) == K.Brand);
-            heroTitle.Text = exposed ? "Atenção: serviço exposto na rede" : !allOn ? "Serviços desligados" : alive.Count == 0 ? "Serviços no ar · agentes desligados" : snap.Paused ? "Agentes pausados" : $"Tudo no ar · {alive.Count} de {loops.Count} agentes ligados";
+            var anyOn = router == ServiceState.Online || gate == ServiceState.Online || jarvis == ServiceState.Online;
+            heroTitle.Text = exposed ? "Atenção: serviço exposto na rede" : !allOn ? (anyOn ? "Parte dos serviços desligada" : "Serviços desligados") : alive.Count == 0 ? "Serviços no ar · agentes desligados" : snap.Paused ? "Agentes pausados" : $"Tudo no ar · {alive.Count} de {loops.Count} agentes ligados";
             heroTitle.Foreground = exposed ? K.Err : !allOn || alive.Count == 0 || snap.Paused ? K.Warn : K.Text;
             heroSub.Text = exposed ? "Algo está escutando fora do 127.0.0.1. Desligue o serviço e ligue de novo por aqui."
-                : !allOn ? "Ligar tudo sobe o roteador, a fila, o servidor e os agentes, nessa ordem."
+                : !allOn ? (anyOn ? $"Fora do ar: {string.Join(", ", new[] { router == ServiceState.Online ? null : "roteador", gate == ServiceState.Online ? null : "fila", jarvis == ServiceState.Online ? null : "servidor" }.Where(x => x is not null))}. Ligar tudo sobe o que falta." : "Ligar tudo sobe o roteador, a fila, o servidor e os agentes, nessa ordem.")
                 : alive.Count == 0 ? "Toque em Ligar agentes: os loops não voltam sozinhos quando o PC reinicia."
                 : $"{working} trabalhando agora · {snap.Pending} {(snap.Pending == 1 ? "aprovação esperando" : "aprovações esperando")} · {snap.TasksDone}/{snap.TasksTotal} tarefas do Goal";
 
@@ -332,9 +333,10 @@ public sealed class LauncherWindow : Window
         util.Children.Add(Link("Configuração", K.ISettings, () => svc.OpenPath(svc.SettingsPath)));
         util.Children.Add(Link("Sala no Obsidian", K.IBook, () => svc.OpenObsidianNote(svc.Settings.SalaNote)));
         util.Children.Add(Link("Chamada no painel", K.IPhone, () => _ = OpenPanel("call")));
+        util.Children.Add(Link("Prédio dos agentes", K.IBuilding, () => Platform.OpenAppWindow($"http://127.0.0.1:{svc.Settings.JarvisPort}/#predio")));
         left.Children.Add(util);
         body.Children.Add(Scroll(left));
-        var right = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, Content = agentCards };
+        var right = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = agentCards };
         Grid.SetColumn(right, 2); body.Children.Add(right);
 
         // atividade: faixa embaixo, na largura toda (as últimas linhas; tudo na aba Logs)
@@ -741,6 +743,8 @@ public sealed class LauncherWindow : Window
         v.Children.Add(K.Card(TeamPicker(), 18, new Thickness(20, 16)));
         v.Children.Add(K.Card(CallSettings(), 18, new Thickness(20, 16)));
         v.Children.Add(K.Card(TeamCard(), 18, new Thickness(20, 16)));
+        v.Children.Add(K.Card(PhoneCard(), 18, new Thickness(20, 16)));
+        v.Children.Add(K.Card(PlanCard(), 18, new Thickness(20, 16)));
         var info = new StackPanel();
         info.Children.Add(K.Label("Este PC"));
         info.Children.Add(Row("Sistema", $"{Platform.Name} · {System.Runtime.InteropServices.RuntimeInformation.OSDescription}"));
@@ -973,6 +977,119 @@ public sealed class LauncherWindow : Window
         col.Children.Add(tokenBox);
         _ = Load();
         return col;
+    }
+
+    /// <summary>
+    /// Celular e iPhone: liga o acesso de fora só pelo Tailscale e mostra o endereço e o token para colar no app Android
+    /// ou no Safari do iPhone (Adicionar à Tela de Início). O token só aparece quando você toca em Mostrar.
+    /// </summary>
+    Control PhoneCard()
+    {
+        var col = new StackPanel { Spacing = 10 };
+        col.Children.Add(K.Label("Celular e iPhone").Also(l => l.Margin = new Thickness(0)));
+        col.Children.Add(K.Wrap("Use a sala, o Prédio, os comandos e as aprovações no celular. No Android pelo app; no iPhone pelo Safari, como app na tela de início. Só pelo Tailscale (rede privada entre os seus aparelhos) e sempre com token: nada fica aberto na internet.", 12.5, K.Muted));
+        var state = K.T("", 13, K.Text2, FontWeight.SemiBold);
+        var addr = new TextBox { IsReadOnly = true, FontFamily = K.Mono, FontSize = 12.5, Background = K.Raised, BorderThickness = new Thickness(0), Padding = new Thickness(10, 8), MinWidth = 280 };
+        var tok = new TextBox { IsReadOnly = true, FontFamily = K.Mono, FontSize = 12, Background = K.Raised, BorderThickness = new Thickness(0), Padding = new Thickness(10, 8), MinWidth = 280, PasswordChar = '•' };
+        var details = new StackPanel { Spacing = 8, IsVisible = false };
+        var toast = K.T("", 12.5, K.Muted);
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        void Draw()
+        {
+            var r = svc.RemoteInfo();
+            state.Text = r.On ? $"Ligado · só pelo Tailscale ({r.Host})" : "Desligado · a sala só abre neste PC";
+            state.Foreground = r.On ? K.Ok : K.Muted;
+            details.IsVisible = r.On;
+            addr.Text = r.On ? $"http://{r.Host}:{r.Port}" : "";
+            tok.Text = r.Token ?? "(o servidor cria o token ao ligar; atualize em alguns segundos)";
+            buttons.Children.Clear();
+            buttons.Children.Add(Action(r.On ? "Desligar acesso pelo celular" : "Ligar acesso pelo celular", r.On ? K.IStop : K.IPhone, async () =>
+            {
+                toast.Text = r.On ? "Desligando…" : "Procurando o Tailscale e ligando…"; toast.Foreground = K.Muted;
+                var err = await svc.SetRemoteAsync(!r.On);
+                toast.Text = err ?? (r.On ? "Desligado. O celular para de conectar." : "Ligado. Abra o endereço abaixo no celular com o Tailscale ligado.");
+                toast.Foreground = err is null ? K.Ok : K.Err;
+                await Task.Delay(2500);
+                Draw();
+            }, primary: !r.On, danger: r.On, height: 36));
+        }
+        var show = Link("Mostrar", K.IOpen, () => { tok.PasswordChar = tok.PasswordChar == '\0' ? '•' : '\0'; });
+        var copyAddr = Link("Copiar", K.ICheck, () => _ = Clipboard?.SetTextAsync(addr.Text ?? ""));
+        var copyTok = Link("Copiar", K.ICheck, () => { _ = Clipboard?.SetTextAsync(svc.RemoteInfo().Token ?? ""); toast.Text = "Token copiado. Cole só no seu aparelho; quem tiver o token entra como você."; toast.Foreground = K.Warn; });
+        details.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.T("Endereço", 12, K.Muted).Also(t => { t.Width = 70; t.VerticalAlignment = VerticalAlignment.Center; }), new Border { CornerRadius = new CornerRadius(10), ClipToBounds = true, Child = addr }, copyAddr } });
+        details.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.T("Token", 12, K.Muted).Also(t => { t.Width = 70; t.VerticalAlignment = VerticalAlignment.Center; }), new Border { CornerRadius = new CornerRadius(10), ClipToBounds = true, Child = tok }, show, copyTok } });
+        details.Children.Add(K.Wrap("iPhone: instale o Tailscale, abra o endereço no Safari, cole o token e toque em Compartilhar → Adicionar à Tela de Início. Android: abra o app, cole o endereço e o token. Pessoas do time usam o token próprio (Pessoas do time, acima).", 12, K.Faint));
+        col.Children.Add(state);
+        col.Children.Add(buttons);
+        col.Children.Add(details);
+        col.Children.Add(toast.Also(t => { t.TextWrapping = TextWrapping.Wrap; t.MaxWidth = 900; }));
+        Draw();
+        return col;
+    }
+
+    /// <summary>
+    /// Plano: qual está valendo e o campo para colar a licença que chega depois do pagamento. O botão de pagar só aparece
+    /// se o servidor tiver uma página de pagamento configurada (pagarUrl): pagamento fica fora do resto do app.
+    /// </summary>
+    Control PlanCard()
+    {
+        var col = new StackPanel { Spacing = 10 };
+        col.Children.Add(K.Label("Plano").Also(l => l.Margin = new Thickness(0)));
+        var line = K.T("Carregando…", 13, K.Text2, FontWeight.SemiBold);
+        col.Children.Add(line);
+        col.Children.Add(K.Wrap("O app é grátis e completo no seu PC. Plano pago libera mais pessoas no Modo Time e serviços na nuvem. Depois de pagar, cole aqui a licença (texto que começa com AC1.).", 12.5, K.Muted));
+        var box = new TextBox { Watermark = "Cole a licença (AC1.…)", FontFamily = K.Mono, FontSize = 12, Background = K.Raised, BorderThickness = new Thickness(0), Padding = new Thickness(10, 8), Width = 520, AcceptsReturn = false };
+        var toast = K.T("", 12.5, K.Muted);
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8 };
+        string? payUrl = null;
+        var pay = Action("Mudar de plano", K.IOpen, () => { if (payUrl is not null) Platform.Open(payUrl); return Task.CompletedTask; }, height: 36);
+        pay.IsVisible = false;
+        async Task Load()
+        {
+            line.Text = await PlanText((await api.TeamAsync()).Count);
+            if (line.Text.Length == 0) line.Text = snap.Online ? "Plano Grátis" : "Ligue o servidor para ver o plano.";
+            try
+            {
+                using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+                using var doc = System.Text.Json.JsonDocument.Parse(await http.GetStringAsync($"http://127.0.0.1:{svc.Settings.JarvisPort}/api/plan"));
+                payUrl = doc.RootElement.TryGetProperty("pagarUrl", out var u) && u.ValueKind == System.Text.Json.JsonValueKind.String && u.GetString()!.StartsWith("https://") ? u.GetString() : null;
+            }
+            catch { payUrl = null; }
+            pay.IsVisible = payUrl is not null;
+        }
+        var install = Action("Colar licença", K.ICheck, async () =>
+        {
+            var text = (box.Text ?? "").Trim();
+            if (!text.StartsWith("AC1.")) { toast.Text = "Isso não parece uma licença (começa com AC1.)."; toast.Foreground = K.Warn; return; }
+            var err = await api.InstallLicense(text);
+            toast.Text = err is null ? "Licença instalada. Obrigado!" : $"Licença recusada: {err}";
+            toast.Foreground = err is null ? K.Ok : K.Err;
+            if (err is null) { box.Text = ""; svc.Log("Plano: licença nova instalada."); }
+            await Load();
+        }, primary: true, height: 36);
+        row.Children.Add(new Border { CornerRadius = new CornerRadius(10), ClipToBounds = true, Child = box });
+        row.Children.Add(install);
+        row.Children.Add(pay);
+        col.Children.Add(row);
+        col.Children.Add(toast.Also(t => { t.TextWrapping = TextWrapping.Wrap; t.MaxWidth = 900; }));
+        _ = Load();
+        return col;
+    }
+
+    /// <summary>Freemium: "Plano Grátis · 2 de 3 pessoas" (GET /api/plan; leitura não precisa de token CSRF).</summary>
+    async Task<string> PlanText(int people)
+    {
+        try
+        {
+            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+            using var doc = System.Text.Json.JsonDocument.Parse(await http.GetStringAsync($"http://127.0.0.1:{svc.Settings.JarvisPort}/api/plan"));
+            var r = doc.RootElement;
+            var nome = r.GetProperty("nome").GetString();
+            var cap = r.GetProperty("pessoas").ValueKind == System.Text.Json.JsonValueKind.Number ? $"{people} de {r.GetProperty("pessoas").GetInt32()} pessoas" : $"{people} pessoas (sem limite)";
+            var motivo = r.TryGetProperty("motivo", out var m) && m.ValueKind == System.Text.Json.JsonValueKind.String ? $" · licença recusada: {m.GetString()}" : "";
+            return $"Plano {nome} · {cap}{motivo}";
+        }
+        catch { return ""; }
     }
 
     // ======================================================================= diálogo e ações

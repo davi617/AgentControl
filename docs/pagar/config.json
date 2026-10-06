@@ -1,0 +1,54 @@
+{
+  "_leia": "Pagamento do Agent Control. Esta página não aparece no menu do site: só abre quando alguém vai pagar (pelo app ou por um link). Para gerir pelo SaaS, preencha saas com a URL da API (ela responde GET /planos e POST /checkout). Sem saas, usa os planos e links abaixo. licencaUrl é a Edge Function que entrega a licença depois do pagamento (supabase/functions/asaas-webhook). Nunca coloque chave de API aqui: este arquivo é público.",
+  "saas": "",
+  "licencaUrl": "",
+  "moeda": "BRL",
+  "aberto": false,
+  "aviso": "O pagamento está em revisão: por enquanto ainda não dá para assinar. O Agent Control continua grátis e completo no seu PC. Quando liberar, o botão de pagar aparece aqui.",
+  "planos": [
+    {
+      "id": "pro",
+      "nome": "Pro",
+      "preco": 29,
+      "periodo": "mês",
+      "pessoas": 5,
+      "recursos": [
+        "Tudo do Grátis",
+        "Até 5 pessoas no time",
+        "Acesso de fora sem Tailscale",
+        "Backup da configuração"
+      ],
+      "checkout": ""
+    },
+    {
+      "id": "time",
+      "nome": "Time",
+      "preco": 19,
+      "periodo": "pessoa/mês",
+      "porPessoa": true,
+      "pessoas": null,
+      "recursos": [
+        "Tudo do Pro",
+        "Pessoas ilimitadas",
+        "Aprovação em dupla",
+        "Auditoria de 1 ano"
+      ],
+      "checkout": ""
+    },
+    {
+      "id": "empresa",
+      "nome": "Empresa",
+      "preco": null,
+      "periodo": "",
+      "pessoas": null,
+      "recursos": [
+        "Tudo do Time",
+        "SSO",
+        "Suporte prioritário",
+        "Contrato"
+      ],
+      "checkout": ""
+    }
+  ],
+  "status": "em_revisao"
+}

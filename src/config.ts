@@ -44,6 +44,8 @@ export interface Config {
   pollInterval?: number; // ms; só se o watcher nativo falhar (OneDrive)
   summary: SummaryCfg;
   projects: ProjectCfg[];
+  /** Página de pagamento (site/pagar/ ou a do seu SaaS). Só https; vazio = o app não mostra "Mudar de plano". */
+  pagarUrl?: string;
 }
 
 export function expand(p: string, base = process.cwd()): string {
@@ -65,13 +67,15 @@ export function loadConfig(file: string): Config {
   const cfg = JSON.parse(readFileSync(file, 'utf8')) as Config;
   const base = path.dirname(path.resolve(file));
   // Regra dura do projeto: só loopback. Rede/Tailscale é Fase 4, com autenticação.
-  if (!LOOPBACK.has(cfg.host)) throw new Error(`host "${cfg.host}" recusado: JARVIS só escuta em 127.0.0.1 nesta fase`);
+  if (!LOOPBACK.has(cfg.host)) throw new Error(`host "${cfg.host}" recusado: o Agent Control só escuta em 127.0.0.1 nesta fase`);
   if (cfg.remote?.enabled) {
     // Fase 4: só dentro do tailnet — ou em loopback, estritamente local (teste/emulador).
     if (!LOOPBACK.has(cfg.remote.host) && !isTailscaleIp(cfg.remote.host)) throw new Error(`remote.host "${cfg.remote.host}" recusado: use o IP do Tailscale (100.64.0.0/10) ou 127.0.0.1 para teste local`);
     if (cfg.remote.port !== undefined && (!Number.isInteger(cfg.remote.port) || cfg.remote.port < 1 || cfg.remote.port > 65535)) throw new Error('remote.port inválida');
     cfg.remote.tokenFile = expand(cfg.remote.tokenFile, base);
   }
+  const pay = cfg.pagarUrl ?? process.env.AGENT_CONTROL_PAY_URL;
+  cfg.pagarUrl = pay && /^https:\/\/[^\s"'<>]+$/.test(pay) ? pay : undefined;
   cfg.db = expand(cfg.db, base);
   cfg.summary.keyFile = expand(cfg.summary.keyFile, base);
   for (const p of cfg.projects) {

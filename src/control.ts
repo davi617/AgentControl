@@ -15,7 +15,7 @@ export function pauseState(dir: string): PauseState {
 }
 
 export function setPause(dir: string, on: boolean, agora = false): PauseState {
-  if (on) writeFileSync(file(dir), `${agora ? 'agora' : 'depois da rodada'} · pausado pelo dono no JARVIS em ${new Date().toISOString()}\n`);
+  if (on) writeFileSync(file(dir), `${agora ? 'agora' : 'depois da rodada'} · pausado pelo dono no Agent Control em ${new Date().toISOString()}\n`);
   else rmSync(file(dir), { force: true });
   return pauseState(dir);
 }

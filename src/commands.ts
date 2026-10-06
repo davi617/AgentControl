@@ -130,7 +130,7 @@ export function decideCommand(store: Store, p: ProjectCfg, code: string, decisio
     `- ${approved ? 'approved' : 'rejected'}: ${code}`,
     `- status: ${approved ? 'APPROVED' : 'REJECTED'}`,
     '',
-    approved ? `> Aprovado por você no JARVIS. Vale só para ${code}.` : `> Recusado por você no JARVIS. Não executar ${code}.`,
+    approved ? `> Aprovado por você no Agent Control. Vale só para ${code}.` : `> Recusado por você no Agent Control. Não executar ${code}.`,
     '',
   ].join('\n'));
   mirrorInbox(p, file);

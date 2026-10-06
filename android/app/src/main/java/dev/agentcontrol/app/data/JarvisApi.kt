@@ -56,8 +56,8 @@ class JarvisApi(url: String, private val token: String) {
             val msg = runCatching { json.decodeFromString<ErrorResponse>(text).error }.getOrNull()
             throw JarvisException(
                 when (code) {
-                    401 -> "Token recusado. Confira o token do JARVIS."
-                    403 -> msg ?: if (text.contains("host recusado")) "Use o IP 100.x do PC no endereço (o nome do PC não é aceito)." else "Pedido recusado pelo JARVIS."
+                    401 -> "Token recusado. Confira o token do Agent Control."
+                    403 -> msg ?: if (text.contains("host recusado")) "Use o IP 100.x do PC no endereço (o nome do PC não é aceito)." else "Pedido recusado pelo Agent Control."
                     404 -> msg ?: "Endereço errado (404). Use só http://100.x.y.z:20150"
                     else -> msg ?: "Erro HTTP $code"
                 },

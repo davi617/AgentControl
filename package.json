@@ -1,5 +1,5 @@
 {
-  "name": "jarvis",
+  "name": "agent-control",
   "version": "0.1.0",
   "private": true,
   "description": "JARVIS â€” sala onde você vÃª todos os agentes, recebe resumos e (Fase 2+) manda comandos.",
@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/main.ts",
     "gate": "node src/gate.ts",
-    "test": "node --test test/"
+    "test": "node --test --test-concurrency=1 test/*.test.ts test/*.test.mjs"
   },
   "dependencies": {
     "chokidar": "^5.0.0"

@@ -1,0 +1,9 @@
+# Varredura de segredos (CI). Usa as regras padrão do gitleaks e ignora só o que é de mentira de propósito:
+# tokens falsos dos testes do filtro de segredos e o marcador COLE_O_TOKEN_AQUI dos tutoriais.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "dados falsos de teste e marcadores de tutorial"
+paths = ['''^test/.*\.test\.(ts|mjs)$''']
+regexes = ['''COLE_O_TOKEN_AQUI''', '''SEU_TOKEN''']

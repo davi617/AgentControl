@@ -37,6 +37,7 @@ public static class K
 
     // ---------------- ícones (traço 2 px numa caixa 24×24; "F:" = preenchido) ----------------
     public const string IHome = "M3 11 12 4l9 7 M5 10v10h5v-6h4v6h5V10", IChat = "M4 5h16v11H9l-5 4z",
+        IBuilding = "M4 21V5l8-3 8 3v16 M3 21h18 M9 21v-4h6v4 M8 8h2 M14 8h2 M8 12h2 M14 12h2",
         IPhone = "M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A16 16 0 0 1 4 5a1 1 0 0 1 1-1z",
         IGoal = "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8z M12 11.6v.8", IHealth = "M3 12h4l3-7 4 14 3-7h4",
         IMic = "M9 5a3 3 0 0 1 6 0v6a3 3 0 0 1-6 0z M5 11a7 7 0 0 0 14 0 M12 18v3", ISend = "M4 12 20 4l-6 16-3-7z M11 13l9-9",

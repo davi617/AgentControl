@@ -1,0 +1,17 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 3
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: monthly }
+  - package-ecosystem: gradle
+    directory: /android
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3
+  - package-ecosystem: nuget
+    directory: /desktop/AgentControl
+    schedule: { interval: monthly }
+    open-pull-requests-limit: 3

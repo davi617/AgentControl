@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>No Raspberry Pi e no terminal · Agent Control</title>
+<meta name="description" content="Rode a sala dos agentes num Raspberry Pi ou só no terminal, por SSH.">
+<link rel="icon" href="../img/agentc.png">
+<link rel="apple-touch-icon" href="../img/agentc.png">
+<meta name="theme-color" content="#090909">
+<meta name="color-scheme" content="dark">
+<link rel="stylesheet" href="../assets/sub.css">
+</head>
+<body>
+<div class="glow"></div>
+<nav><div class="wrap">
+  <a class="logo" href="../"><img src="../img/agentc.png" alt="">Agent Control</a>
+  <div class="links"><a href="../#pc">PC</a><a href="../#celular">Celular</a><a href="../#predio">Prédio</a><a href="../instalar/" class="on">Instalar</a></div>
+  <a class="btn" href="#" data-gh=""><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.1 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg>GitHub</a>
+</div></nav>
+<main><div class="wrap">
+<div class="crumb" style="padding-top:28px"><a href="../">Início</a><span>›</span><a href="./">Instalar</a><span>›</span><span>Raspberry Pi e terminal</span></div>
+<header class="page-head" style="padding-top:18px"><div class="os-ic"><svg viewBox="0 0 24 24" fill="none" stroke="#f472b6" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="m7 9 3 3-3 3M12 15h5"/></svg></div><span class="kicker">Instalar</span><h1>Raspberry Pi e terminal</h1><p class="lead">Sem tela? A sala roda no terminal, por SSH ou num Raspberry Pi 4/5, com o AgentC e a caixinha de fala. Um Arduino acende um LED por agente.</p></header>
+<h2>Raspberry Pi</h2>
+<ol class="steps">
+<li><h3>Sistema 64 bits e Node 24</h3><p>Raspberry Pi OS 64 bits (Pi 4 ou 5).</p></li>
+<li><h3>Instale e deixe ligado sozinho</h3><div class="code"><pre>$ git clone https://github.com/SEU-DONO/AgentControl && cd AgentControl
+$ bash tools/raspberry/instalar.sh</pre></div><p>Fica ligado pelo systemd, só em 127.0.0.1.</p></li>
+</ol>
+<h2>Só terminal (Linux, SSH)</h2>
+<div class="code"><pre>$ node tools/terminal/sala.mjs</pre></div>
+<h2>Arduino</h2>
+<div class="code"><pre>$ node tools/arduino/ponte.mjs /dev/ttyACM0</pre></div>
+<p class="muted" style="margin-top:8px">Aceso: trabalhando. Pisca rápido: travado. Pisca devagar: pronto. O buzzer apita com fala nova.</p>
+
+<h2>Outro aparelho?</h2><div class="other"><a href="iphone.html">iPhone e iPad</a><a href="android.html">Android</a><a href="windows.html">Windows</a><a href="mac.html">macOS</a><a href="linux.html">Linux</a></div>
+</div></main>
+<footer><div class="wrap">
+  <span class="logo"><img src="../img/agentc.png" alt="" style="width:20px">Agent Control</span>
+  <span>Licença MIT<span data-ver></span></span>
+  <span style="margin-left:auto;display:flex;gap:18px"><a href="#" data-gh="">Código</a><a href="#" data-gh="/releases">Versões</a><a href="#" data-gh="/issues">Problemas e ideias</a></span>
+</div></footer>
+<script type="module" src="../assets/sub.js"></script>
+</body>
+</html>

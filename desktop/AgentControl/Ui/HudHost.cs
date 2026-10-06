@@ -27,6 +27,9 @@ public sealed class HudHost
     bool? lastVoiceSetting;
     /// <summary>Modo Time: pessoas do time e quem está online (o dono é o primeiro).</summary>
     public List<HudApi.Person> People { get; private set; } = [];
+    /// <summary>A fila anti-429 está escutando? (sem ela os agentes ficam sem modelo; o HUD não diz "tudo no ar").</summary>
+    public bool QueueUp { get; private set; } = true;
+    int svcTick;
     CancellationTokenSource? voiceCts;
 
     readonly IClassicDesktopStyleApplicationLifetime desk;
@@ -60,6 +63,7 @@ public sealed class HudHost
             case "hud": OpenHud(0); break;
             case "mini": OpenMini(); break;
             case "web": OpenHud(2); break; // chamada agora fica no painel (antes abria a página antiga no navegador)
+            case "predio": OpenPredio(); break;
             case "goal": StartGoal(); break;
             case "launcher": OpenLauncher(); break;
             case "pausa": SetPause(!Snap.Paused); break;
@@ -93,6 +97,9 @@ public sealed class HudHost
 
     public void KickRefresh() { _ = Poll(); }
 
+    /// <summary>Modo Prédio: os agentes como bonequinhos andando pelos andares (página da sala, aba Prédio).</summary>
+    public void OpenPredio() => Platform.OpenAppWindow($"http://127.0.0.1:{Settings.JarvisPort}/#predio");
+
     public async Task Poll()
     {
         if (polling) return;
@@ -100,6 +107,7 @@ public sealed class HudHost
         try
         {
             Snap = await Api.SnapshotAsync();
+            if (svcTick++ % 10 == 0) QueueUp = !Snap.Online || await Task.Run(() => Platform.Listeners(Settings.GatePort).Count > 0);
             var mood = !Snap.Online ? Mood.Offline : Snap.Pending > 0 ? Mood.Alert : Snap.Working || Pumping ? Mood.Working : Mood.Idle;
             Mascot.SetMood(mood, Snap.Pending);
             if (Snap.Chat.Count > 0)
@@ -304,6 +312,7 @@ public sealed class HudHost
             Item("Mostrar AgentC e a HUD", ShowAll);
             Item("Esconder", HideAll);
             Item("Tela completa", OpenFull);
+            Item("Prédio dos agentes", OpenPredio);
             Item("Abrir o Launcher", OpenLauncher);
             Item("Pausar / retomar os agentes", () => SetPause(!Snap.Paused));
             Item("Silenciar o AgentC por 1 h", ToggleQuiet);

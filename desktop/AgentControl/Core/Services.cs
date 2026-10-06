@@ -282,6 +282,64 @@ public sealed class Services
 
     string ConfigPath => Environment.GetEnvironmentVariable("JARVIS_CONFIG") is { Length: > 0 } c ? c : Path.Combine(Repo, "jarvis.config.json");
 
+    // ---------------- acesso pelo celular e iPhone (Tailscale) ----------------
+
+    /// <summary>IP deste PC no Tailscale (100.64.0.0/10) ou null se o Tailscale não estiver instalado/logado.</summary>
+    public static string? TailscaleIp()
+    {
+        var exe = Platform.Win ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "Tailscale", "tailscale.exe")
+            : Platform.Mac && File.Exists("/Applications/Tailscale.app/Contents/MacOS/Tailscale") && Platform.Which("tailscale") is null ? "/Applications/Tailscale.app/Contents/MacOS/Tailscale"
+            : "tailscale";
+        var ip = Platform.Run(exe, "ip", "-4").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? "";
+        var m = System.Text.RegularExpressions.Regex.Match(ip, @"^100\.(\d+)\.\d+\.\d+$");
+        return m.Success && int.Parse(m.Groups[1].Value) is >= 64 and <= 127 ? ip : null;
+    }
+
+    /// <summary>Como está o acesso de fora no jarvis.config.json: ligado, IP, porta e o token (lido do arquivo, nunca do log).</summary>
+    public (bool On, string? Host, int Port, string? Token) RemoteInfo()
+    {
+        try
+        {
+            var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(ConfigPath))!;
+            var r = root["remote"];
+            var on = (bool?)r?["enabled"] == true;
+            var host = (string?)r?["host"];
+            var port = (int?)r?["port"] ?? (int?)root["port"] ?? Settings.JarvisPort;
+            var tf = (string?)r?["tokenFile"] ?? "data/remote-token.txt";
+            var full = Path.IsPathRooted(Platform.Expand(tf)) ? Platform.Expand(tf) : Path.Combine(Path.GetDirectoryName(ConfigPath)!, tf);
+            var token = on && File.Exists(full) ? File.ReadAllText(full).Trim() : null;
+            return (on, host, port, token);
+        }
+        catch { return (false, null, Settings.JarvisPort, null); }
+    }
+
+    /// <summary>
+    /// Liga ou desliga o acesso pelo celular/iPhone: grava remote no jarvis.config.json (só o IP do Tailscale, nunca 0.0.0.0
+    /// nem a rede de casa) e reinicia o servidor, que cria o token na primeira vez. Devolve null ou o erro.
+    /// </summary>
+    public async Task<string?> SetRemoteAsync(bool on)
+    {
+        string? ip = null;
+        if (on && (ip = await Task.Run(TailscaleIp)) is null) return "Não achei o Tailscale ligado neste PC. Instale (tailscale.com/download), faça login e tente de novo.";
+        try
+        {
+            var path = ConfigPath;
+            var root = System.Text.Json.Nodes.JsonNode.Parse(File.ReadAllText(path))!.AsObject();
+            var r = root["remote"] as System.Text.Json.Nodes.JsonObject ?? new System.Text.Json.Nodes.JsonObject();
+            r["enabled"] = on;
+            if (ip is not null) r["host"] = ip;
+            r["tokenFile"] ??= "data/remote-token.txt";
+            root["remote"] = r.DeepClone();
+            File.Copy(path, path + ".bak", overwrite: true);
+            File.WriteAllText(path, root.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine);
+        }
+        catch (Exception ex) { return $"Não consegui salvar o jarvis.config.json: {ex.Message}"; }
+        Log(on ? $"Acesso pelo celular ligado em {ip} (só Tailscale, com token). Reiniciando o servidor." : "Acesso pelo celular desligado. Reiniciando o servidor.");
+        if (await JarvisStateAsync() == ServiceState.Online) { StopPort("Servidor", Settings.JarvisPort); await Task.Delay(1500); }
+        await StartJarvisAsync();
+        return null;
+    }
+
     /// <summary>Agentes do projeto no jarvis.config.json do servidor.</summary>
     public List<string> TeamFromConfig()
     {

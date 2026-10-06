@@ -25,4 +25,10 @@
             <extra android:name="screen" android:value="SAUDE" />
         </intent>
     </shortcut>
+    <shortcut android:shortcutId="predio" android:enabled="true" android:icon="@drawable/ic_jarvis"
+        android:shortcutShortLabel="@string/sc_predio" android:shortcutLongLabel="@string/sc_predio">
+        <intent android:action="android.intent.action.VIEW" android:targetPackage="dev.agentcontrol.app" android:targetClass="dev.agentcontrol.app.MainActivity">
+            <extra android:name="screen" android:value="PREDIO" />
+        </intent>
+    </shortcut>
 </shortcuts>
