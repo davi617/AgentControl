@@ -8,9 +8,103 @@ const W = 1200, H = 720;
 const CORR = { y0: 310, y1: 410 };
 const TOP = [[30, 320], [320, 610], [610, 890], [890, 1170]];
 const BOTTOM = [[30, 330], [330, 640], [640, 940]];
-const STAIRS = { x0: 940, x1: 1170, y0: 410, y1: 690 };
+const LOBBY = { x0: 940, x1: 1170, y0: 410, y1: 690 };
 const PER_FLOOR = 8; // 4 salas × 2 mesas
 const SPEED = 95; // px/s no mundo
+
+// ---------- elevador ----------
+// Dois elevadores na sala do canto de cada andar (no lugar da escada). As portas ficam na parede do fundo da sala,
+// viradas para quem olha; dentro da cabine cabem 4. Quem troca de andar chama, espera na marca, entra e sai no andar certo.
+export const ELEV = {
+  cars: [1060, 1132], // centro de cada porta (x)
+  doorHalf: 30, block: { x0: 1024, x1: 1168, y0: 408, y1: 506 }, doorTop: 430, cabY: 503,
+  cap: 4, speed: 0.75, // andares por segundo
+  doorTime: 0.55, hold: 1.6,
+  slots: [[-14, 0], [14, 0], [-4, -1], [6, -1]], // onde cada um fica dentro da cabine
+  wait: [[1040, 552], [1078, 556], [1114, 552], [1152, 556], [1058, 592], [1096, 596], [1134, 592], [1020, 600]],
+};
+const near = (a, b) => Math.abs(a - b) < 1e-6;
+
+/**
+ * Simulação dos elevadores, sem desenho (dá para testar no Node). Cada cabine: idle (parada, porta fechada) →
+ * opening → open → closing → idle, ou moving entre andares. Chamadas do hall ficam em `calls` até uma cabine abrir ali.
+ */
+export function createElevators(nFloors, xs = ELEV.cars) {
+  const cars = xs.map((x, i) => ({ i, x, pos: Math.min(i, nFloors - 1), dir: 0, state: 'idle', door: 0, timer: 0, stops: new Set(), riders: [], boarding: new Set() }));
+  const calls = new Set();
+  const at = (c) => Math.round(c.pos);
+  const full = (c) => c.riders.length + c.boarding.size >= ELEV.cap;
+  const covers = (c, f) => c.stops.has(f) || (at(c) === f && near(c.pos, f) && c.state !== 'idle' && c.state !== 'moving' && !full(c));
+  const api = {
+    cars, calls,
+    get floors() { return nFloors; },
+    setFloors(n) { nFloors = n; for (const c of cars) { if (c.pos > n - 1) { c.pos = n - 1; c.state = 'idle'; c.door = 0; } for (const f of [...c.stops]) if (f >= n) c.stops.delete(f); } for (const f of [...calls]) if (f >= n) calls.delete(f); },
+    /** Alguém apertou o botão no andar `f`. Se a porta estiver fechando ali e ainda couber gente, ela abre de novo. */
+    call(f) {
+      if (f < 0 || f >= nFloors) return;
+      calls.add(f);
+      for (const c of cars) if (c.state === 'closing' && at(c) === f && near(c.pos, f) && !full(c)) { c.state = 'opening'; }
+    },
+    /** Cabine aberta neste andar com lugar sobrando (para quem está esperando entrar). */
+    openAt(f) { return cars.find((c) => c.state === 'open' && at(c) === f && near(c.pos, f) && !full(c)) ?? null; },
+    /** Cabine aberta neste andar (para quem está dentro sair). */
+    arrivedAt(c) { return c.state === 'open' && near(c.pos, at(c)) ? at(c) : -1; },
+    step(dt) {
+      // quem atende cada chamada: a cabine parada mais perto; senão uma que já vem nessa direção
+      for (const f of calls) {
+        if (cars.some((c) => covers(c, f))) continue;
+        const free = cars.filter((c) => !full(c));
+        const idle = free.filter((c) => c.state === 'idle' && c.stops.size === 0).sort((a, b) => Math.abs(a.pos - f) - Math.abs(b.pos - f));
+        const coming = free.filter((c) => c.state === 'moving' && Math.sign(f - c.pos) === c.dir).sort((a, b) => Math.abs(a.pos - f) - Math.abs(b.pos - f));
+        const c = idle[0] ?? coming[0];
+        if (c) c.stops.add(f);
+      }
+      for (const c of cars) {
+        switch (c.state) {
+          case 'idle': {
+            if (!c.stops.size) { c.dir = 0; break; }
+            const here = at(c);
+            if (c.stops.has(here)) { c.state = 'opening'; break; }
+            const list = [...c.stops];
+            const ahead = c.dir ? list.filter((f) => Math.sign(f - c.pos) === c.dir) : [];
+            const pool = ahead.length ? ahead : list;
+            const next = pool.sort((a, b) => Math.abs(a - c.pos) - Math.abs(b - c.pos))[0];
+            c.dir = Math.sign(next - c.pos);
+            c.state = 'moving';
+            break;
+          }
+          case 'moving': {
+            const target = c.dir > 0 ? Math.floor(c.pos + 1e-6) + 1 : Math.ceil(c.pos - 1e-6) - 1;
+            c.pos += c.dir * ELEV.speed * dt;
+            if ((c.dir > 0 && c.pos >= target - 1e-6) || (c.dir < 0 && c.pos <= target + 1e-6) || target < 0 || target > nFloors - 1) {
+              const f = Math.max(0, Math.min(nFloors - 1, target));
+              const claim = calls.has(f) && !full(c) && !cars.some((o) => o !== c && o.stops.has(f));
+              if (c.stops.has(f) || claim || f === 0 || f === nFloors - 1) {
+                c.pos = f;
+                c.state = c.stops.has(f) || claim ? 'opening' : 'idle';
+              }
+            }
+            break;
+          }
+          case 'opening':
+            c.door = Math.min(1, c.door + dt / ELEV.doorTime);
+            if (c.door >= 1) { c.state = 'open'; c.timer = ELEV.hold; c.stops.delete(at(c)); calls.delete(at(c)); }
+            break;
+          case 'open':
+            c.timer -= dt;
+            if (c.boarding.size) c.timer = Math.max(c.timer, 0.5);
+            if (c.timer <= 0) c.state = 'closing';
+            break;
+          case 'closing':
+            c.door = Math.max(0, c.door - dt / ELEV.doorTime);
+            if (c.door <= 0) c.state = 'idle';
+            break;
+        }
+      }
+    },
+  };
+  return api;
+}
 
 // ---------- sorteio estável pelo nome ----------
 function seedOf(s) { let h = 2166136261; for (const c of s) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -22,12 +116,14 @@ const HAIR = ['#1F1A17', '#3B2A20', '#6B4423', '#A0522D', '#D6B370', '#E5E5E5', 
 const SHIRT = ['#EF4444', '#F97316', '#EAB308', '#22C55E', '#14B8A6', '#3B82F6', '#6366F1', '#A855F7', '#EC4899', '#F4F4F5', '#27272A', '#0EA5E9'];
 const PANTS = ['#1E3A8A', '#1E40AF', '#27272A', '#52525B', '#A16207', '#3F3F46', '#334155'];
 const SHOES = ['#F4F4F5', '#EF4444', '#22C55E', '#3B82F6', '#111111', '#F97316', '#A855F7'];
-const HAIRSTYLE = ['curto', 'longo', 'careca', 'bone', 'coque', 'topete'];
+const HAIRSTYLE = ['curto', 'longo', 'careca', 'bone', 'coque', 'topete', 'cacheado', 'rabo'];
+const TOPS = ['camiseta', 'camiseta', 'listrada', 'moletom', 'polo'];
+const ACC = ['nenhum', 'nenhum', 'nenhum', 'nenhum', 'nenhum', 'oculos', 'oculos', 'fone', 'barba', 'barba'];
 
 export function lookFor(name, boss = false, salt = 0) {
   const r = rng(seedOf(name) + salt * 7919);
-  if (boss) return { boss: true, skin: pick(r, SKIN), hair: pick(r, HAIR.slice(0, 6)), style: pick(r, ['curto', 'topete', 'careca']), shirt: '#F4F4F5', jacket: '#1E293B', pants: '#1E293B', shoes: '#111111', tie: '#DC2626' };
-  return { boss: false, skin: pick(r, SKIN), hair: pick(r, HAIR), style: pick(r, HAIRSTYLE), shirt: pick(r, SHIRT), pants: pick(r, PANTS), shoes: pick(r, SHOES), cap: pick(r, SHIRT) };
+  if (boss) return { boss: true, skin: pick(r, SKIN), hair: pick(r, HAIR.slice(0, 6)), style: pick(r, ['curto', 'topete', 'careca']), top: 'terno', shirt: '#F4F4F5', jacket: '#1E293B', pants: '#1E293B', shoes: '#111111', tie: '#DC2626', acc: 'nenhum' };
+  return { boss: false, skin: pick(r, SKIN), hair: pick(r, HAIR), style: pick(r, HAIRSTYLE), shirt: pick(r, SHIRT), pants: pick(r, PANTS), shoes: pick(r, SHOES), cap: pick(r, SHIRT), top: pick(r, TOPS), acc: pick(r, ACC) };
 }
 
 // ---------- estado do agente → lugar ----------
@@ -54,7 +150,9 @@ function seats(r, n, rowY) {
 
 function makeFloor(kind, n) {
   const f = { kind, n, rooms: [] };
-  const stairs = { name: 'Escada', ...STAIRS, top: false, door: { x: (STAIRS.x0 + STAIRS.x1) / 2, y: CORR.y1 }, spots: [], furniture: [{ t: 'stairs' }], stairs: true };
+  // sala dos elevadores (mesmo canto em todo andar): porta do corredor à esquerda, elevadores na parede do fundo
+  const lobby = { name: 'Elevadores', ...LOBBY, top: false, door: { x: 985, y: CORR.y1 }, spots: [], lobby: true,
+    furniture: [{ t: 'tapete', x: 1096, y: 574, w: 160, h: 74, c: '#334155' }, { t: 'banco', x: 1010, y: 660 }, { t: 'planta', x: 1148, y: 660 }, { t: 'planta', x: 962, y: 462 }] };
   if (kind === 'terreo') {
     f.name = 'Térreo';
     const rec = room('Recepção', ...TOP[0], true); rec.furniture.push({ t: 'balcao', x: 175, y: 150 }, { t: 'planta', x: 60, y: 60 }, { t: 'planta', x: 290, y: 60 });
@@ -86,7 +184,7 @@ function makeFloor(kind, n) {
     const mes = new Date().getMonth() + 1;
     if (mes === 10) rec.furniture.push({ t: 'abobora', x: 110, y: 120 }, { t: 'abobora', x: 245, y: 120 });
     if (mes === 12) rec.furniture.push({ t: 'arvoreNatal', x: 290, y: 235 });
-    f.rooms = [rec, copa, desc, jogos, jardim, banh, corr, stairs];
+    f.rooms = [rec, copa, desc, jogos, jardim, banh, corr, lobby];
   } else if (kind === 'diretoria') {
     f.name = '1º andar · Diretoria';
     const chefe = room('Sala do chefe', ...TOP[0], true); chefe.furniture.push({ t: 'mesaChefe', x: 175, y: 110 }, { t: 'quadro', x: 175, y: 38 }, { t: 'planta', x: 55, y: 60 }, { t: 'planta', x: 295, y: 60 });
@@ -112,7 +210,7 @@ function makeFloor(kind, n) {
     aprov.furniture.push({ t: 'planta', x: 1140, y: 280 }, { t: 'tapete', x: 1030, y: 225, w: 180, h: 90, c: '#14532D' });
     lounge.furniture.push({ t: 'tapete', x: 485, y: 560, w: 230, h: 90, c: '#4C1D95' }, { t: 'arte', x: 390, y: 428, c: '#FB923C' });
     sec.furniture.push({ t: 'arte', x: 180, y: 428, c: '#60A5FA' });
-    f.rooms = [chefe, reun, aprov, sec, lounge, arq, stairs];
+    f.rooms = [chefe, reun, aprov, sec, lounge, arq, lobby];
   } else {
     f.name = `${n}º andar · Time`;
     const offices = TOP.map(([a, b], i) => {
@@ -134,16 +232,23 @@ function makeFloor(kind, n) {
     imp.spots = [{ x: 700, y: 530 }];
     copa.furniture.push({ t: 'vending', x: 240, y: 655 }, { t: 'tapete', x: 190, y: 545, w: 170, h: 100, c: '#78350F' });
     foco.furniture.push({ t: 'luminaria', x: 370, y: 640 }, { t: 'luminaria', x: 600, y: 640 });
-    f.rooms = [...offices, copa, foco, imp, stairs];
+    f.rooms = [...offices, copa, foco, imp, lobby];
   }
   return f;
 }
 
 function roomAt(f, x, y) { return f.rooms.find((r) => x >= r.x0 && x <= r.x1 && y >= r.y0 && y <= r.y1) ?? null; }
 const inside = (r) => ({ x: r.door.x, y: r.top ? r.door.y - 26 : r.door.y + 26 });
+// na sala do elevador dá a volta pela frente dos elevadores, sem passar por cima das portas
+const LOBBY_PASS = { x: 995, y: 530 };
+const leave = (f, r, lane) => [...(r.lobby ? [{ floor: f, ...LOBBY_PASS }] : []), { floor: f, ...inside(r) }, { floor: f, ...corridorAt(r.door.x, lane) }];
+const enter = (f, r, lane) => [{ floor: f, ...corridorAt(r.door.x, lane) }, { floor: f, ...inside(r) }, ...(r.lobby ? [{ floor: f, ...LOBBY_PASS }] : [])];
 const corridorAt = (x, lane) => ({ x, y: (CORR.y0 + CORR.y1) / 2 + lane });
 
-/** Caminho de um ponto a outro, passando pela porta, pelo corredor e, se mudar de andar, pela escada. */
+/**
+ * Caminho de um ponto a outro: porta, corredor e, se mudar de andar, a sala dos elevadores. Lá o caminho tem uma
+ * marca de espera (`wait`) e o pedido de elevador (`elevator`); depois de sair da cabine o resto é refeito no andar novo.
+ */
 export function route(floors, from, to, lane = 0) {
   const pts = [];
   const fa = floors[from.floor], fb = floors[to.floor];
@@ -151,13 +256,17 @@ export function route(floors, from, to, lane = 0) {
   if (!fa || !fb) return [{ ...to }];
   const sameRoom = from.floor === to.floor && ra && ra === rb;
   if (!sameRoom) {
-    if (ra) pts.push({ floor: from.floor, ...inside(ra) }, { floor: from.floor, ...corridorAt(ra.door.x, lane) });
     if (from.floor !== to.floor) {
-      const sa = fa.rooms.find((r) => r.stairs), sb = fb.rooms.find((r) => r.stairs);
-      pts.push({ floor: from.floor, ...corridorAt(sa.door.x, lane) }, { floor: from.floor, ...inside(sa) }, { floor: from.floor, x: (sa.x0 + sa.x1) / 2, y: 600 });
-      pts.push({ floor: to.floor, x: (sb.x0 + sb.x1) / 2, y: 600, jump: true }, { floor: to.floor, ...inside(sb) }, { floor: to.floor, ...corridorAt(sb.door.x, lane) });
+      const la = fa.rooms.find((r) => r.lobby);
+      if (ra !== la) {
+        if (ra) pts.push(...leave(from.floor, ra, lane));
+        pts.push(...enter(from.floor, la, lane));
+      }
+      pts.push({ floor: from.floor, x: ELEV.wait[0][0], y: ELEV.wait[0][1], wait: true }, { floor: from.floor, elevator: true, to: to.floor });
+      return pts; // o resto é calculado quando sair da cabine
     }
-    if (rb) pts.push({ floor: to.floor, ...corridorAt(rb.door.x, lane) }, { floor: to.floor, ...inside(rb) });
+    if (ra) pts.push(...leave(from.floor, ra, lane));
+    if (rb) pts.push(...enter(to.floor, rb, lane));
   }
   pts.push({ floor: to.floor, x: to.x, y: to.y });
   return pts;
@@ -169,65 +278,167 @@ const STATUS_LABEL = { trabalhando: 'trabalhando', revisando: 'revisando', trava
 
 function rr(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
 
+// Formas do bonequinho (as mesmas do design no Claude Design). Desenhado virado para a direita; para a esquerda espelha.
+let SHAPES = null;
+function shapes() {
+  if (SHAPES || typeof Path2D === 'undefined') return SHAPES;
+  const d = (s) => new Path2D(s);
+  SHAPES = {
+    cap: d('M-11 -49 C-11.7 -58.6 -6 -62.7 0.5 -62.5 C7 -62.3 11.7 -58 11 -49 C9.6 -53.8 6 -55.7 1.5 -55.3 C-2.5 -56.6 -8 -55 -11 -49 Z'),
+    longo: d('M-11.8 -52 C-12.8 -44 -12.4 -38 -9.2 -34.6 L9.2 -34.6 C12.4 -38 12.8 -44 11.8 -52 Z'),
+    bone: d('M-11.3 -50 C-11.3 -60.6 -5.6 -63.8 0 -63.8 C5.6 -63.8 11.3 -60.6 11.3 -50 Z'),
+    aba: d('M2 -51.6 L15.2 -50.2 C15.8 -48.6 14.6 -47.8 13 -47.8 L2 -48.8 Z'),
+    barba: d('M-8.8 -48 C-8.2 -40.4 -4 -38.4 0 -38.4 C4 -38.4 8.2 -40.4 8.8 -48 C6.2 -44.4 3.6 -43.6 0 -43.4 C-3.6 -43.6 -6.2 -44.4 -8.8 -48 Z'),
+    gola: d('M-3.6 -39.5 Q0 -35.4 3.6 -39.5 Z'),
+    capuz: d('M-7.2 -39.4 Q0 -33.6 7.2 -39.4 Q5 -42.8 0 -43 Q-5 -42.8 -7.2 -39.4 Z'),
+    poloL: d('M-4.8 -39.5 L0 -36 L-1.2 -33.4 L-6 -37.6 Z'), poloR: d('M4.8 -39.5 L0 -36 L1.2 -33.4 L6 -37.6 Z'),
+    camisaV: d('M-4.8 -39.5 L4.8 -39.5 L0 -28.4 Z'),
+    lapelaL: d('M-4.8 -39.5 L-7.4 -37.8 L-3.4 -30.6 L-1 -33 Z'), lapelaR: d('M4.8 -39.5 L7.4 -37.8 L3.4 -30.6 L1 -33 Z'),
+    gravata: d('M-1.4 -36.6 L1.4 -36.6 L2.6 -25.8 L0 -23 L-2.6 -25.8 Z'), gravataSombra: d('M0.2 -36.6 L1.4 -36.6 L2.6 -25.8 L0.2 -23.2 Z'),
+    lenco: d('M4.6 -34 L7.6 -34 L7.2 -32.2 L5.6 -31.6 Z'),
+  };
+  return SHAPES;
+}
+
+/**
+ * Bonequinho: cabeça grande com contorno, olhos, sobrancelha e bochecha; roupa sorteada (camiseta, listrada, moletom
+ * ou polo) ou terno com gravata vermelha (chefe). Anda balançando braços e pernas, fica de costas quando sobe a tela
+ * ou espera o elevador, senta e digita na mesa, comemora com os braços para cima e dorme no sofá.
+ */
 export function drawPerson(ctx, p, t) {
-  const L = p.look;
-  const walk = p.moving ? Math.sin(t * 12 + p.phase) : 0;
-  const bob = p.moving ? Math.abs(walk) * 1.6 : p.celebrate > 0 ? Math.abs(Math.sin(t * 10)) * 10 : 0;
+  const L = p.look, S = shapes();
+  if (!S) return;
+  const OUT = 'rgba(20,16,12,.5)';
+  const walk = p.moving ? Math.sin(t * 11 + p.phase) : 0;
+  const cel = p.celebrate > 0;
   const sit = !p.moving && p.sit;
+  const back = !!p.faceUp && !sit;
   const sleep = p.mood === 'parado' && sit;
+  const bob = p.moving ? Math.abs(walk) * 1.4 : cel ? Math.abs(Math.sin(t * 10)) * 9 : Math.sin(t * 2 + p.phase) * 0.35;
+  const boss = L.boss, st = L.style, top = L.top ?? (boss ? 'terno' : 'camiseta');
+  const torso = boss ? L.jacket : L.shirt;
+  const fore = !boss && top !== 'moletom' ? L.skin : torso;
+  const rect = (x, y, w, h, r, c) => { ctx.fillStyle = c; rr(ctx, x, y, w, h, r); ctx.fill(); };
+  const circ = (x, y, r, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); };
+  const ell = (x, y, rx, ry, rot, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, Math.PI * 2); ctx.fill(); };
+  const fill = (c, path) => { ctx.fillStyle = c; ctx.fill(path); };
+  const outline = (w = 0.7) => { ctx.strokeStyle = OUT; ctx.lineWidth = w; ctx.stroke(); };
+
   ctx.save();
   ctx.translate(p.sx, p.sy);
   ctx.scale(p.scale, p.scale);
-  // sombra
-  ctx.fillStyle = 'rgba(0,0,0,.28)';
-  ctx.beginPath(); ctx.ellipse(0, 0, 11, 4, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.translate(0, -bob - (sit ? 6 : 0));
-  // pernas (calça) e tênis
-  const legY = -17, legH = sit ? 9 : 16;
-  for (const side of [-1, 1]) {
-    const off = p.moving ? walk * 3.5 * side : 0;
-    ctx.fillStyle = L.pants;
-    rr(ctx, side * 4.5 - 3 + off * 0.4, legY, 6, legH, 2); ctx.fill();
-    ctx.fillStyle = L.shoes;
-    rr(ctx, side * 4.5 - 3.5 + off * 0.4 + (p.face < 0 ? -1.5 : 1.5), legY + legH - 2, 8, 4.5, 2); ctx.fill();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(side * 4.5 - 3.5 + off * 0.4 + (p.face < 0 ? -1.5 : 1.5), legY + legH + 1.6, 8, 1);
+  ctx.fillStyle = 'rgba(0,0,0,.3)'; ctx.beginPath(); ctx.ellipse(0, 0.5, 12.5, 4, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(0, -bob + (sit ? 7 : 0));
+  if (p.face < 0) ctx.scale(-1, 1);
+
+  // cabelo que fica atrás da cabeça
+  if (!back && st === 'rabo') ell(-11.6, -49, 3.6, 7.5, 0.35, L.hair);
+  if (!back && st === 'longo') fill(L.hair, S.longo);
+  if (st === 'cacheado') { circ(0, -53, 13.8, L.hair); circ(-12, -47, 4.4, L.hair); circ(12, -47, 4.4, L.hair); }
+
+  // pernas e tênis
+  const legH = sit ? 10 : 18.5, sw = walk * 2.2;
+  const legs = [[-7.6 + sw, legH - Math.max(0, walk) * 1.6], [1.4 - sw, legH - Math.max(0, -walk) * 1.6]];
+  for (const [x, h] of legs) rect(x, -20.5, 6.2, h, 2.2, L.pants);
+  for (const [x, h] of legs) {
+    const sx0 = x - 0.6 + (back ? 0 : 0.8), sy0 = -20.5 + h - 3;
+    rect(sx0, sy0, 8.6, 5, 2.4, L.shoes); outline(0.6);
+    rect(sx0, sy0 + 4, 8.6, 1.1, 0.5, boss ? '#0A0A0A' : 'rgba(255,255,255,.92)');
   }
-  // tronco
-  if (L.boss) {
-    ctx.fillStyle = L.jacket; rr(ctx, -9, -34, 18, 19, 4); ctx.fill();
-    ctx.fillStyle = L.shirt; ctx.beginPath(); ctx.moveTo(-4, -34); ctx.lineTo(4, -34); ctx.lineTo(0, -24); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = L.tie; ctx.beginPath(); ctx.moveTo(-1.6, -33); ctx.lineTo(1.6, -33); ctx.lineTo(2.4, -22); ctx.lineTo(0, -19); ctx.lineTo(-2.4, -22); ctx.closePath(); ctx.fill();
-  } else {
-    ctx.fillStyle = L.shirt; rr(ctx, -8.5, -34, 17, 18, 4); ctx.fill();
-    ctx.fillStyle = 'rgba(0,0,0,.12)'; ctx.fillRect(-8.5, -19, 17, 3);
+
+  // pescoço e tronco
+  rect(-2.6, -42, 5.2, 4.5, 0, L.skin);
+  rect(-9.6, -39.5, 19.2, 21.5, 5.5, torso); outline();
+  rect(4.2, -39, 5, 20.6, 4, 'rgba(0,0,0,.14)');
+  ctx.fillStyle = 'rgba(0,0,0,.14)'; ctx.fillRect(-9.6, -21, 19.2, 3);
+  if (back) {
+    if (top === 'moletom') fill('rgba(0,0,0,.22)', S.capuz);
+  } else if (top === 'terno') {
+    fill(L.shirt, S.camisaV); fill('#0F172A', S.lapelaL); fill('#0F172A', S.lapelaR);
+    rect(-1.7, -39.2, 3.4, 2.8, 0.9, L.tie); fill(L.tie, S.gravata); fill('rgba(0,0,0,.18)', S.gravataSombra);
+    fill('#F4F4F5', S.lenco); circ(-3.2, -24.4, 0.75, '#0F172A');
+  } else if (top === 'listrada') {
+    ctx.fillStyle = 'rgba(255,255,255,.6)'; ctx.fillRect(-9.4, -33.4, 18.8, 2.2); ctx.fillRect(-9.4, -27.4, 18.8, 2.2);
+    fill(L.skin, S.gola);
+  } else if (top === 'moletom') {
+    fill('rgba(0,0,0,.22)', S.capuz);
+    rect(-2.3, -37, 0.9, 5.4, 0.4, '#F4F4F5'); rect(1.4, -37, 0.9, 5.4, 0.4, '#F4F4F5');
+    rect(-6, -27.4, 12, 6, 2, 'rgba(0,0,0,.14)');
+  } else if (top === 'polo') {
+    fill('rgba(255,255,255,.88)', S.poloL); fill('rgba(255,255,255,.88)', S.poloR);
+    circ(0, -32.6, 0.65, 'rgba(0,0,0,.4)'); circ(0, -30, 0.65, 'rgba(0,0,0,.4)');
+  } else fill(L.skin, S.gola);
+
+  // braços: balançam andando, vão para a frente digitando, sobem comemorando
+  let aL = 5, aR = -5;
+  if (p.moving) { aL = 24 * walk; aR = -24 * walk; }
+  else if (sit) { const ty = p.typing ? Math.sin(t * 22) * 6 : 0; aL = -32 + ty; aR = 32 - ty; }
+  if (cel) { const w = Math.sin(t * 12) * 12; aL = 150 + w; aR = -150 - w; }
+  for (const [side, deg] of [[-1, aL], [1, aR]]) {
+    ctx.save();
+    ctx.translate(11.4 * side, -36); ctx.rotate((deg * Math.PI) / 180); ctx.translate(-11.4 * side, 36);
+    rect(side < 0 ? -13.8 : 9, -38, 4.8, 9, 2.4, torso);
+    rect(side < 0 ? -13.6 : 9.2, -31, 4.4, 8.4, 2.2, fore);
+    circ(11.4 * side, -22.4, 2.5, L.skin);
+    ctx.restore();
   }
-  // braços
-  const arm = p.moving ? walk * 5 : p.typing ? Math.sin(t * 22) * 1.5 : 0;
-  ctx.strokeStyle = L.boss ? L.jacket : L.shirt; ctx.lineWidth = 4.2; ctx.lineCap = 'round';
-  const armUp = p.celebrate > 0 ? -14 : 0;
-  ctx.beginPath(); ctx.moveTo(-9, -31); ctx.lineTo(-11 - arm * 0.3, -21 + arm + armUp); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(9, -31); ctx.lineTo(11 - arm * 0.3, -21 - arm + armUp); ctx.stroke();
-  ctx.fillStyle = L.skin;
-  ctx.beginPath(); ctx.arc(-11 - arm * 0.3, -20 + arm + armUp, 2.3, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(11 - arm * 0.3, -20 - arm + armUp, 2.3, 0, Math.PI * 2); ctx.fill();
+
   // cabeça
-  ctx.fillStyle = L.skin; ctx.beginPath(); ctx.arc(0, -43, 9, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = L.hair;
-  switch (L.style) {
-    case 'careca': break;
-    case 'longo': ctx.beginPath(); ctx.arc(0, -45, 9.6, Math.PI, 0); ctx.fill(); ctx.fillRect(-9.6, -45, 3.2, 12); ctx.fillRect(6.4, -45, 3.2, 12); break;
-    case 'bone': ctx.fillStyle = L.cap; ctx.beginPath(); ctx.arc(0, -45, 9.4, Math.PI, 0); ctx.fill(); ctx.fillRect(p.face < 0 ? -15 : 3, -46, 12, 3); break;
-    case 'coque': ctx.beginPath(); ctx.arc(0, -45, 9.4, Math.PI, 0); ctx.fill(); ctx.beginPath(); ctx.arc(0, -55, 4.5, 0, Math.PI * 2); ctx.fill(); break;
-    case 'topete': ctx.beginPath(); ctx.arc(0, -45, 9.4, Math.PI, 0); ctx.fill(); ctx.beginPath(); ctx.ellipse(p.face * 3, -53, 6, 3.5, p.face * 0.4, 0, Math.PI * 2); ctx.fill(); break;
-    default: ctx.beginPath(); ctx.arc(0, -45, 9.4, Math.PI * 1.02, -0.02); ctx.fill();
+  circ(-10.3, -49.2, 2.3, L.skin); circ(10.3, -49.2, 2.3, L.skin);
+  ctx.fillStyle = L.skin; ctx.beginPath(); ctx.arc(0, -50, 10.6, 0, Math.PI * 2); ctx.fill(); outline();
+
+  if (back) {
+    if (st !== 'careca' && st !== 'bone') {
+      circ(0, -50.4, 11, L.hair);
+      if (st === 'longo') fill(L.hair, S.longo);
+      if (st === 'rabo') ell(0, -41, 3.4, 7, 0, L.hair);
+      if (st === 'coque') circ(0, -63.6, 4.9, L.hair);
+    }
+    if (st === 'bone') fill(L.cap, S.bone);
+    if (st === 'careca') ell(-3.6, -57.2, 3.2, 1.6, 0, 'rgba(255,255,255,.35)');
+  } else {
+    const fx = 1.2;
+    if (L.acc === 'barba') fill(['#7C3AED', '#E5E5E5'].includes(L.hair) ? '#3B2A20' : L.hair, S.barba);
+    ctx.strokeStyle = '#1B1B1F'; ctx.lineWidth = 0.9; ctx.lineCap = 'round';
+    if (sleep || p.blink) {
+      for (const ex of [-3.7, 3.7]) { ctx.beginPath(); ctx.arc(ex + fx, sleep ? -51.4 : -50.4, 1.8, 0.15 * Math.PI, 0.85 * Math.PI); ctx.stroke(); }
+    } else {
+      for (const ex of [-3.7, 3.7]) {
+        ell(ex + fx, -50.4, 2.3, 2.7, 0, '#FFFFFF');
+        circ(ex + fx * 1.5, -50.1, 1.45, '#1B1B1F');
+        circ(ex + 0.5 + fx * 1.5, -50.8, 0.45, '#FFFFFF');
+      }
+    }
+    const brow = L.hair === '#E5E5E5' ? '#A1A1AA' : L.hair;
+    const worried = p.mood === 'travado';
+    for (const [bx, rot] of [[-5.7, worried ? 0.35 : 0], [1.9, worried ? -0.35 : 0]]) {
+      ctx.save(); ctx.translate(bx + fx + 1.9, -55); ctx.rotate(rot); rect(-1.9, -0.55, 3.8, 1.1, 0.55, brow); ctx.restore();
+    }
+    ell(fx * 1.7, -47.6, 0.9, 0.7, 0, 'rgba(0,0,0,.14)');
+    circ(-6.6 + fx, -46.4, 1.8, 'rgba(244,114,182,.32)'); circ(6.6 + fx, -46.4, 1.8, 'rgba(244,114,182,.32)');
+    ctx.strokeStyle = '#5B2A1F'; ctx.lineWidth = 0.95;
+    ctx.beginPath();
+    if (cel) { ctx.moveTo(-2.8 + fx, -45.6); ctx.quadraticCurveTo(fx, -40.4, 2.8 + fx, -45.6); ctx.closePath(); ctx.fillStyle = '#7F1D1D'; ctx.fill(); }
+    else if (worried) { ctx.moveTo(-2.3 + fx, -43.8); ctx.quadraticCurveTo(fx, -45.8, 2.3 + fx, -43.8); ctx.stroke(); }
+    else if (sleep) { ctx.arc(fx, -44.4, 1, 0, Math.PI * 2); ctx.stroke(); }
+    else { ctx.moveTo(-2.5 + fx, -45.3); ctx.quadraticCurveTo(fx, -42.6, 2.5 + fx, -45.3); ctx.stroke(); }
+
+    if (['curto', 'longo', 'coque', 'topete', 'rabo'].includes(st)) fill(L.hair, S.cap);
+    if (st === 'topete') ell(3, -60.6, 7.6, 4.2, -0.31, L.hair);
+    if (st === 'coque') circ(0, -63.6, 4.9, L.hair);
+    if (st === 'cacheado') { circ(-7, -58, 4.3, L.hair); circ(-1.8, -60.6, 4.5, L.hair); circ(3.8, -60, 4.4, L.hair); circ(8.2, -57, 4, L.hair); }
+    if (st === 'bone') { fill(L.cap, S.bone); fill(L.cap, S.aba); fill('rgba(0,0,0,.2)', S.aba); circ(0, -63.4, 1.3, 'rgba(0,0,0,.25)'); }
+    if (st === 'careca') ell(-3.6, -57.2, 3.2, 1.6, 0, 'rgba(255,255,255,.35)');
+    if (L.acc === 'oculos') {
+      ctx.strokeStyle = '#18181B'; ctx.lineWidth = 0.9;
+      for (const ex of [-3.7, 3.7]) { ctx.fillStyle = 'rgba(186,230,253,.18)'; ctx.beginPath(); ctx.arc(ex + fx, -50.4, 3.4, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); }
+      ctx.fillStyle = '#18181B'; ctx.fillRect(-0.7 + fx, -51, 1.4, 0.9);
+    }
   }
-  // rosto
-  ctx.fillStyle = '#18181B';
-  if (sleep) { ctx.fillRect(-5 + p.face, -43, 3.5, 1.2); ctx.fillRect(1.5 + p.face, -43, 3.5, 1.2); }
-  else if (!p.blink) { ctx.fillRect(-4 + p.face * 1.6, -45, 2, 3); ctx.fillRect(2 + p.face * 1.6, -45, 2, 3); }
-  if (p.mood === 'travado') { ctx.fillRect(-2 + p.face, -38.5, 4, 1.2); }
-  else { ctx.beginPath(); ctx.arc(p.face * 1.2, -40, 2.4, 0.15 * Math.PI, 0.85 * Math.PI); ctx.strokeStyle = '#18181B'; ctx.lineWidth = 1; ctx.stroke(); }
+  if (L.acc === 'fone') {
+    ctx.strokeStyle = '#27272A'; ctx.lineWidth = 2.2; ctx.beginPath(); ctx.moveTo(-11.4, -50); ctx.bezierCurveTo(-11.4, -65, 11.4, -65, 11.4, -50); ctx.stroke();
+    rect(-13.6, -53.4, 4.4, 7.4, 2.2, '#F97316'); rect(9.2, -53.4, 4.4, 7.4, 2.2, '#F97316');
+  }
   ctx.restore();
 }
 
@@ -348,7 +559,8 @@ export function createPredio(root, hooks = {}) {
   const bg = document.createElement('canvas'); let bgKey = '';
   let light = false, themeAt = 0, lastDraw = 0;
   const confetti = [];
-  const pet = { floor: 0, x: 600, y: 360, path: [], moving: false, face: 1, scale: 1, sx: 0, sy: 0, restUntil: 0, bubble: null };
+  const pet = { id: 'AgentC', pet: true, floor: 0, x: 600, y: 360, path: [], moving: false, face: 1, scale: 1, sx: 0, sy: 0, restUntil: 0, bubble: null, lane: 12, target: null };
+  let elev = createElevators(floors.length);
   const CHATTER = [['Bora um café?', 'Bora! ☕'], ['Viu o deploy?', 'Passou liso ✓'], ['Que bug chato…', 'Te ajudo depois'], ['Bom trabalho hoje!', 'Valeu! 🙌'], ['O chefe aprovou?', 'Ainda não 😅'], ['Ping-pong?', 'Só uma partida!'], ['Terminei a minha', 'Boa! 🎉']];
 
   mk('−', 'Afastar', () => setZoom(zoom / 1.25));
@@ -388,8 +600,8 @@ export function createPredio(root, hooks = {}) {
   function ensure(id, boss = false) {
     let p = people.get(id);
     if (!p) {
-      const stairs = floors[0].rooms.find((r) => r.stairs);
-      p = { id, boss, look: lookFor(id, boss, salt), floor: 0, x: (stairs.x0 + stairs.x1) / 2, y: 600, path: [], moving: false, face: 1, phase: Math.random() * 6, lane: (Math.random() - 0.5) * 30, mood: 'parado', sit: false, typing: false, blink: false, bubble: null, celebrate: 0, wanderAt: 0, target: null, info: null, scale: 1, sx: 0, sy: 0 };
+      // todo mundo chega pela recepção do térreo
+      p = { id, boss, look: lookFor(id, boss, salt), floor: 0, x: 120 + Math.random() * 110, y: 250, path: [], moving: false, face: 1, phase: Math.random() * 6, lane: (Math.random() - 0.5) * 30, mood: 'parado', sit: false, typing: false, blink: false, bubble: null, celebrate: 0, wanderAt: 0, target: null, info: null, scale: 1, sx: 0, sy: 0 };
       people.set(id, p);
     }
     return p;
@@ -398,8 +610,83 @@ export function createPredio(root, hooks = {}) {
   function goTo(p, target) {
     if (p.target && p.target.floor === target.floor && Math.hypot(p.target.x - target.x, p.target.y - target.y) < 2) return;
     p.target = target;
-    p.path = route(floors, { floor: p.floor, x: p.x, y: p.y }, target, p.lane);
     p.sit = false;
+    // dentro da cabine: só troca o andar de saída; o caminho é refeito quando a porta abrir
+    if (p.inCar) { const r = p.inCar.riders.find((x) => x.o === p); if (r) r.to = target.floor; p.inCar.stops.add(target.floor); p.path = []; return; }
+    leaveQueue(p);
+    p.path = route(floors, { floor: p.floor, x: p.x, y: p.y }, target, p.lane);
+  }
+
+  // ---------- elevador: marcas de espera, entrar e sair ----------
+  const waiting = new Map(); // "andar:marca" → quem está ali
+  function leaveQueue(o) {
+    if (o.boardingCar) { o.boardingCar.boarding.delete(o.id); o.boardingCar = null; }
+    for (const [key, who] of waiting) if (who === o) waiting.delete(key);
+    o.waitSpot = null;
+  }
+  function waitSpotFor(o) {
+    for (let i = 0; i < ELEV.wait.length; i++) {
+      const key = `${o.floor}:${i}`;
+      if (!waiting.has(key) || waiting.get(key) === o) { waiting.set(key, o); return ELEV.wait[i]; }
+    }
+    const [x, y] = ELEV.wait[Math.floor(Math.random() * ELEV.wait.length)];
+    return [x + (Math.random() - 0.5) * 20, y + 30];
+  }
+  /** Anda pelo caminho, incluindo o elevador. Devolve true quando chega no fim do caminho neste passo. */
+  function travel(o, dt, speed) {
+    if (o.inCar) {
+      const c = o.inCar, slot = c.riders.findIndex((r) => r.o === o), f = Math.round(c.pos);
+      if (o.floor !== f) { o.floor = f; if (!o.pet) renderFloors(); }
+      o.x = c.x + ELEV.slots[slot % ELEV.slots.length][0]; o.y = ELEV.cabY + ELEV.slots[slot % ELEV.slots.length][1];
+      o.moving = false; o.faceUp = false; o.face = 1;
+      const r = c.riders[slot];
+      if (elev.arrivedAt(c) === r.to && c.door > 0.85) {
+        c.riders.splice(slot, 1);
+        o.inCar = null; o.floor = r.to; o.x = c.x + (slot % 2 ? 10 : -10);
+        const out = { floor: r.to, x: o.x, y: 546 };
+        o.path = [out, ...(o.target ? route(floors, out, o.target, o.lane).filter((n) => !(n.floor === out.floor && Math.hypot(n.x - out.x, n.y - out.y) < 1)) : [])];
+        if (!o.pet) renderFloors();
+      }
+      return false;
+    }
+    let n = o.path[0];
+    if (!n) return false;
+    if (n.elevator) {
+      o.moving = false; o.faceUp = true;
+      if (n.to === o.floor) { o.path.shift(); leaveQueue(o); if (o.target) o.path = route(floors, { floor: o.floor, x: o.x, y: o.y }, o.target, o.lane); return false; }
+      elev.call(o.floor);
+      const c = elev.openAt(o.floor);
+      if (c) {
+        leaveQueue(o);
+        o.boardingCar = c; c.boarding.add(o.id);
+        const slot = c.riders.length + c.boarding.size - 1;
+        o.path.unshift({ floor: o.floor, x: c.x + ELEV.slots[slot % ELEV.slots.length][0], y: ELEV.cabY, board: c });
+      }
+      return false;
+    }
+    if (n.wait && !o.waitSpot) { o.waitSpot = waitSpotFor(o); n.x = o.waitSpot[0]; n.y = o.waitSpot[1]; }
+    if (n.floor !== o.floor) { o.floor = n.floor; o.x = n.x; o.y = n.y; o.path.shift(); if (!o.pet) renderFloors(); return false; }
+    const dx = n.x - o.x, dy = n.y - o.y, d = Math.hypot(dx, dy);
+    const v = speed * dt;
+    o.moving = true;
+    if (Math.abs(dx) > 0.5) o.face = dx < 0 ? -1 : 1;
+    o.faceUp = dy < -Math.abs(dx) * 0.9;
+    if (d > v) { o.x += (dx / d) * v; o.y += (dy / d) * v; return false; }
+    o.x = n.x; o.y = n.y; o.path.shift();
+    if (n.board) {
+      const c = n.board;
+      c.boarding.delete(o.id); o.boardingCar = null;
+      if (c.state === 'open' || c.state === 'opening') {
+        const e = o.path[0];
+        const to = e?.elevator ? e.to : o.target?.floor ?? o.floor;
+        if (e?.elevator) o.path.shift();
+        c.riders.push({ o, to }); c.stops.add(to); o.inCar = c; o.moving = false;
+      } else {
+        o.path.unshift({ floor: o.floor, x: o.x, y: 546 }); // a porta fechou na cara: volta para a marca e chama de novo
+      }
+      return false;
+    }
+    return !o.path.length;
   }
 
   const taken = new Map();
@@ -457,7 +744,7 @@ export function createPredio(root, hooks = {}) {
   function wander(now) {
     // chefe com aprovação esperando: de vez em quando vai conferir o painel e volta para a mesa
     const boss = people.get('VOCÊ');
-    if (boss && pending > 0 && !boss.path.length && boss.mood === 'chefe' && now > (boss.checkAt ?? 0) && !(callData && callData.status !== 'ENCERRADA')) {
+    if (boss && pending > 0 && !boss.path.length && !boss.inCar && boss.mood === 'chefe' && now > (boss.checkAt ?? 0) && !(callData && callData.status !== 'ENCERRADA')) {
       boss.checkAt = now + 45_000 + Math.random() * 30_000;
       const aprov = floors[1].rooms.find((r) => r.board), chefe = floors[1].rooms.find((r) => r.queue);
       boss.back = { floor: 1, ...chefe.boss };
@@ -465,7 +752,7 @@ export function createPredio(root, hooks = {}) {
       boss.bubble = { text: `${pending} aprovação(ões) esperando…`, until: now + 4000 };
     }
     // conversa no corredor: dois parados perto um do outro trocam uma frase
-    const idle = [...people.values()].filter((q) => !q.boss && !q.path.length && !q.typing && now > (q.chatAt ?? 0) && (!q.bubble || q.bubble.until < now));
+    const idle = [...people.values()].filter((q) => !q.boss && !q.path.length && !q.inCar && !q.typing && now > (q.chatAt ?? 0) && (!q.bubble || q.bubble.until < now));
     for (let a = 0; a < idle.length; a++) for (let b = a + 1; b < idle.length; b++) {
       const x = idle[a], y = idle[b];
       if (x.floor !== y.floor || Math.hypot(x.x - y.x, x.y - y.y) > 110 || Math.random() > 0.02) continue;
@@ -478,7 +765,7 @@ export function createPredio(root, hooks = {}) {
     for (const p of people.values()) {
       if (p.boss) continue;
       const idx = i++;
-      if (p.path.length || now < p.wanderAt || p.mood === 'chamada' || p.mood === 'travado') continue;
+      if (p.path.length || p.inCar || now < p.wanderAt || p.mood === 'chamada' || p.mood === 'travado') continue;
       p.wanderAt = now + 25_000 + Math.random() * 50_000;
       if (p.mood === 'trabalhando' || p.mood === 'revisando') {
         if (Math.random() < 0.25 && p.floor >= 2) {
@@ -497,7 +784,8 @@ export function createPredio(root, hooks = {}) {
 
   function step(p, dt, now) {
     if (p.celebrate > 0) p.celebrate -= dt;
-    if (!p.path.length) {
+    if (!p.path.length && !p.inCar) {
+      p.faceUp = false;
       p.moving = false;
       if (p.back && now > (p.backAt ?? Infinity)) { const b = p.back; p.back = null; p.backAt = null; goTo(p, b); return; }
       if (p.back && !p.backAt) p.backAt = now + 6000 + Math.random() * 6000;
@@ -507,16 +795,7 @@ export function createPredio(root, hooks = {}) {
       if (p.mood === 'travado' || p.boss) p.face = p.boss ? 1 : -1;
       return;
     }
-    const n = p.path[0];
-    if (n.floor !== p.floor) { p.floor = n.floor; p.x = n.x; p.y = n.y; p.path.shift(); renderFloors(); return; }
-    const dx = n.x - p.x, dy = n.y - p.y, d = Math.hypot(dx, dy);
-    const v = SPEED * (p.boss ? 0.85 : 1) * dt;
-    p.moving = true;
-    if (Math.abs(dx) > 0.5) p.face = dx < 0 ? -1 : 1;
-    if (d <= v) {
-      p.x = n.x; p.y = n.y; p.path.shift();
-      if (!p.path.length && p.mood === 'terminou') { p.celebrate = 1.6; if (p.party) { p.party = false; burst(p.floor, p.x, p.y - 30); } }
-    } else { p.x += (dx / d) * v; p.y += (dy / d) * v; }
+    if (travel(p, dt, SPEED * (p.boss ? 0.85 : 1)) && p.mood === 'terminou') { p.celebrate = 1.6; if (p.party) { p.party = false; burst(p.floor, p.x, p.y - 30); } }
   }
 
   function burst(floor, x, y) {
@@ -526,25 +805,24 @@ export function createPredio(root, hooks = {}) {
   function stepConfetti(dt) {
     for (let i = confetti.length - 1; i >= 0; i--) { const c = confetti[i]; c.life -= dt; c.vy += 260 * dt; c.x += c.vx * dt; c.y += c.vy * dt; c.r += dt * 8; if (c.life <= 0) confetti.splice(i, 1); }
   }
-  /** O mascote anda por pontos aleatórios do andar; às vezes troca de andar pela escada. */
+  /** O mascote anda por pontos aleatórios do andar; às vezes troca de andar de elevador. */
   function stepPet(dt, now) {
-    if (!pet.path.length) {
+    if (!pet.path.length && !pet.inCar) {
+      pet.faceUp = false;
       pet.moving = false;
       if (now < pet.restUntil) return;
       pet.restUntil = now + 2500 + Math.random() * 6000;
       let floor = pet.floor;
       if (Math.random() < 0.15) floor = Math.floor(Math.random() * floors.length);
-      const rooms = floors[floor].rooms.filter((r) => !r.stairs && r.spots.length);
+      const rooms = floors[floor].rooms.filter((r) => !r.lobby && r.spots.length);
       const r = rooms[Math.floor(Math.random() * rooms.length)];
       const s = Math.random() < 0.3 ? corridorAt(80 + Math.random() * 840, (Math.random() - 0.5) * 50) : { x: r.x0 + 30 + Math.random() * (r.x1 - r.x0 - 60), y: r.y0 + 60 + Math.random() * (r.y1 - r.y0 - 100) };
-      pet.path = route(floors, { floor: pet.floor, x: pet.x, y: pet.y }, { floor, ...s }, 12);
+      pet.target = { floor, ...s };
+      leaveQueue(pet);
+      pet.path = route(floors, { floor: pet.floor, x: pet.x, y: pet.y }, pet.target, 12);
       return;
     }
-    const n = pet.path[0];
-    if (n.floor !== pet.floor) { pet.floor = n.floor; pet.x = n.x; pet.y = n.y; pet.path.shift(); return; }
-    const dx = n.x - pet.x, dy = n.y - pet.y, d = Math.hypot(dx, dy), v = 70 * dt;
-    pet.moving = true; if (Math.abs(dx) > 0.5) pet.face = dx < 0 ? -1 : 1;
-    if (d <= v) { pet.x = n.x; pet.y = n.y; pet.path.shift(); } else { pet.x += (dx / d) * v; pet.y += (dy / d) * v; }
+    travel(pet, dt, 70);
   }
 
   // ---------- desenho do andar ----------
@@ -592,17 +870,26 @@ export function createPredio(root, hooks = {}) {
     g.strokeStyle = light ? 'rgba(0,0,0,.06)' : 'rgba(255,255,255,.04)'; g.lineWidth = 1;
     for (let x = 60; x < 1170; x += 60) { const a = P(x, CORR.y0 + 8), b = P(x, CORR.y1 - 8); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
     for (const r of f.rooms) {
-      g.fillStyle = r.green ? (light ? '#BBE5C4' : '#132A1A') : r.stairs ? (light ? '#D6D0C6' : '#141416') : r.boss ? (light ? '#E9DCCB' : '#1E1914') : r.meeting ? (light ? '#E3E0EE' : '#16151F') : (light ? '#F3EEE7' : '#151518');
+      g.fillStyle = r.green ? (light ? '#BBE5C4' : '#132A1A') : r.lobby ? (light ? '#E4DED4' : '#141417') : r.boss ? (light ? '#E9DCCB' : '#1E1914') : r.meeting ? (light ? '#E3E0EE' : '#16151F') : (light ? '#F3EEE7' : '#151518');
       g.fillRect(...rectW(r.x0 + 3, r.y0 + 3, r.x1 - 3, r.y1 - 3));
       g.strokeStyle = light ? 'rgba(0,0,0,.035)' : 'rgba(255,255,255,.025)';
       for (let y = r.y0 + 24; y < r.y1; y += 24) { const a = P(r.x0 + 4, y), b = P(r.x1 - 4, y); g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); }
-      if (r.stairs) {
-        g.fillStyle = light ? '#BFB6A8' : '#26262B';
-        for (let y = r.y0 + 40; y < r.y1 - 10; y += 22) g.fillRect(...rectW(r.x0 + 30, y, r.x1 - 30, y + 12));
-        const c = P((r.x0 + r.x1) / 2, r.y1 - 30);
-        g.fillStyle = light ? '#57534E' : '#A1A1AA'; g.font = `600 ${Math.max(9, 12 * zk)}px system-ui`; g.textAlign = 'center';
-        g.fillText(view < floors.length - 1 ? '▲ sobe' : '', c.x, c.y - 14 * zk);
-        g.fillText(view > 0 ? '▼ desce' : '', c.x, c.y + 2 * zk);
+      if (r.lobby) {
+        // bloco dos elevadores na parede do fundo: moldura das portas e o painel de botões
+        const B = ELEV.block;
+        g.fillStyle = light ? '#C9C1B5' : '#2A2A30'; g.fillRect(...rectW(B.x0, B.y0, B.x1, B.y1));
+        g.fillStyle = light ? '#B3AA9C' : '#36363E'; g.fillRect(...rectW(B.x0, B.y1 - 4, B.x1, B.y1));
+        for (const cx of ELEV.cars) {
+          g.fillStyle = light ? '#8F877B' : '#52525B'; g.fillRect(...rectW(cx - ELEV.doorHalf - 4, ELEV.doorTop - 4, cx + ELEV.doorHalf + 4, B.y1));
+          g.fillStyle = '#09090B'; g.fillRect(...rectW(cx - 13, B.y0 + 3, cx + 13, ELEV.doorTop - 6));
+        }
+        const bx = (ELEV.cars[0] + ELEV.cars[1]) / 2;
+        g.fillStyle = light ? '#8F877B' : '#52525B'; g.fillRect(...rectW(bx - 4, 452, bx + 4, 476));
+        // dicas de toque: subir e descer
+        g.fillStyle = light ? '#57534E' : '#A1A1AA'; g.font = `600 ${Math.max(9, 11 * zk)}px system-ui`; g.textAlign = 'center';
+        const up = view < floors.length - 1 ? '▲ sobe' : '', down = view > 0 ? '▼ desce' : '';
+        if (portrait) { const c = P(985, 580); g.fillText([up, down].filter(Boolean).join('  '), c.x, c.y); }
+        else { const c1 = P(985, 560), c2 = P(985, 600); if (up) g.fillText(up, c1.x, c1.y); if (down) g.fillText(down, c2.x, c2.y); }
       }
     }
     drawStaticDecor(g, f, P, zk);
@@ -656,16 +943,17 @@ export function createPredio(root, hooks = {}) {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.drawImage(bg, 0, 0);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawElevators(t, zk);
     // móveis + pessoas, ordenados pela altura na tela
     const items = [];
     for (const r of f.rooms) for (const fu of r.furniture) if (fu.x != null && fu.t !== 'tapete' && fu.t !== 'arte') items.push({ sy: P(fu.x, fu.y + (fu.t.startsWith('mesa') ? 14 : 0)).y, draw: () => drawFurniture(ctx, fu, P, zk, t, night) });
     for (const p of people.values()) {
-      if (p.floor !== view) continue;
+      if (p.floor !== view || p.inCar) continue;
       const s = P(p.x, p.y);
-      p.sx = s.x; p.sy = s.y; p.scale = Math.max(0.55, 1.25 * zk);
+      p.sx = s.x; p.sy = s.y; p.scale = Math.max(0.55, 1.1 * zk);
       items.push({ sy: s.y, draw: () => drawPerson(ctx, p, t) });
     }
-    if (pet.floor === view) { const s = P(pet.x, pet.y); pet.sx = s.x; pet.sy = s.y; pet.scale = Math.max(0.5, 1.1 * zk); items.push({ sy: s.y, draw: () => drawPet(ctx, pet, t) }); }
+    if (pet.floor === view && !pet.inCar) { const s = P(pet.x, pet.y); pet.sx = s.x; pet.sy = s.y; pet.scale = Math.max(0.5, 1.1 * zk); items.push({ sy: s.y, draw: () => drawPet(ctx, pet, t) }); }
     items.sort((a, b) => a.sy - b.sy);
     for (const it of items) it.draw();
     // quadro de tarefas de cada sala do time: quem senta ali e no que está trabalhando
@@ -689,11 +977,22 @@ export function createPredio(root, hooks = {}) {
       ctx.fillStyle = callData && callData.status !== 'ENCERRADA' ? '#FB923C' : '#71717A';
       label(callData && callData.status !== 'ENCERRADA' ? `● chamada: ${String(callData.topic ?? '').slice(0, 40)}` : 'sala livre', tl.x, tl.y + 4 * zk);
     }
-    if (pet.floor === view && pet.bubble && pet.bubble.until > performance.now()) drawTag({ ...pet, id: 'AgentC', mood: 'chamada', boss: false, info: null }, zk, t, true);
+    if (shown(pet) && pet.bubble && pet.bubble.until > performance.now()) drawTag({ ...pet, id: 'AgentC', mood: 'chamada', boss: false, info: null }, zk, t, true);
     // nomes, estado e balões por cima de tudo; etiquetas que se encostam descem uma linha
     const placed = [];
     ctx.font = `700 ${Math.max(9, 10.5 * Math.min(zk * 1.2, 1.4))}px system-ui`;
-    for (const p of [...people.values()].filter((q) => q.floor === view).sort((a, b) => a.sy - b.sy)) {
+    // quem está na fila ou dentro do elevador não mostra o nome (vira um contador), a não ser o selecionado ou quem fala
+    const quiet = (q) => (q.inCar || q.boardingCar || q.path[0]?.elevator) && selected !== q.id && !(q.bubble && q.bubble.until > performance.now());
+    const queue = [...people.values()].filter((q) => q.floor === view && !q.inCar && (q.boardingCar || q.path[0]?.elevator)).length;
+    if (queue) {
+      const a = P(1078, 628), txt = `${queue} esperando o elevador`;
+      ctx.font = `600 ${Math.max(9, 10 * Math.min(zk * 1.2, 1.4))}px system-ui`;
+      const w = ctx.measureText(txt).width + 14;
+      ctx.fillStyle = 'rgba(249,115,22,.92)'; rr(ctx, a.x - w / 2, a.y - 9, w, 18, 9); ctx.fill();
+      ctx.fillStyle = '#0A0A0A'; ctx.textAlign = 'center'; ctx.fillText(txt, a.x, a.y + 4);
+    }
+    ctx.font = `700 ${Math.max(9, 10.5 * Math.min(zk * 1.2, 1.4))}px system-ui`;
+    for (const p of [...people.values()].filter((q) => shown(q) && !quiet(q)).sort((a, b) => a.sy - b.sy)) {
       const w = ctx.measureText(p.boss ? 'VOCÊ · chefe' : p.id).width + 16;
       let y = p.sy + 6;
       while (placed.some((r) => Math.abs(r.x - p.sx) < (r.w + w) / 2 + 2 && Math.abs(r.y - y) < 17)) y += 17;
@@ -702,6 +1001,56 @@ export function createPredio(root, hooks = {}) {
       drawTag(p, zk, t);
     }
     if (night) { ctx.fillStyle = 'rgba(10,15,40,.18)'; ctx.fillRect(0, 0, cw, ch); }
+  }
+
+  /** Está à vista neste andar? Quem está na cabine só aparece com a porta aberta. */
+  function shown(o) {
+    if (o.floor !== view) return false;
+    return !o.inCar || (near(o.inCar.pos, view) && o.inCar.door > 0.3);
+  }
+
+  /** Portas de correr, cabine (com quem está dentro), visor do andar e botão de chamada. */
+  function drawElevators(t, zk) {
+    const B = ELEV.block;
+    for (const c of elev.cars) {
+      const open = near(c.pos, view) ? c.door : 0;
+      const x0 = c.x - ELEV.doorHalf, x1 = c.x + ELEV.doorHalf, y0 = ELEV.doorTop, y1 = B.y1;
+      if (open > 0.01) {
+        ctx.save();
+        ctx.beginPath(); ctx.rect(...rectW(c.x - ELEV.doorHalf * open, y0, c.x + ELEV.doorHalf * open, y1)); ctx.clip();
+        ctx.fillStyle = light ? '#A8A29E' : '#3B3B44'; ctx.fillRect(...rectW(x0, y0, x1, y1));
+        ctx.fillStyle = light ? '#78716C' : '#26262B'; ctx.fillRect(...rectW(x0, y1 - 14, x1, y1));
+        ctx.fillStyle = 'rgba(250,204,21,.35)'; ctx.fillRect(...rectW(x0 + 6, y0 + 2, x1 - 6, y0 + 5));
+        for (const r of [...c.riders].sort((a, b) => a.o.y - b.o.y)) {
+          const o = r.o, s = P(o.x, o.y);
+          o.sx = s.x; o.sy = s.y;
+          if (o.pet) { o.scale = Math.max(0.5, 1.1 * zk); drawPet(ctx, o, t); } else { o.scale = Math.max(0.55, 1.1 * zk); drawPerson(ctx, o, t); }
+        }
+        ctx.restore();
+      }
+      const w = ELEV.doorHalf * (1 - open);
+      if (w > 0.2) {
+        ctx.fillStyle = light ? '#D6D3D1' : '#A1A1AA'; ctx.fillRect(...rectW(x0, y0, x0 + w, y1));
+        ctx.fillStyle = light ? '#E7E5E4' : '#B4B4BC'; ctx.fillRect(...rectW(x1 - w, y0, x1, y1));
+        ctx.fillStyle = 'rgba(255,255,255,.22)'; ctx.fillRect(...rectW(x0 + w * 0.3, y0 + 4, x0 + w * 0.3 + 3, y1 - 6)); ctx.fillRect(...rectW(x1 - w * 0.7, y0 + 4, x1 - w * 0.7 + 3, y1 - 6));
+        ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(...rectW(x0 + w - 1, y0, x0 + w, y1)); ctx.fillRect(...rectW(x1 - w, y0, x1 - w + 1, y1));
+      }
+      // visor: andar onde a cabine está e a seta enquanto anda
+      const fl = Math.round(c.pos);
+      const txt = (c.state === 'moving' ? (c.dir > 0 ? '▲' : '▼') : '') + (fl === 0 ? 'T' : String(fl));
+      const d = P(c.x, (B.y0 + 3 + ELEV.doorTop - 6) / 2 + 0.5);
+      ctx.font = `700 ${Math.max(7, 9.5 * zk)}px ui-monospace, SFMono-Regular, Menlo, monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = c.state === 'moving' ? '#FB923C' : '#4ADE80';
+      ctx.fillText(txt, d.x, d.y);
+      ctx.textBaseline = 'alphabetic';
+    }
+    // botão de chamada: acende quando alguém espera neste andar
+    const bx = (ELEV.cars[0] + ELEV.cars[1]) / 2, lit = elev.calls.has(view);
+    for (const [y, on] of [[459, lit && view < floors.length - 1], [469, lit && view > 0]]) {
+      const a = P(bx, y);
+      ctx.fillStyle = on ? '#FB923C' : (light ? '#E7E5E4' : '#71717A');
+      ctx.beginPath(); ctx.arc(a.x, a.y, Math.max(1.5, 2.4 * zk), 0, Math.PI * 2); ctx.fill();
+    }
   }
 
   function drawTag(p, zk, t, petOnly = false) {
@@ -725,7 +1074,7 @@ export function createPredio(root, hooks = {}) {
     ctx.fillStyle = '#FAFAFA'; ctx.textAlign = 'left';
     ctx.fillText(name, x + 13, y + 12);
     // ícone acima da cabeça
-    const hy = p.sy - 64 * s;
+    const hy = p.sy - 74 * s;
     let icon = null;
     if (p.mood === 'travado') icon = Math.sin(t * 6) > -0.3 ? '!' : null;
     else if (p.mood === 'parado' && p.sit) icon = 'z'.repeat(1 + (Math.floor(t * 1.5) % 3));
@@ -757,6 +1106,7 @@ export function createPredio(root, hooks = {}) {
     last = ts;
     const t = ts / 1000;
     wander(ts);
+    elev.step(reduce ? Math.min(1, dt * 4) : dt);
     stepConfetti(reduce ? 0 : dt);
     stepPet(reduce ? 0 : dt, ts);
     for (const p of people.values()) {
@@ -802,20 +1152,21 @@ export function createPredio(root, hooks = {}) {
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
     let hit = null, best = 1e9;
     for (const p of people.values()) {
-      if (p.floor !== view) continue;
-      const d = Math.hypot(sx - p.sx, sy - (p.sy - 25 * p.scale));
+      if (!shown(p)) continue;
+      const d = Math.hypot(sx - p.sx, sy - (p.sy - 30 * p.scale));
       if (d < 30 * Math.max(1, p.scale) && d < best) { best = d; hit = p; }
     }
     if (hit) return openCard(hit);
-    if (pet.floor === view && Math.hypot(sx - pet.sx, sy - (pet.sy - 10 * pet.scale)) < 22 * Math.max(1, pet.scale)) {
+    if (shown(pet) && Math.hypot(sx - pet.sx, sy - (pet.sy - 10 * pet.scale)) < 22 * Math.max(1, pet.scale)) {
       const frases = ['Oi! Eu sou o AgentC 🤖', 'Cuido do time pra você.', 'Psiu: tem café na copa ☕', 'Todo mundo trabalhando!', 'Me faz cócegas não! 😆'];
       pet.bubble = { text: frases[Math.floor(Math.random() * frases.length)], until: performance.now() + 3500 };
-      pet.restUntil = performance.now() + 3500; pet.path = [];
+      pet.restUntil = performance.now() + 3500;
+      if (!pet.inCar) { leaveQueue(pet); pet.path = []; }
       return;
     }
-    // tocar na escada sobe ou desce
+    // tocar na sala do elevador sobe (perto das portas) ou desce (perto do banco)
     const w = unP(sx, sy);
-    if (w.x > STAIRS.x0 && w.y > STAIRS.y0) { goFloor(w.y < 560 ? view + 1 : view - 1); return; }
+    if (w.x > LOBBY.x0 && w.y > LOBBY.y0) { goFloor(w.y < 580 ? view + 1 : view - 1); return; }
     closeCard();
   }
 
@@ -884,7 +1235,9 @@ export function createPredio(root, hooks = {}) {
         floors = [makeFloor('terreo', 0), makeFloor('diretoria', 1)];
         for (let n = 2; n < need; n++) floors.push(makeFloor('time', n));
         if (view >= floors.length) view = floors.length - 1;
-        for (const p of people.values()) if (p.floor >= floors.length) { p.floor = 0; p.path = []; }
+        elev.setFloors(floors.length);
+        for (const c of elev.cars) for (const r of c.riders) if (r.to >= floors.length) { r.to = floors.length - 1; c.stops.add(r.to); }
+        for (const p of people.values()) if (p.floor >= floors.length && !p.inCar) { leaveQueue(p); p.floor = 0; p.x = 175; p.y = 250; p.path = []; p.target = null; }
       }
       placeAll();
     },
