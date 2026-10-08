@@ -20,5 +20,7 @@ export function start(root) {
     const who = state[Math.floor(Math.random() * state.length)];
     predio.chat([{ agent: who.id, body: LINES[n++ % LINES.length] }]);
     if (n % 5 === 0) predio.chat([{ agent: 'DONO', body: 'Bom trabalho, time!' }]);
+    // 3.0: de vez em quando o Goal de mentira fecha e o time faz festa no Térreo
+    if (n === 3 || n % 14 === 0) predio.party('Goal G-007 concluído');
   }, 6000);
 }

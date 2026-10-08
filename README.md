@@ -118,6 +118,18 @@ Na sala (aba **Prédio**), no app do PC (botão **Prédio** no HUD, no Launcher 
 - Roupas sorteadas pelo nome (camiseta, calça e tênis); 🎲 sorteia de novo. Balões com as falas da sala.
 - Toque num bonequinho para ver tarefa e modelo, mandar uma ordem ou segui-lo pelos andares. Zoom, arrastar e tela cheia.
 
+**Novo na 3.0**
+
+- **Placar do dia**: telão no Correio do Térreo com quem mais terminou tarefas hoje e o destaque do dia. Cada tarefa
+  (agente + horário do STATUS) conta uma vez, mesmo recarregando; o placar fica no aparelho e zera à meia-noite.
+- **Festa do time**: quando o time todo (2 ou mais) termina ou o Goal ativo é encerrado, todo mundo desce para o Térreo
+  por 15 s, com confete, balões e uma faixa por cima de qualquer andar.
+- **Fim de expediente**: das 22 h às 6 h, quem está parado sai pela recepção e some do prédio; o andar do time sem
+  ninguém trabalhando apaga a luz. Chegou ordem nova, o agente volta.
+- **Sons opcionais** (desligados por padrão, botão 🔇 ou tecla M): "ding" de aprovação e do elevador, confete e fanfarra.
+- **Achar agente** (🔎): vai para o andar do agente, aproxima e passa a segui-lo. **Foto do andar** (📷 ou tecla P) em PNG.
+- **Atalhos**: setas ou PageUp/PageDown trocam de andar, 0–9 vão direto ao andar, F tela cheia, +/− zoom, Esc fecha.
+
 ## Instalar por aparelho
 
 Cada aparelho tem a sua tela com o passo a passo no site: `instalar/` (iPhone e iPad, Android, Windows, macOS, Linux,

@@ -12,7 +12,7 @@
     <AssemblyName>AgentControl</AssemblyName>
     <RootNamespace>AgentControl</RootNamespace>
     <ApplicationIcon>Assets\agentc.ico</ApplicationIcon>
-    <Version>1.2.1</Version>
+    <Version>3.0.0</Version>
     <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>

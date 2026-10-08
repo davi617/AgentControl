@@ -3,6 +3,8 @@
 // os agentes usam roupa comum (camiseta, calça e tênis) sorteada pelo nome. Onde cada um vai depende do estado real:
 // trabalhando → mesa; travado ou esperando aprovação → sala do chefe; terminou → copa; parado → descanso;
 // na chamada → sala de reunião. Só canvas e textContent: nada que vem dos agentes vira HTML.
+// 3.0: placar do dia no Térreo, festa quando o time todo termina, time que vai para casa à noite, sons opcionais,
+// foto do andar, "achar agente" e atalhos de teclado.
 
 const W = 1200, H = 720;
 const CORR = { y0: 310, y1: 410 };
@@ -190,6 +192,34 @@ export function moodOf(a, now = Date.now()) {
   return 'parado';
 }
 
+// ---------- placar do dia, noite e festa ----------
+export const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+/**
+ * Conta uma tarefa terminada hoje uma vez só (agente + horário do STATUS): recarregar a página não conta de novo.
+ * Muda `board` ({ day, seen }) e devolve true quando entrou uma nova. Virou o dia, o placar zera.
+ */
+export function noteDone(board, a, now = new Date()) {
+  const day = dayKey(now);
+  if (board.day !== day) { board.day = day; board.seen = []; }
+  const st = String(a?.latest?.status ?? '').toUpperCase(), ts = a?.latest?.ts;
+  if (!a?.id || !/^DONE/.test(st) || !ts || isNaN(new Date(ts)) || dayKey(new Date(ts)) !== day) return false;
+  const key = `${a.id}|${ts}`;
+  if (board.seen.includes(key)) return false;
+  board.seen.push(key);
+  if (board.seen.length > 500) board.seen.splice(0, board.seen.length - 500);
+  return true;
+}
+/** Quem mais terminou hoje, do maior para o menor (empate: ordem alfabética). */
+export function ranking(board) {
+  const n = new Map();
+  for (const k of board?.seen ?? []) { const id = k.slice(0, k.lastIndexOf('|')); n.set(id, (n.get(id) ?? 0) + 1); }
+  return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+/** Das 22 h às 6 h quem está parado vai para casa e o andar vazio apaga a luz. */
+export const lateNight = (d = new Date()) => d.getHours() >= 22 || d.getHours() < 6;
+/** Festa do time: dois ou mais agentes e todos terminaram. */
+export const allDone = (moods) => moods.length >= 2 && moods.every((m) => m === 'terminou');
+
 // ---------- andares ----------
 function room(name, x0, x1, top, extra = {}) {
   const [y0, y1] = top ? [30, CORR.y0] : [CORR.y1, 690];
@@ -224,15 +254,16 @@ function makeFloor(kind, n) {
     jardim.idle = true; jardim.green = true;
     const banh = room('Banheiros', ...BOTTOM[1], false); banh.furniture.push({ t: 'pia', x: 400, y: 660 }, { t: 'pia', x: 470, y: 660 }, { t: 'cabine', x: 560, y: 470 }, { t: 'cabine', x: 610, y: 470 });
     banh.spots = [{ x: 400, y: 620 }, { x: 470, y: 620 }];
-    const corr = room('Correio', ...BOTTOM[2], false); corr.furniture.push({ t: 'estante', x: 700, y: 470 }, { t: 'estante', x: 880, y: 470 }, { t: 'caixas', x: 790, y: 640 });
-    corr.spots = [{ x: 760, y: 560 }, { x: 830, y: 560 }];
+    const corr = room('Correio', ...BOTTOM[2], false); corr.furniture.push({ t: 'estante', x: 700, y: 470 }, { t: 'estante', x: 880, y: 470 }, { t: 'caixas', x: 790, y: 474 }, { t: 'placar', x: 790, y: 628 });
+    corr.spots = [{ x: 740, y: 560 }, { x: 840, y: 560 }];
+    corr.score = true;
     // decoração: tapetes, letreiro, aquário, máquina de lanche, luminárias, flores e quadros
     rec.furniture.push({ t: 'tapete', x: 175, y: 215, w: 210, h: 90, c: '#7C2D12' }, { t: 'letreiro', x: 175, y: 44 }, { t: 'aquario', x: 75, y: 250 });
     copa.furniture.push({ t: 'vending', x: 430, y: 72 }, { t: 'bebedouro', x: 505, y: 66 }, { t: 'tapete', x: 465, y: 220, w: 200, h: 120, c: '#78350F' });
     desc.furniture.push({ t: 'tapete', x: 750, y: 175, w: 230, h: 200, c: '#3B0764' }, { t: 'luminaria', x: 650, y: 180 }, { t: 'arte', x: 860, y: 40, c: '#F472B6' });
     jogos.furniture.push({ t: 'tapete', x: 1030, y: 160, w: 200, h: 120, c: '#1E3A8A' }, { t: 'arte', x: 950, y: 40, c: '#22D3EE' });
     jardim.furniture.push({ t: 'flores', x: 120, y: 610 }, { t: 'flores', x: 250, y: 470 }, { t: 'flores', x: 300, y: 520 });
-    corr.furniture.push({ t: 'arte', x: 790, y: 680, c: '#FACC15' });
+    corr.furniture.push({ t: 'arte', x: 670, y: 680, c: '#FACC15' });
     // datas do ano: abóboras em outubro, bandeirinhas em junho/julho, árvore em dezembro
     const mes = new Date().getMonth() + 1;
     if (mes === 10) rec.furniture.push({ t: 'abobora', x: 110, y: 120 }, { t: 'abobora', x: 245, y: 120 });
@@ -534,6 +565,7 @@ function drawFurniture(ctx, f, P, k, t, night) {
     case 'abobora': dot(f.x, f.y, 11, '#EA580C'); dot(f.x - 6, f.y, 8, '#F97316'); dot(f.x + 6, f.y, 8, '#F97316'); box(f.x, f.y - 12, 3, 6, '#166534', 1); break;
     case 'arvoreNatal': { const a = P(f.x, f.y); ctx.fillStyle = '#166534'; ctx.beginPath(); ctx.moveTo(a.x, a.y - 40 * k); ctx.lineTo(a.x - 22 * k, a.y + 10 * k); ctx.lineTo(a.x + 22 * k, a.y + 10 * k); ctx.closePath(); ctx.fill(); for (let i = 0; i < 6; i++) dot(f.x - 12 + (i % 3) * 12, f.y - 20 + Math.floor(i / 3) * 16, 2.6, Math.sin(t * 3 + i) > 0 ? '#FACC15' : '#EF4444'); dot(f.x, f.y - 42, 4, '#FDE047'); break; }
     case 'quadroTarefas': box(f.x, f.y, 140, 26, '#F4F4F5', 3, '#A1A1AA'); break;
+    case 'placar': box(f.x, f.y + 34, 8, 14, '#3F3F46', 1); box(f.x, f.y, 230, 66, '#09090B', 7, '#F97316'); box(f.x, f.y - 22, 222, 2, 'rgba(249,115,22,.35)', 1); break;
     case 'stairs': break;
   }
 }
@@ -592,6 +624,7 @@ export function createPredio(root, hooks = {}) {
   canvas.setAttribute('role', 'img');
   canvas.setAttribute('aria-label', 'Prédio com os agentes andando pelos andares');
   canvas.tabIndex = 0;
+  canvas.title = 'Setas: trocar de andar · 0–9: ir ao andar · F: tela cheia · M: sons · P: foto';
   const card = el('div', 'predio-card'); card.hidden = true;
   const legend = el('div', 'predio-legend');
   for (const k of ['trabalhando', 'revisando', 'travado', 'terminou', 'parado', 'chamada']) { const s = el('span'); const i = el('i'); i.style.background = STATUS_COLOR[k]; s.append(i, document.createTextNode(STATUS_LABEL[k].split(' /')[0])); legend.append(s); }
@@ -614,13 +647,81 @@ export function createPredio(root, hooks = {}) {
   const confetti = [];
   const pet = { id: 'AgentC', pet: true, floor: 0, x: 600, y: 360, path: [], moving: false, face: 1, scale: 1, sx: 0, sy: 0, restUntil: 0, bubble: null, lane: 12, target: null };
   let elev = createElevators(floors.length);
-  const CHATTER = [['Bora um café?', 'Bora! ☕'], ['Viu o deploy?', 'Passou liso ✓'], ['Que bug chato…', 'Te ajudo depois'], ['Bom trabalho hoje!', 'Valeu! 🙌'], ['O chefe aprovou?', 'Ainda não 😅'], ['Ping-pong?', 'Só uma partida!'], ['Terminei a minha', 'Boa! 🎉']];
+  const CHATTER = [['Bora um café?', 'Bora! ☕'], ['Viu o deploy?', 'Passou liso ✓'], ['Que bug chato…', 'Te ajudo depois'], ['Bom trabalho hoje!', 'Valeu! 🙌'], ['O chefe aprovou?', 'Ainda não 😅'], ['Ping-pong?', 'Só uma partida!'], ['Terminei a minha', 'Boa! 🎉'], ['Viu o placar?', 'Tô subindo! 🏆']];
+  // placar do dia: guardado neste aparelho, cada tarefa terminada conta uma vez
+  let board = { day: '', seen: [] };
+  try { const b = JSON.parse(store.get('predio.placar', '')); if (b && Array.isArray(b.seen)) board = b; } catch { /* vazio */ }
+  // festa no Térreo (time todo terminou ou Goal encerrado) e o time que vai para casa à noite
+  let partyUntil = 0, partyText = '', allBefore = null, wasLate = lateNight(), lateCheckAt = 0, popAt = 0;
+  const HOME = { floor: 0, x: 45, y: 175 }; // a porta da rua, na recepção
+  const PARTY = ['🎉 Uhuu!', 'Missão cumprida!', 'Bora comemorar!', '🥳', 'Que time!', 'Mereceu! 🍕'];
+  const partying = () => performance.now() < partyUntil;
+  // sons: desligados por padrão; só toca depois de você ligar (o navegador exige um toque antes)
+  let soundOn = store.get('predio.som', '0') === '1', actx = null;
+  const SFX = { ding: [[880, 0, 0.25], [1320, 0.12, 0.35]], pop: [[620, 0, 0.07]], festa: [[523, 0, 0.16], [659, 0.14, 0.16], [784, 0.28, 0.16], [1047, 0.42, 0.45]], elev: [[1175, 0, 0.45]] };
+  function sfx(kind) {
+    if (!soundOn || !running || !SFX[kind]) return;
+    try {
+      actx ??= new (window.AudioContext || window.webkitAudioContext)();
+      const t0 = actx.currentTime;
+      for (const [f, at, dur] of SFX[kind]) {
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = 'sine'; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t0 + at); g.gain.exponentialRampToValueAtTime(0.07, t0 + at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t0 + at + dur);
+        o.connect(g).connect(actx.destination); o.start(t0 + at); o.stop(t0 + at + dur + 0.05);
+      }
+    } catch { /* sem áudio */ }
+  }
 
   mk('−', 'Afastar', () => setZoom(zoom / 1.25));
   mk('+', 'Aproximar', () => setZoom(zoom * 1.25));
   mk('🎲', 'Sortear roupas (quem tem personagem salvo fica igual)', () => { salt++; store.set('predio.roupas', String(salt)); for (const p of people.values()) p.look = lookOf(p.id, p.boss); });
   mk('🧑', 'Meu personagem: roupa, cabelo e a sua foto', (e) => openEditor('VOCÊ', e.currentTarget));
   const fsBtn = mk('⛶', 'Tela cheia', () => toggleFull());
+  const sndBtn = mk(soundOn ? '🔊' : '🔇', 'Sons do escritório (desligados por padrão)', () => toggleSound());
+  sndBtn.setAttribute('aria-pressed', String(soundOn));
+  mk('📷', 'Salvar uma foto deste andar (PNG)', () => snapshot());
+  // achar agente: escolhe na lista, a tela vai para o andar dele e passa a segui-lo
+  const find = el('select', 'predio-find');
+  find.setAttribute('aria-label', 'Achar agente');
+  find.title = 'Achar agente';
+  find.addEventListener('change', () => {
+    const p = people.get(find.value);
+    find.value = '';
+    if (!p) return;
+    follow = p.id; view = p.away ? 0 : p.floor;
+    if (zoom === 1 && !p.away) setZoom(1.8);
+    renderFloors(); openCard(p);
+  });
+  tools.prepend(find);
+  let findKey = '';
+  function renderFind() {
+    const ids = [...people.keys()];
+    const key = ids.join('|');
+    if (key === findKey) return;
+    findKey = key;
+    find.replaceChildren(el('option', null, '🔎 Achar…'));
+    find.firstChild.value = '';
+    for (const id of ids) { const o = el('option', null, id === 'VOCÊ' ? 'Você (chefe)' : id); o.value = id; find.append(o); }
+  }
+
+  function toggleSound() {
+    soundOn = !soundOn;
+    store.set('predio.som', soundOn ? '1' : '0');
+    sndBtn.textContent = soundOn ? '🔊' : '🔇';
+    sndBtn.setAttribute('aria-pressed', String(soundOn));
+    if (soundOn) { actx?.resume?.(); sfx('ding'); }
+  }
+  function snapshot() {
+    canvas.toBlob((b) => {
+      if (!b) return;
+      const a = document.createElement('a');
+      const nome = floors[view].name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+      a.href = URL.createObjectURL(b); a.download = `predio-${nome}-${dayKey()}.png`;
+      document.body.append(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }, 'image/png');
+  }
 
   function toggleFull() {
     const on = !root.classList.contains('full');
@@ -638,7 +739,7 @@ export function createPredio(root, hooks = {}) {
   function renderFloors() {
     floorsBox.replaceChildren();
     floors.forEach((f, i) => {
-      const n = [...people.values()].filter((p) => p.floor === i).length;
+      const n = [...people.values()].filter((p) => p.floor === i && !p.away).length;
       const b = el('button', 'predio-floor' + (i === view ? ' on' : ''));
       b.type = 'button';
       b.setAttribute('role', 'tab');
@@ -647,6 +748,7 @@ export function createPredio(root, hooks = {}) {
       b.addEventListener('click', () => goFloor(i));
       floorsBox.append(b);
     });
+    renderFind();
   }
   function goFloor(i) { view = Math.max(0, Math.min(floors.length - 1, i)); store.set('predio.andar', String(view)); follow = null; renderFloors(); }
 
@@ -957,10 +1059,11 @@ export function createPredio(root, hooks = {}) {
     const dir = floors[1];
     const reun = dir.rooms.find((r) => r.meeting), chefe = dir.rooms.find((r) => r.queue);
     let ci = 0, qi = 0;
+    const party = partying() && !inCall.size, late = lateNight();
     const boss = people.get('VOCÊ');
     if (boss) {
       boss.mood = 'chefe';
-      const t = inCall.size ? { floor: 1, ...reun.head } : { floor: 1, ...chefe.boss };
+      const t = inCall.size ? { floor: 1, ...reun.head } : party ? { floor: 0, x: 175, y: 285 } : { floor: 1, ...chefe.boss };
       goTo(boss, t);
     }
     let i = 0;
@@ -968,10 +1071,19 @@ export function createPredio(root, hooks = {}) {
       if (p.boss) continue;
       const idx = i++;
       release(p.id);
-      if (inCall.has(p.id)) { p.mood = 'chamada'; const s = reun.spots[ci++ % reun.spots.length]; taken.set(`1:${s.x}:${s.y}`, p.id); goTo(p, { floor: 1, ...s }); continue; }
+      if (inCall.has(p.id)) { comeBack(p); p.mood = 'chamada'; const s = reun.spots[ci++ % reun.spots.length]; taken.set(`1:${s.x}:${s.y}`, p.id); goTo(p, { floor: 1, ...s }); continue; }
       const before = p.mood;
       p.mood = moodOf(p.info);
       if (before && before !== 'terminou' && p.mood === 'terminou') p.party = true;
+      // festa: todo mundo desce para o Térreo (recepção, copa, descanso, jogos e jardim)
+      if (party) { comeBack(p); goTo(p, freeSpot(0, (r) => !!r.idle || r.name === 'Recepção', p.id) ?? deskOf(idx)); continue; }
+      // à noite quem está parado vai embora pela recepção; volta de manhã ou quando chegar ordem
+      if (late && p.mood === 'parado') {
+        if (!p.goingHome && !p.away) { p.goingHome = true; p.bubble = { text: 'Fui! Até amanhã 👋', until: performance.now() + 3500 }; }
+        if (!p.away) goTo(p, { ...HOME });
+        continue;
+      }
+      comeBack(p);
       if (p.mood === 'trabalhando' || p.mood === 'revisando') goTo(p, deskOf(idx));
       else if (p.mood === 'travado') { const s = chefe.spots[qi++ % chefe.spots.length]; goTo(p, { floor: 1, ...s }); }
       else if (p.mood === 'terminou') goTo(p, freeSpot(0, (r) => r.name === 'Copa' || r.name === 'Jogos', p.id) ?? deskOf(idx));
@@ -981,9 +1093,31 @@ export function createPredio(root, hooks = {}) {
     renderFloors();
     describe();
   }
+  /** Quem tinha ido para casa volta pela recepção (ou desiste de ir). */
+  function comeBack(p) {
+    p.goingHome = false;
+    if (!p.away) return;
+    p.away = false; p.floor = HOME.floor; p.x = HOME.x + 20; p.y = HOME.y + 40; p.path = []; p.target = null;
+  }
+
+  /** Começa a festa no Térreo: confete, balões e todo mundo comemorando por 15 s. */
+  function startParty(text) {
+    partyUntil = performance.now() + 15_000;
+    partyText = String(text ?? '').slice(0, 60);
+    for (const p of people.values()) if (!p.boss) p.bubble = { text: PARTY[Math.floor(Math.random() * PARTY.length)], until: performance.now() + 4000 + Math.random() * 3000 };
+    pet.bubble = { text: 'Festa! 🎉', until: performance.now() + 4000 };
+    sfx('festa');
+    if (people.size) placeAll();
+  }
 
   /** De vez em quando quem trabalha vai buscar um café na copa do andar e volta; quem está à toa troca de lugar. */
   function wander(now) {
+    // festa: confete pelo Térreo de vez em quando, ninguém sai andando
+    if (partying()) {
+      if (Math.random() < 0.06) { const s = floors[0].rooms[Math.floor(Math.random() * 4)]; burst(0, s.x0 + 40 + Math.random() * (s.x1 - s.x0 - 80), 80 + Math.random() * 160); }
+      for (const p of people.values()) if (!p.path.length && !p.inCar && p.floor === 0 && Math.random() < 0.01) p.celebrate = 1.6;
+      return;
+    }
     // chefe com aprovação esperando: de vez em quando vai conferir o painel e volta para a mesa
     const boss = people.get('VOCÊ');
     if (boss && pending > 0 && !boss.path.length && !boss.inCar && boss.mood === 'chefe' && now > (boss.checkAt ?? 0) && !(callData && callData.status !== 'ENCERRADA')) {
@@ -994,7 +1128,7 @@ export function createPredio(root, hooks = {}) {
       boss.bubble = { text: `${pending} aprovação(ões) esperando…`, until: now + 4000 };
     }
     // conversa no corredor: dois parados perto um do outro trocam uma frase
-    const idle = [...people.values()].filter((q) => !q.boss && !q.path.length && !q.inCar && !q.typing && now > (q.chatAt ?? 0) && (!q.bubble || q.bubble.until < now));
+    const idle = [...people.values()].filter((q) => !q.boss && !q.away && !q.goingHome && !q.path.length && !q.inCar && !q.typing && now > (q.chatAt ?? 0) && (!q.bubble || q.bubble.until < now));
     for (let a = 0; a < idle.length; a++) for (let b = a + 1; b < idle.length; b++) {
       const x = idle[a], y = idle[b];
       if (x.floor !== y.floor || Math.hypot(x.x - y.x, x.y - y.y) > 110 || Math.random() > 0.02) continue;
@@ -1007,7 +1141,7 @@ export function createPredio(root, hooks = {}) {
     for (const p of people.values()) {
       if (p.boss) continue;
       const idx = i++;
-      if (p.path.length || p.inCar || now < p.wanderAt || p.mood === 'chamada' || p.mood === 'travado') continue;
+      if (p.path.length || p.inCar || p.away || p.goingHome || now < p.wanderAt || p.mood === 'chamada' || p.mood === 'travado') continue;
       p.wanderAt = now + 25_000 + Math.random() * 50_000;
       if (p.mood === 'trabalhando' || p.mood === 'revisando') {
         if (Math.random() < 0.25 && p.floor >= 2) {
@@ -1026,9 +1160,11 @@ export function createPredio(root, hooks = {}) {
 
   function step(p, dt, now) {
     if (p.celebrate > 0) p.celebrate -= dt;
+    if (p.away) return;
     if (!p.path.length && !p.inCar) {
       p.faceUp = false;
       p.moving = false;
+      if (p.goingHome && p.floor === HOME.floor && Math.hypot(p.x - HOME.x, p.y - HOME.y) < 3) { p.away = true; p.goingHome = false; if (follow === p.id) follow = null; renderFloors(); describe(); return; }
       if (p.back && now > (p.backAt ?? Infinity)) { const b = p.back; p.back = null; p.backAt = null; goTo(p, b); return; }
       if (p.back && !p.backAt) p.backAt = now + 6000 + Math.random() * 6000;
       const r = roomAt(floors[p.floor], p.x, p.y);
@@ -1037,11 +1173,12 @@ export function createPredio(root, hooks = {}) {
       if (p.mood === 'travado' || p.boss) p.face = p.boss ? 1 : -1;
       return;
     }
-    if (travel(p, dt, SPEED * (p.boss ? 0.85 : 1)) && p.mood === 'terminou') { p.celebrate = 1.6; if (p.party) { p.party = false; burst(p.floor, p.x, p.y - 30); } }
+    if (travel(p, dt, SPEED * (p.boss ? 0.85 : 1)) && (p.mood === 'terminou' || partying())) { p.celebrate = 1.6; if (p.party) { p.party = false; burst(p.floor, p.x, p.y - 30); } }
   }
 
   function burst(floor, x, y) {
     if (reduce) return;
+    if (floor === view && performance.now() > popAt) { popAt = performance.now() + 700; sfx('pop'); }
     for (let i = 0; i < 36; i++) confetti.push({ floor, x, y, vx: (Math.random() - 0.5) * 160, vy: -60 - Math.random() * 140, life: 1.6 + Math.random(), c: ['#F97316', '#FACC15', '#22C55E', '#38BDF8', '#F472B6', '#A855F7'][i % 6], r: Math.random() * 6 });
   }
   function stepConfetti(dt) {
@@ -1190,7 +1327,7 @@ export function createPredio(root, hooks = {}) {
     const items = [];
     for (const r of f.rooms) for (const fu of r.furniture) if (fu.x != null && fu.t !== 'tapete' && fu.t !== 'arte') items.push({ sy: P(fu.x, fu.y + (fu.t.startsWith('mesa') ? 14 : 0)).y, draw: () => drawFurniture(ctx, fu, P, zk, t, night) });
     for (const p of people.values()) {
-      if (p.floor !== view || p.inCar) continue;
+      if (p.floor !== view || p.inCar || p.away) continue;
       const s = P(p.x, p.y);
       p.sx = s.x; p.sy = s.y; p.scale = Math.max(0.55, 1.1 * zk);
       items.push({ sy: s.y, draw: () => drawPerson(ctx, p, t) });
@@ -1208,9 +1345,22 @@ export function createPredio(root, hooks = {}) {
     }
     // confete de quem terminou
     for (const c of confetti) { if (c.floor !== view) continue; const a = P(c.x, c.y); ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(c.r); ctx.globalAlpha = Math.min(1, c.life); ctx.fillStyle = c.c; ctx.fillRect(-3 * zk, -1.5 * zk, 6 * zk, 3 * zk); ctx.restore(); }
+    // placar do dia no Térreo: quem mais terminou tarefas hoje e o destaque
+    if (f.kind === 'terreo') {
+      const top = ranking(board), c = P(790, 628);
+      ctx.fillStyle = '#FB923C'; ctx.font = `800 ${Math.max(8, 10.5 * zk)}px system-ui`;
+      label('🏆 PLACAR DO DIA', c.x, c.y - 15 * zk);
+      ctx.fillStyle = '#F4F4F5'; ctx.font = `700 ${Math.max(8, 11 * zk)}px system-ui`;
+      let line = top.length ? top.slice(0, 3).map(([id, n], i) => `${['🥇', '🥈', '🥉'][i]} ${id} ${n}`).join('  ') : 'ninguém terminou ainda hoje';
+      while (ctx.measureText(line).width > 215 * zk && line.length > 8) line = line.slice(0, -2);
+      label(line, c.x, c.y + 5 * zk);
+      const home = [...people.values()].filter((q) => q.away).length;
+      ctx.fillStyle = '#A1A1AA'; ctx.font = `600 ${Math.max(7, 9 * zk)}px system-ui`;
+      label(home ? `🌙 ${home} foi(ram) para casa` : top.length ? `destaque do dia: ${top[0][0]}` : 'bom trabalho, time!', c.x, c.y + 22 * zk);
+    }
     // painel de aprovações e telão da reunião
     if (f.kind === 'diretoria') {
-      const done = [...people.values()].filter((q) => q.mood === 'terminou').length;
+      const done = board.day === dayKey() ? board.seen.length : 0;
       const tr = P(60, 222); ctx.font = `700 ${Math.max(8, 10 * zk)}px system-ui`; ctx.fillStyle = '#FACC15'; label(`${done} ✓ hoje`, tr.x, tr.y);
       const pa = P(1030, 45);
       ctx.font = `700 ${Math.max(9, 12 * zk)}px system-ui`; ctx.fillStyle = pending ? '#F87171' : '#4ADE80';
@@ -1242,12 +1392,25 @@ export function createPredio(root, hooks = {}) {
       p.tagY = y;
       drawTag(p, zk, t);
     }
-    if (night) { ctx.fillStyle = 'rgba(10,15,40,.18)'; ctx.fillRect(0, 0, cw, ch); }
+    if (night) {
+      // andar do time sem ninguém trabalhando, tarde da noite: luz apagada
+      const dark = f.kind === 'time' && lateNight() && !partying() && ![...people.values()].some((q) => q.floor === view && !q.away && (q.mood === 'trabalhando' || q.mood === 'revisando'));
+      ctx.fillStyle = dark ? 'rgba(4,6,20,.55)' : 'rgba(10,15,40,.18)'; ctx.fillRect(0, 0, cw, ch);
+      if (dark) { const c = P(600, (CORR.y0 + CORR.y1) / 2); ctx.fillStyle = 'rgba(244,244,245,.55)'; ctx.font = `600 ${Math.max(9, 12 * zk)}px system-ui`; label('🌙 luzes apagadas: o time foi para casa', c.x, c.y + 34 * zk); }
+    }
+    // festa no Térreo: faixa por cima de qualquer andar
+    if (partying()) {
+      const txt = `🎉 Festa no Térreo${partyText ? ' · ' + partyText : ''}`;
+      ctx.font = `800 ${Math.max(11, 14 * Math.min(zk * 1.2, 1.4))}px system-ui`;
+      const w = Math.min(cw - 16, ctx.measureText(txt).width + 28), x = (cw - w) / 2;
+      ctx.fillStyle = `hsla(${(t * 90) % 360} 90% 55% / .95)`; rr(ctx, x, 8, w, 28, 14); ctx.fill();
+      ctx.fillStyle = '#0A0A0A'; label(txt, cw / 2, 27);
+    }
   }
 
   /** Está à vista neste andar? Quem está na cabine só aparece com a porta aberta. */
   function shown(o) {
-    if (o.floor !== view) return false;
+    if (o.floor !== view || o.away) return false;
     return !o.inCar || (near(o.inCar.pos, view) && o.inCar.door > 0.3);
   }
 
@@ -1347,8 +1510,16 @@ export function createPredio(root, hooks = {}) {
     const dt = Math.min(0.1, (ts - (last || ts)) / 1000);
     last = ts;
     const t = ts / 1000;
+    // a festa acabou ou virou noite/dia: cada um volta para o seu lugar
+    if (partyUntil && !partying()) { partyUntil = 0; partyText = ''; placeAll(); }
+    if (ts > lateCheckAt) { lateCheckAt = ts + 30_000; const l = lateNight(); if (l !== wasLate) { wasLate = l; placeAll(); } }
     wander(ts);
     elev.step(reduce ? Math.min(1, dt * 4) : dt);
+    // "ding" quando a porta abre no andar que você está vendo
+    for (const c of elev.cars) {
+      if (c.state === 'opening' && near(c.pos, view) && !c.dinged) { c.dinged = true; sfx('elev'); }
+      if (c.state === 'idle' || c.state === 'moving') c.dinged = false;
+    }
     stepConfetti(reduce ? 0 : dt);
     stepPet(reduce ? 0 : dt, ts);
     for (const p of people.values()) {
@@ -1387,6 +1558,10 @@ export function createPredio(root, hooks = {}) {
     if (e.key === '+' || e.key === '=') setZoom(zoom * 1.25);
     if (e.key === '-') setZoom(zoom / 1.25);
     if (e.key === 'Escape') closeCard();
+    if (/^[0-9]$/.test(e.key) && Number(e.key) < floors.length) goFloor(Number(e.key));
+    if (e.key === 'f' || e.key === 'F') toggleFull();
+    if (e.key === 'm' || e.key === 'M') toggleSound();
+    if (e.key === 'p' || e.key === 'P') snapshot();
   });
 
   function click(e) {
@@ -1424,8 +1599,10 @@ export function createPredio(root, hooks = {}) {
     const a = p.info;
     const dl = el('dl');
     const row = (k2, v) => { if (v) dl.append(el('dt', null, k2), el('dd', null, v)); };
-    row('andar', floors[p.floor]?.name);
+    row('andar', p.away ? 'foi para casa (volta às 6 h ou quando chegar ordem)' : floors[p.floor]?.name);
     row('tarefa', a?.latest?.task);
+    const feitas = ranking(board).find(([id]) => id === p.id)?.[1];
+    row('hoje', feitas ? `${feitas} tarefa(s) terminada(s)` : '');
     row('status', a?.latest?.status);
     row('modelo', a?.model ?? a?.latest?.model);
     row('última fala', p.lastSaid);
@@ -1461,7 +1638,7 @@ export function createPredio(root, hooks = {}) {
 
   function describe() {
     sr.replaceChildren();
-    for (const p of people.values()) sr.append(el('li', null, `${p.boss ? 'Você' : p.id}: ${STATUS_LABEL[p.mood] ?? p.mood}, ${floors[p.floor]?.name ?? ''}`));
+    for (const p of people.values()) sr.append(el('li', null, `${p.boss ? 'Você' : p.id}: ${STATUS_LABEL[p.mood] ?? p.mood}, ${p.away ? 'foi para casa' : floors[p.floor]?.name ?? ''}`));
   }
 
   const ro = new ResizeObserver(() => { if (running) resize(); });
@@ -1478,7 +1655,9 @@ export function createPredio(root, hooks = {}) {
         saved = s.looks;
         for (const p of people.values()) p.look = lookOf(p.id, p.boss);
       }
-      for (const a of s.agents) ensure(a.id).info = a;
+      let scored = false;
+      for (const a of s.agents) { ensure(a.id).info = a; if (noteDone(board, a)) scored = true; }
+      if (scored) store.set('predio.placar', JSON.stringify(board));
       const need = 3 + Math.max(1, Math.ceil(s.agents.length / PER_FLOOR)) - 1;
       if (floors.length !== need) {
         floors = [makeFloor('terreo', 0), makeFloor('diretoria', 1)];
@@ -1489,7 +1668,15 @@ export function createPredio(root, hooks = {}) {
         for (const p of people.values()) if (p.floor >= floors.length && !p.inCar) { leaveQueue(p); p.floor = 0; p.x = 175; p.y = 250; p.path = []; p.target = null; }
       }
       placeAll();
+      // o time todo acabou de terminar (não conta quem já estava assim ao abrir a tela): festa
+      const all = allDone([...people.values()].filter((q) => !q.boss).map((q) => q.mood));
+      if (allBefore === false && all) startParty('o time todo terminou!');
+      allBefore = all;
     },
+    /** Festa no Térreo (ex.: Goal concluído). */
+    party(text) { startParty(text); },
+    /** Placar do dia: [[agente, tarefas terminadas hoje], …]. */
+    get scoreboard() { return ranking(board); },
     /** Falas novas da sala viram balão em cima do bonequinho. */
     chat(entries) {
       for (const e of entries ?? []) {
@@ -1502,7 +1689,7 @@ export function createPredio(root, hooks = {}) {
       }
     },
     call(c) { callData = c; if (people.size) placeAll(); },
-    pending(n) { pending = n; },
+    pending(n) { if (n > pending) sfx('ding'); pending = n; },
     show() { if (running) return; running = true; last = 0; resize(); renderFloors(); requestAnimationFrame(frame); },
     hide() { running = false; },
     get floors() { return floors; },

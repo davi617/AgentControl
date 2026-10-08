@@ -792,12 +792,15 @@ async function loadCall() {
 }
 
 // ---------- ao vivo ----------
-let stateTimer;
+let stateTimer, lastGoal;
 async function refreshState() {
   const s = await api('/api/state');
   $('#goal').textContent = s.goal ?? 'sem Goal ativo';
   renderAgents(s);
   predio.update(s);
+  // o Goal ativo saiu (concluído ou trocado): festa no Térreo do Prédio
+  if (lastGoal && s.goal !== lastGoal) predio.party(`Goal ${lastGoal} encerrado`);
+  lastGoal = s.goal ?? null;
   renderRail(s);
   renderTasks(s.tasks);
   if (JSON.stringify(s.agents.map((a) => a.id)) !== JSON.stringify(state.agentsKnown)) {

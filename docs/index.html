@@ -215,7 +215,10 @@ h2{font-size:clamp(30px,4.4vw,48px);line-height:1.08;letter-spacing:-.035em;font
 .predio-floor.on b { background: var(--brand); color: var(--on-brand); }
 .predio-tools { display: flex; gap: 6px; }
 .predio-btn { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); cursor: pointer; font-size: 16px; }
-.predio-btn:hover, .predio-floor:hover { border-color: var(--brand); }
+.predio-btn:hover, .predio-floor:hover, .predio-find:hover { border-color: var(--brand); }
+.predio-find { height: 40px; max-width: 140px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.predio-tools { flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 520px) { .predio-tools { width: 100%; gap: 4px; justify-content: space-between; } .predio-find { max-width: none; flex: 1 0 100%; } .predio-btn { width: 36px; height: 36px; font-size: 15px; } }
 .predio-stage { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--surface); touch-action: none; }
 .predio-canvas { display: block; cursor: pointer; }
 .predio-card { position: absolute; right: 12px; top: 12px; width: min(320px, calc(100% - 24px)); padding: 14px; border-radius: var(--r); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--line-3); box-shadow: 0 18px 40px rgba(0,0,0,.45); backdrop-filter: blur(8px); }
@@ -381,7 +384,7 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </svg>
     <div class="bubble" id="heroBubble"><b id="hbWho">AgentC</b><span id="hbText">Oi! Eu cuido do seu time.</span></div>
   </div>
-  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT · <a class="verlink" id="verPill" href="https://github.com/OWNER/AgentControl/releases/latest">v1.2.1</a><span class="pill-os"> · PC, Android e iPhone</span></span>
+  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT · <a class="verlink" id="verPill" href="https://github.com/OWNER/AgentControl/releases/latest">v3.0.0</a><span class="pill-os"> · PC, Android e iPhone</span></span>
   <h1 id="title"><span class="word">Seu</span> <span class="word">time</span> <span class="word">de</span> <span class="word grad">agentes</span> <span class="word grad">de</span> <span class="word grad">IA</span> <span class="word">num</span> <span class="word">só</span> <span class="word">lugar.</span></h1>
   <p class="lead reveal-hero">Claude Code, Codex, Gemini, Qwen, Hermes e outros trabalhando juntos. Sala de conversa, ordens com aprovação, HUD no topo da tela, app no celular e o <b style="color:var(--brand-text)">AgentC</b> avisando tudo.</p>
   <div class="cta reveal-hero">
@@ -460,10 +463,18 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
 </div></section>
 
 <section id="predio"><div class="wrap">
-  <div class="center reveal"><span class="kicker">Novo · Modo Prédio</span><h2>Seu time num escritório de verdade.</h2>
+  <div class="center reveal"><span class="kicker">Novo na 3.0 · Modo Prédio</span><h2>Seu time num escritório de verdade.</h2>
   <p class="sub">Cada agente vira um bonequinho que anda pelos andares: senta na mesa quando trabalha, vai à sala do chefe quando trava, toma café quando termina e dorme no sofá quando para. Você é o chefe, de terno e gravata vermelha. Salas decoradas, o AgentC passeando como mascote e confete quando alguém termina. Toque num bonequinho para mandar uma ordem.</p></div>
   <div class="predio-demo reveal" id="predioDemo"></div>
   <p class="sub center" style="margin:14px auto 0;font-size:14px">Demonstração com dados de mentira. No app, é o estado real dos seus agentes · PC, Android e iPhone.</p>
+  <div class="grid3" id="novo30">
+    <div class="feat reveal"><h3>🏆 Placar do dia</h3><p>Telão no Térreo com quem mais terminou tarefas hoje e o destaque do dia. Cada tarefa conta uma vez, mesmo recarregando.</p></div>
+    <div class="feat reveal"><h3>🎉 Festa do time</h3><p>Quando o time todo termina ou o Goal fecha, todo mundo desce para o Térreo, com confete e balões.</p></div>
+    <div class="feat reveal"><h3>🌙 Fim de expediente</h3><p>Das 22 h às 6 h, quem está parado vai para casa pela recepção e o andar vazio apaga a luz. Chegou ordem, ele volta.</p></div>
+    <div class="feat reveal"><h3>🔊 Sons opcionais</h3><p>"Ding" de aprovação e do elevador, confete e fanfarra de festa. Desligados por padrão: liga no 🔇 ou na tecla M.</p></div>
+    <div class="feat reveal"><h3>🔎 Achar agente</h3><p>Escolha um agente na lista: a tela vai para o andar dele, aproxima e segue. Atalhos: 0–9 (andar), F (tela cheia), P (foto).</p></div>
+    <div class="feat reveal"><h3>📷 Foto do andar</h3><p>Salva o andar que você está vendo como imagem PNG, para mostrar o time trabalhando.</p></div>
+  </div>
 </div></section>
 
 <section id="agentc"><div class="wrap center">
@@ -501,7 +512,7 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <section id="baixar"><div class="wrap">
   <div class="center reveal"><span class="kicker">Baixar</span><h2>Escolha o seu sistema.</h2><p class="sub">Grátis e de código aberto. Cada sistema tem a sua tela com o passo a passo: <a href="instalar/" style="color:var(--brand-text);text-decoration:underline">ver todos</a>.</p></div>
-  <div class="relbar reveal" id="relbar"><span class="relbadge" id="relTag">Versão 1.2.1</span><span class="reldate" id="relDate">6 de outubro de 2026</span><a class="relnotes" id="relNotes" href="https://github.com/OWNER/AgentControl/releases/tag/v1.2.1">Ver o que mudou →</a></div>
+  <div class="relbar reveal" id="relbar"><span class="relbadge" id="relTag">Versão 3.0.0</span><span class="reldate" id="relDate">8 de outubro de 2026</span><a class="relnotes" id="relNotes" href="https://github.com/OWNER/AgentControl/releases/tag/v3.0.0">Ver o que mudou →</a></div>
   <div class="dl" id="dl"></div>
   <div class="term reveal">
     <div class="tb"><i></i><i></i><i></i><button class="copy" id="copy">Copiar</button></div>
@@ -547,12 +558,14 @@ const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAl
 // Infer public project links from GitHub Pages; do not hardcode a person's account.
 const PUBLIC_OWNER = location.hostname.endsWith('.github.io') ? location.hostname.slice(0, -10) : '';
 const PUBLIC_PROJECT = location.pathname.split('/').filter(Boolean)[0] || 'AgentControl';
-const PUBLIC_REPOSITORY = document.querySelector('meta[name="repository"]')?.content || (PUBLIC_OWNER ? PUBLIC_OWNER + '/' + PUBLIC_PROJECT : 'OWNER/AgentControl');
-const PUBLIC_GITHUB = 'https://github.com/' + PUBLIC_REPOSITORY;
-const PUBLIC_API = 'https://api.github.com/repos/' + PUBLIC_REPOSITORY;
-document.querySelectorAll('a[href]').forEach(a => { a.href = a.getAttribute('href').replace('https://github.com/OWNER/AgentControl', PUBLIC_GITHUB); });
-document.querySelectorAll('.term pre').forEach(p => { p.innerHTML = p.innerHTML.replaceAll('https://github.com/OWNER/AgentControl', PUBLIC_GITHUB); });
-const REL = PUBLIC_GITHUB + '/releases/latest/download/';
+const PUBLIC_REPOSITORY = document.querySelector('meta[name="repository"]')?.content || (PUBLIC_OWNER ? PUBLIC_OWNER + '/' + PUBLIC_PROJECT : '');
+// fora do GitHub Pages e sem <meta name="repository">: links vão para a busca do GitHub e a API não é chamada (nada de 404)
+const PUBLIC_GITHUB = PUBLIC_REPOSITORY ? 'https://github.com/' + PUBLIC_REPOSITORY : 'https://github.com/search?q=AgentControl&type=repositories';
+const PUBLIC_API = PUBLIC_REPOSITORY ? 'https://api.github.com/repos/' + PUBLIC_REPOSITORY : '';
+document.querySelectorAll('a[href]').forEach(a => { const h = a.getAttribute('href'); if (h.startsWith('https://github.com/OWNER/AgentControl')) a.href = PUBLIC_REPOSITORY ? h.replace('https://github.com/OWNER/AgentControl', PUBLIC_GITHUB) : PUBLIC_GITHUB; });
+document.querySelectorAll('.term pre').forEach(p => { p.innerHTML = p.innerHTML.replaceAll('https://github.com/OWNER/AgentControl', PUBLIC_REPOSITORY ? PUBLIC_GITHUB : 'URL_DO_SEU_REPOSITORIO'); });
+const ghPath = (path) => (PUBLIC_REPOSITORY ? PUBLIC_GITHUB + path : PUBLIC_GITHUB);
+const REL = PUBLIC_REPOSITORY ? PUBLIC_GITHUB + '/releases/latest/download/' : PUBLIC_GITHUB + '#';
 
 /* ---------- dados ---------- */
 // Logos: SVG do Simple Icons (CC0; marcas dos donos) e avatares oficiais no GitHub (OpenClaw, Nous Research, Factory).
@@ -827,19 +840,19 @@ const ua = navigator.userAgent, mineOS = /iPhone|iPad|iPod/.test(ua) || (/Macint
 if (mineOS) { const c = $$('#dl .card')[DL.findIndex(d => d[0] === mineOS)]; if (c) { c.classList.add('mine'); c.insertAdjacentHTML('afterbegin', '<span class="tag">Seu sistema</span>'); } }
 
 /* versão mais nova e estrelas, direto do GitHub (se a API não responder, a página segue igual) */
-fetch(PUBLIC_API).then(r => r.ok ? r.json() : null).then(j => {
+if (PUBLIC_API) fetch(PUBLIC_API).then(r => r.ok ? r.json() : null).then(j => {
   if (j && j.stargazers_count > 0) { const s = $('#stars'); s.textContent = '★ ' + j.stargazers_count; s.hidden = false; }
 }).catch(() => {});
-// A versão já vem escrita na página (v1.2.1); a API do GitHub só troca se saiu uma mais nova.
+// A versão já vem escrita na página (v3.0.0); a API do GitHub só troca se saiu uma mais nova.
 function showVersion(tag, iso) {
   const v = String(tag).replace(/[^\w.\-]/g, ''), num = v.replace(/^v/, '');
   $('#verFoot').innerHTML = ` · versão <span class="ver">${v}</span>`;
-  $('#verPill').textContent = v; $('#verPill').href = PUBLIC_GITHUB + '/releases/latest';
-  $('#relTag').textContent = 'Versão ' + num; $('#relNotes').href = PUBLIC_GITHUB + '/releases/tag/' + v;
+  $('#verPill').textContent = v; $('#verPill').href = ghPath('/releases/latest');
+  $('#relTag').textContent = 'Versão ' + num; $('#relNotes').href = ghPath('/releases/tag/' + v);
   const d = iso && new Date(iso); if (d && !isNaN(d)) $('#relDate').textContent = d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
-showVersion('v1.2.1', null); $('#verFoot').innerHTML = ' · versão <span class="ver">v1.2.1</span>';
-fetch(PUBLIC_API + '/releases/latest').then(r => r.ok ? r.json() : null).then(j => {
+showVersion('v3.0.0', null); $('#verFoot').innerHTML = ' · versão <span class="ver">v3.0.0</span>';
+if (PUBLIC_API) fetch(PUBLIC_API + '/releases/latest').then(r => r.ok ? r.json() : null).then(j => {
   if (!j || !j.tag_name) return;
   showVersion(j.tag_name, j.published_at);
 }).catch(() => {});
