@@ -25,10 +25,10 @@ jobs:
           - {distro: ubuntu-arm64, image: 'ubuntu:24.04', rid: linux-arm64, runner: ubuntu-24.04-arm}
           - {distro: debian-arm64, image: 'debian:12', rid: linux-arm64, runner: ubuntu-24.04-arm}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with: {node-version: 24}
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with: {dotnet-version: '8.0.x'}
       - name: Dependencies and native publish
         run: |
@@ -40,7 +40,7 @@ jobs:
         run: |
           node_root="$(dirname "$(dirname "$(command -v node)")")"
           docker run --rm -v "$PWD:/workspace" -v "$node_root:/opt/node:ro" -w /workspace "$IMAGE" sh -c 'if command -v apk >/dev/null; then apk add --no-cache bash; fi; exec bash tools/ci/linux-distro-smoke.sh'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         if: always()
         with:
           name: linux-${{ matrix.distro }}
