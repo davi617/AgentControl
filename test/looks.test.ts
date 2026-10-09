@@ -19,7 +19,7 @@ test('sanitizeLook: aceita cores #RRGGBB e estilos conhecidos, recusa o resto', 
   assert.equal(sanitizeLook({ ...ok, style: '<img onerror=1>' }), null);
   assert.equal(sanitizeLook({ ...ok, top: undefined }), null);
   assert.equal(sanitizeLook('x'), null);
-  const extra = sanitizeLook({ ...ok, foto: 'data:image/png;base64,AAAA' }) as Record<string, unknown>;
+  const extra = sanitizeLook({ ...ok, foto: 'data:image/png;base64,AAAA' }) as unknown as Record<string, unknown>;
   assert.equal('foto' in extra, false, 'campo a mais (foto) é jogado fora');
 });
 

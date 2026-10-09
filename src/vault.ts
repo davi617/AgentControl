@@ -7,18 +7,38 @@ import { redact } from './redact.ts';
 
 export interface NoteHit { path: string; title: string; folder: string; mtime: string; snippet: string }
 
+/** Texto das notas já lido (por caminho e mtime): a busca relia o vault inteiro a cada tecla. */
+const textCache = new Map<string, { mtime: number; raw: string; folded: string }>();
+const TEXT_CACHE_MAX = 1500;
+function noteText(vault: string, f: { rel: string; mtime: number }): { raw: string; folded: string } | undefined {
+  const key = `${vault}::${f.rel}`;
+  const hit = textCache.get(key);
+  if (hit && hit.mtime === f.mtime) return hit;
+  let raw: string;
+  try { raw = readFileSync(path.join(vault, f.rel), 'utf8'); } catch { return undefined; }
+  if (textCache.size >= TEXT_CACHE_MAX) textCache.delete(textCache.keys().next().value!);
+  const entry = { mtime: f.mtime, raw, folded: fold(raw) };
+  textCache.set(key, entry);
+  return entry;
+}
+
 let cache: { vault: string; at: number; files: { rel: string; mtime: number }[] } | undefined;
 
 /** Todas as notas .md (sem .obsidian, .git, .trash…). Lista guardada por 60 s. */
 export function listNotes(vault: string): { rel: string; mtime: number }[] {
   if (cache && cache.vault === vault && Date.now() - cache.at < 60_000) return cache.files;
   const files: { rel: string; mtime: number }[] = [];
+  // Pasta ou nota que some/trava no meio (OneDrive, EBUSY) não derruba a busca: só fica de fora da lista.
   const walk = (dir: string) => {
-    for (const d of readdirSync(dir, { withFileTypes: true })) {
+    let items: import('node:fs').Dirent[];
+    try { items = readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const d of items) {
       if (d.name.startsWith('.')) continue;
       const full = path.join(dir, d.name);
       if (d.isDirectory()) walk(full);
-      else if (d.name.toLowerCase().endsWith('.md')) files.push({ rel: path.relative(vault, full).replace(/\\/g, '/'), mtime: statSync(full).mtimeMs });
+      else if (d.name.toLowerCase().endsWith('.md')) {
+        try { files.push({ rel: path.relative(vault, full).replace(/\\/g, '/'), mtime: statSync(full).mtimeMs }); } catch { /* sumiu agora */ }
+      }
     }
   };
   walk(vault);
@@ -38,19 +58,18 @@ export function searchNotes(vault: string, q: string, limit = 40): { total: numb
   for (const f of files) {
     if (!terms.length) { scored.push({ f, score: f.mtime, snippet: '' }); continue; }
     const t = fold(f.rel);
-    let body = '';
+    let text: ReturnType<typeof noteText>;
     let score = 0;
     for (const term of terms) {
       if (t.includes(term)) { score += 10; continue; }
-      body ||= fold(readFileSync(path.join(vault, f.rel), 'utf8'));
-      if (!body.includes(term)) { score = 0; break; }
+      text ??= noteText(vault, f);
+      if (!text?.folded.includes(term)) { score = 0; break; }
       score += 1;
     }
     if (!score) continue;
-    let snippet = '';
-    const raw = readFileSync(path.join(vault, f.rel), 'utf8').replace(/^---[\s\S]*?\n---\s*/, '');
+    const raw = (text ?? noteText(vault, f))?.raw.replace(/^---[\s\S]*?\n---\s*/, '') ?? '';
     const i = fold(raw).indexOf(terms[0]);
-    snippet = raw.slice(Math.max(0, i - 60), Math.max(0, i - 60) + 180).replace(/\s+/g, ' ').trim();
+    const snippet = raw.slice(Math.max(0, i - 60), Math.max(0, i - 60) + 180).replace(/\s+/g, ' ').trim();
     scored.push({ f, score: score * 1e13 + f.mtime, snippet: redact(snippet) });
   }
   scored.sort((a, b) => b.score - a.score);

@@ -131,15 +131,27 @@ export class Jarvis extends EventEmitter {
   }
 
   /** Registra o comando e responde na hora; o trabalho segue pelo bus, sem travar a sala. */
-  command(p: ProjectCfg, text: string, target: string) {
-    const cmd = createCommand(this.store, p, text, target);
+  command(p: ProjectCfg, text: string, target: string, by = 'DONO') {
+    const cmd = createCommand(this.store, p, text, target, by);
+    this.store.audit({ project: p.id, actor: by, action: 'comando', target: cmd.code, detail: `${target}${cmd.requires_approval ? ' · protegido' : ''}: ${cmd.text.slice(0, 300)}` });
     this.emit('commands', { project: p.id, commands: [cmd] });
     return cmd;
   }
 
-  /** Fase 3: aprovar/recusar um comando protegido (um clique = um comando). */
-  decide(p: ProjectCfg, code: string, decision: 'approve' | 'reject') {
-    const cmd = decideCommand(this.store, p, code, decision);
+  /** Pânico ligado (quem e quando) ou null. Fica no banco: reiniciar o Agent Control não reabre o acesso. */
+  panic(): { by: string; at: string } | null {
+    const v = this.store.setting('', 'panico');
+    try { return v ? JSON.parse(v) : null; } catch { return null; }
+  }
+  setPanic(v: { by: string; at: string } | null) { this.store.setSetting('', 'panico', v ? JSON.stringify(v) : ''); }
+
+  /** Aprovação em dupla ligada neste projeto (só vale se o plano tiver o recurso; quem confere é o servidor). */
+  dualApproval(p: ProjectCfg): boolean { return this.store.setting(p.id, 'aprovacaoDupla') === '1'; }
+
+  /** Fase 3: aprovar/recusar um comando protegido (um clique = um comando). `needed` = 2 na aprovação em dupla. */
+  decide(p: ProjectCfg, code: string, decision: 'approve' | 'reject', who: { id: string } = { id: 'DONO' }, needed = 1) {
+    const cmd = decideCommand(this.store, p, code, decision, who.id, needed);
+    this.store.audit({ project: p.id, actor: who.id, action: decision === 'approve' ? 'aprovou' : 'recusou', target: code, detail: cmd.approval === 'pending' ? 'primeiro voto da dupla' : '' });
     this.emit('commands', { project: p.id, commands: [cmd] });
     return cmd;
   }

@@ -1,6 +1,6 @@
 {
   "name": "agent-control",
-  "version": "3.1.0",
+  "version": "4.0.0",
   "private": true,
   "description": "Agent Control: sala onde você vê todos os agentes de IA, recebe resumos, manda comandos e aprova os perigosos.",
   "type": "module",
@@ -10,9 +10,14 @@
   "scripts": {
     "start": "node src/main.ts",
     "gate": "node src/gate.ts",
-    "test": "node --test --test-concurrency=1 test/*.test.ts test/*.test.mjs"
+    "test": "node --test --test-concurrency=1 test/*.test.ts test/*.test.mjs",
+    "typecheck": "tsc -p ."
   },
   "dependencies": {
     "chokidar": "^5.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.1",
+    "typescript": "^5.9.3"
   }
 }

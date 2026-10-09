@@ -26,6 +26,9 @@ export interface CallState {
   resumo?: CallSummary | null; // gerado ao desligar: decisões e tarefas (vira comando com um toque do dono)
 }
 
+/** Estado em memória da chamada (o que não vai para a API: rodízio, fila da rodada, fala em andamento). */
+type LiveCall = CallState & { rotation: number; auto: number; inflight?: Promise<Turn | null>; forceNext?: string; queue?: string[] };
+
 export type CallMode = 'debate' | 'brainstorm' | 'revisao' | 'goal';
 export interface CallSummary { status: 'gerando' | 'ok' | 'erro'; decisoes: string[]; tarefas: { agente: string; tarefa: string }[]; pendencias: string[]; erro?: string }
 const MODE_HINT: Record<CallMode, string> = {
@@ -119,7 +122,7 @@ export function isQuotaError(status: number, body: string): boolean {
 }
 
 export class CallManager {
-  private calls = new Map<string, CallState & { rotation: number; auto: number; inflight?: Promise<Turn | null>; forceNext?: string; queue?: string[] }>();
+  private calls = new Map<string, LiveCall>();
   private j: Jarvis;
   private fetchImpl: Fetch;
   constructor(j: Jarvis, fetchImpl: Fetch = fetch) { this.j = j; this.fetchImpl = fetchImpl; }
@@ -275,7 +278,7 @@ export class CallManager {
     return c.inflight;
   }
 
-  private async generate(p: ProjectCfg, c: CallState & { rotation: number; auto: number }): Promise<Turn | null> {
+  private async generate(p: ProjectCfg, c: LiveCall): Promise<Turn | null> {
     if (c.auto >= (c.modo === 'goal' ? MAX_GOAL_AUTO_TURNS : MAX_AUTO_TURNS)) {
       c.status = 'AGUARDANDO_DONO';
       this.j.emit('call', { project: p.id, status: c.status });

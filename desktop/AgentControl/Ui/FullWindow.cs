@@ -707,6 +707,7 @@ public sealed class FullWindow : Window
             side.Children.Add(r);
         }
         side.Children.Add(new Border { Height = 16 });
+        side.Children.Add(K.Button("Abrir quadro de missões", K.IHome, host.OpenMissions, primary: false).Also(b => b.Margin = new Thickness(0, 0, 0, 10)));
         side.Children.Add(new Cols(2).Add(K.Button("Falar com os agentes", K.IChat, host.OpenMini, primary: false))
             .Add(s.Paused ? K.Button("Retomar", K.IPlay, () => host.SetPause(false), primary: false) : K.Button("Pausar agentes", K.IPause, () => host.SetPause(true), primary: false)).Panel);
         var sideCard = K.Card(side, 18, new Thickness(18, 16));

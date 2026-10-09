@@ -1,5 +1,6 @@
 // JARVIS — UI. Todo dado do bus entra via textContent (nunca innerHTML).
 import { createPredio } from '/predio.js';
+import { createMissions, createProjectSearch } from '/missions.js';
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => {
@@ -16,7 +17,7 @@ const store = {
 // Dentro do app do celular (WebView do Prédio): sem a barra da sala, só a tela pedida.
 if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
 
-const state = { csrf: null, project: null, agent: '', oldest: null, es: null, taskFilter: 'abertas', agentsKnown: [] };
+const state = { csrf: null, project: null, projectEpoch: 0, agent: '', oldest: null, es: null, taskFilter: 'abertas', agentsKnown: [] };
 const KIND = { command: 'comando', status: 'status', inbox: 'ordem', leader: 'líder', events: 'evento', decisions: 'decisão', goal: 'goal', handoff: 'handoff', meta: 'goal ativo' };
 
 // ---------- tema ----------
@@ -35,15 +36,17 @@ $('#theme').addEventListener('click', () => {
 });
 
 // ---------- abas ----------
-const TAB_TITLE = { chat: 'Sala central', chamada: 'Chamada em grupo', predio: 'Prédio', sala: 'Sala (bus)', comandos: 'Comandos', agentes: 'Agentes', tarefas: 'Tarefas', resumos: 'Resumos' };
+const TAB_TITLE = { missoes: 'Central de Missões', chat: 'Sala central', chamada: 'Chamada em grupo', predio: 'Prédio', sala: 'Sala (bus)', comandos: 'Comandos', agentes: 'Agentes', tarefas: 'Tarefas', resumos: 'Resumos' };
 function showTab(name) {
   if (!TAB_TITLE[name]) name = 'chat';
   $('#view-title').textContent = TAB_TITLE[name];
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === name));
+  document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-current', b.dataset.tab === name ? 'page' : 'false'));
   store.set('jarvis.tab', name);
   if (location.hash.slice(1) !== name) history.replaceState(null, '', `#${name}`);
   if (name === 'predio') predio.show(); else predio.hide();
+  missions.show(name === 'missoes');
   if (name === 'resumos' && state.project) loadSummary();
   if (name === 'chat') $('#thread').lastElementChild?.scrollIntoView({ block: 'end' });
 }
@@ -79,12 +82,35 @@ const predio = createPredio($('#predio-root'), {
   },
 });
 
+// Missões preparam a ordem no compositor existente, com o mesmo protocolo de aprovação.
+const missions = createMissions($('#missions-root'), {
+  onNavigate: showTab,
+  onCommand(agent, text) {
+    showTab('comandos');
+    const target = $('#cmd-to');
+    target.value = [...target.options].some((o) => o.value === agent) ? agent : 'LEADER';
+    $('#cmd-text').value = text.slice(0, 4000);
+    $('#cmd-text').focus();
+  },
+});
+const projectSearch = createProjectSearch({ getProject: () => state.project, onNavigate: showTab });
+$('#global-search').addEventListener('click', () => projectSearch.open());
+$('#global-search-mobile').addEventListener('click', () => projectSearch.open());
+addEventListener('keydown', (ev) => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k' && !ev.altKey && !ev.isComposing) { ev.preventDefault(); projectSearch.open(); }
+});
+addEventListener('pagehide', (ev) => { if (!ev.persisted) { missions.dispose(); projectSearch.dispose(); state.es?.close(); } });
+
 // ---------- util ----------
 const api = async (path) => {
+  const project = state.project;
+  const epoch = state.projectEpoch;
   const sep = path.includes('?') ? '&' : '?';
-  const r = await fetch(`${path}${sep}project=${encodeURIComponent(state.project)}`);
+  const r = await fetch(`${path}${sep}project=${encodeURIComponent(project)}`, { signal: AbortSignal.timeout(10_000) });
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
-  return r.json();
+  const data = await r.json();
+  if (epoch !== state.projectEpoch) throw new Error('O projeto selecionado mudou durante a consulta.');
+  return data;
 };
 function fmtTime(ts) {
   if (!ts) return '';
@@ -184,7 +210,7 @@ async function loadFeed(append = false) {
     feed.append(renderEntry(e, false));
   }
   if (!append && !rows.length) feed.append(el('li', 'empty', 'Nenhuma mensagem ainda.'));
-  if (rows.length) state.oldest = Math.min(...rows.map((r) => r.id));
+  if (rows.length) state.oldest = rows[rows.length - 1].id; // a lista vem por data; o servidor continua dali (id menor não é a mais antiga)
   $('#more').hidden = rows.length < 60;
   if (!append && rows.length) store.set(`jarvis.seen.${state.project}`, String(Math.max(...rows.map((r) => r.id))));
 }
@@ -310,6 +336,9 @@ function appendChat(entries) {
   const th = $('#thread');
   th.querySelector('.empty')?.remove();
   for (const e of entries) { chatCache.push(e); th.append(renderBubble(e, true)); }
+  // Sessão longa: não deixa a conversa crescer sem fim na memória e na tela.
+  while (th.childElementCount > 600) th.firstElementChild.remove();
+  if (chatCache.length > 600) chatCache.splice(0, chatCache.length - 600);
   predio.chat(entries);
   th.lastElementChild?.scrollIntoView({ block: 'end', behavior: 'smooth' });
 }
@@ -338,8 +367,8 @@ $('#chat-form').addEventListener('submit', async (ev) => {
       headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
       body: JSON.stringify({ project: state.project, text, to: $('#chat-to').value, as: $('#chat-as').value, assunto: $('#chat-subject').value }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error ?? r.status);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
     $('#chat-text').value = '';
     $('#chat-subject').value = '';
     $('#chat-as').value = 'DONO';
@@ -390,8 +419,8 @@ async function decide(code, decision, btns) {
       headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
       body: JSON.stringify({ project: state.project, code, decision }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error ?? r.status);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
     $('#cmd-reply').classList.remove('err');
     $('#cmd-reply').textContent = data.reply;
   } catch (e) {
@@ -422,6 +451,10 @@ function renderApprovals(rows) {
     ok.addEventListener('click', () => decide(c.code, 'approve', [ok, no]));
     no.addEventListener('click', () => decide(c.code, 'reject', [ok, no]));
     acts.append(ok, no);
+    if (c.precisa > 1) {
+      const n = c.votos?.length ?? 0;
+      dl.append(el('dt', null, 'dupla'), el('dd', 'appr-votes', n ? `${n} de ${c.precisa}: ${c.votos.join(', ')} já aprovou; falta outra pessoa` : `precisa de ${c.precisa} pessoas`));
+    }
     a.append(h, el('p', null, c.text), dl, acts, el('span', 'appr-note', 'Um clique vale para este comando, não para os próximos.'));
     box.append(a);
   }
@@ -475,8 +508,8 @@ $('#composer').addEventListener('submit', async (ev) => {
       headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
       body: JSON.stringify({ project: state.project, text, to: $('#cmd-to').value }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error ?? r.status);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
     reply.textContent = data.reply;
     $('#cmd-text').value = '';
     loadCommands();
@@ -549,6 +582,7 @@ async function loadSummary() {
 // ---------- chamada em grupo (voz) ----------
 // O servidor decide quem fala e gera o texto; aqui o navegador dá a voz (speechSynthesis) e ouve o dono (SpeechRecognition).
 const call = { data: null, paused: false, pumping: false, listening: false, rec: null, heard: '', voices: [], since: 0, clock: null, logged: 0 };
+const stopSpeaking = () => { try { speechSynthesis.cancel(); } catch { /* sem voz */ } };
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const PITCH = [1, 0.8, 1.22, 0.92, 1.1, 0.74, 1.3, 0.86];
 
@@ -703,7 +737,7 @@ async function dono(text) {
 function listen() {
   if (!SR) { callNote('Este navegador não escuta voz. Use o Edge ou o Chrome, ou digite a sua fala.', true); $('#call-text').focus(); return; }
   if (call.listening) { call.listening = false; call.rec?.stop(); return; }
-  speechSynthesis.cancel(); // interromper quem está falando, como numa call
+  stopSpeaking(); // interromper quem está falando, como numa call
   call.listening = true;
   call.heard = '';
   $('#call-mic').setAttribute('aria-pressed', 'true');
@@ -755,20 +789,21 @@ $('#call-start').addEventListener('submit', async (ev) => {
   } catch (e) { callNote(`Não liguei: ${e.message}`, true); } finally { btn.disabled = false; }
 });
 $('#call-mic').addEventListener('click', listen);
-$('#call-type').addEventListener('submit', (ev) => { ev.preventDefault(); const t = $('#call-text'); speechSynthesis.cancel(); dono(t.value); t.value = ''; });
+$('#call-type').addEventListener('submit', (ev) => { ev.preventDefault(); const t = $('#call-text'); stopSpeaking(); dono(t.value); t.value = ''; });
 $('#call-pause').addEventListener('click', () => {
   call.paused = !call.paused;
-  if (call.paused) { speechSynthesis.cancel(); caption('', 'Debate pausado.', true); }
+  if (call.paused) { stopSpeaking(); caption('', 'Debate pausado.', true); }
   callNote('');
   renderCall();
   if (!call.paused) pump();
 });
 $('#call-end').addEventListener('click', async () => {
-  speechSynthesis.cancel();
+  stopSpeaking();
   call.rec?.abort();
   call.listening = false;
   try { call.data = await callPost('/api/call/end'); } catch { /* já encerrada */ }
   clearInterval(call.clock);
+  call.clock = null;
   caption('', `Chamada encerrada · ${call.data?.turns.length ?? 0} falas. A ata ficou no vault.`, true);
   renderCall();
 });
@@ -810,7 +845,7 @@ async function refreshState() {
     fillChatTargets(s.agents);
   }
 }
-function scheduleState() { clearTimeout(stateTimer); stateTimer = setTimeout(refreshState, 200); }
+function scheduleState() { clearTimeout(stateTimer); stateTimer = setTimeout(() => refreshState().catch(() => {}), 200); }
 
 function connect() {
   state.es?.close();
@@ -819,9 +854,10 @@ function connect() {
   setConn('wait', 'conectando');
   const es = new EventSource(`/events?project=${encodeURIComponent(state.project)}`);
   state.es = es;
-  es.onopen = () => setConn('on', 'ao vivo');
-  es.onerror = () => setConn('wait', 'reconectando');
-  es.addEventListener('entries', (m) => {
+  es.onopen = () => { if (state.es === es) setConn('on', 'ao vivo'); };
+  es.onerror = () => { if (state.es === es) setConn('wait', 'reconectando'); };
+  const listen = (event, handler) => es.addEventListener(event, (message) => { if (state.es === es) handler(message); });
+  listen('entries', (m) => {
     const { entries } = JSON.parse(m.data);
     const feed = $('#feed');
     feed.querySelector('.empty')?.remove();
@@ -831,27 +867,44 @@ function connect() {
       store.set(`jarvis.seen.${state.project}`, String(e.id));
     }
   });
-  es.addEventListener('agents', scheduleState);
-  es.addEventListener('tasks', scheduleState);
-  es.addEventListener('commands', loadCommands);
-  es.addEventListener('chat', (m) => appendChat(JSON.parse(m.data).entries));
+  listen('agents', scheduleState);
+  listen('tasks', scheduleState);
+  listen('commands', () => loadCommands().catch(() => {}));
+  listen('panic', () => { loadSecurity().catch(() => {}); missions.schedule(); });
+  listen('chat', (m) => appendChat(JSON.parse(m.data).entries));
   // Falas vindas de outro aparelho (ex.: o dono falou pelo celular) entram na transcrição.
-  es.addEventListener('call', (m) => { const ev = JSON.parse(m.data); if (ev.turn) logTurn(ev.turn); if (ev.status && call.data) { call.data.status = ev.status; renderCall(); } });
-  es.addEventListener('summary', () => { loadRailSummary(); if ($('#resumos').classList.contains('active')) loadSummary(); });
+  listen('call', (m) => { const ev = JSON.parse(m.data); if (ev.turn) logTurn(ev.turn); if (ev.status && call.data) { call.data.status = ev.status; renderCall(); } });
+  listen('summary', () => { loadRailSummary().catch(() => {}); if ($('#resumos').classList.contains('active')) loadSummary().catch(() => {}); });
+  for (const event of ['entries', 'agents', 'tasks', 'commands', 'chat']) listen(event, () => missions.schedule());
+  let opened = false;
+  listen('open', () => {
+    missions.schedule();
+    // SSE não reapresenta eventos perdidos: recupera o retrato ao reconectar.
+    if (opened) Promise.allSettled([refreshState(), loadFeed(), loadCommands(), loadChat(), loadCall(), loadRailSummary()]);
+    opened = true;
+  });
 }
 
 async function selectProject(id) {
+  state.es?.close();
+  state.es = null;
+  clearTimeout(stateTimer);
   state.project = id;
+  const epoch = ++state.projectEpoch;
+  missions.setProject(id);
+  projectSearch.reset();
   state.agent = '';
   state.oldest = null;
   state.agentsKnown = [];
   store.set('jarvis.project', id);
   await refreshState();
-  await loadFeed();
-  await loadCommands();
-  await loadChat();
-  await loadRailSummary();
-  await loadCall();
+  if (state.projectEpoch !== epoch) return;
+  const results = await Promise.allSettled([loadFeed(), loadCommands(), loadChat(), loadRailSummary(), loadCall()]);
+  if (state.projectEpoch !== epoch) return;
+  if (results.some((r) => r.status === 'rejected')) {
+    $('#conn').dataset.state = 'wait';
+    $('#conn').lastElementChild.textContent = 'alguns dados indisponíveis';
+  }
   if ($('#resumos').classList.contains('active')) await loadSummary();
   connect();
 }
@@ -895,6 +948,54 @@ if (!['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname)) {
   btn.addEventListener('click', () => { $('#devices').showModal(); loadDevices(); });
 }
 
+// v4.0: pânico, aprovação em dupla e auditoria (só o dono vê o botão; o servidor confere de novo).
+const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf }, body: JSON.stringify(body) });
+async function loadSecurity() {
+  let s;
+  try { s = await (await fetch(`/api/settings?project=${encodeURIComponent(state.project)}`)).json(); } catch { return; }
+  $('#panic-banner').hidden = !s.panico;
+  if (s.panico) $('#panic-banner-sub').textContent = `Acionado por ${s.panico.by} em ${fmtTime(s.panico.at)}. Agentes parados e acesso fechado para quem não é dono.`;
+  $('#panic-btn').textContent = s.panico ? 'Pânico ligado' : 'Acionar pânico';
+  $('#panic-btn').disabled = !!s.panico;
+  const t = $('#dual-toggle');
+  t.checked = !!s.aprovacaoDupla;
+  t.disabled = !s.aprovacaoDuplaDisponivel;
+  $('#dual-note').textContent = s.aprovacaoDuplaDisponivel ? 'Convide a outra pessoa em Time com o papel "dono". Um "recusar" de qualquer uma vale na hora.' : 'Faz parte do plano Time.';
+}
+async function loadAudit() {
+  const list = $('#audit-list'), check = $('#audit-check');
+  list.replaceChildren();
+  $('#audit-csv').href = `/api/audit?project=${encodeURIComponent(state.project)}&formato=csv`;
+  let a;
+  try { const r = await fetch(`/api/audit?project=${encodeURIComponent(state.project)}&limit=60`); if (!r.ok) throw 0; a = await r.json(); } catch { check.textContent = 'Não deu para carregar a auditoria.'; return; }
+  check.replaceChildren(a.verificacao.ok
+    ? el('span', 'audit-ok', `Corrente íntegra: ${a.verificacao.total} registro(s), nenhum alterado.`)
+    : el('span', 'audit-bad', `Atenção: o registro #${a.verificacao.brokenAt} não confere. Alguém mexeu no banco.`));
+  if (!a.linhas.length) list.append(el('li', 'muted', 'Nada registrado ainda.'));
+  for (const r of a.linhas) {
+    const li = el('li');
+    li.append(el('span', 'muted', `${fmtTime(r.at)} · `), el('b', null, r.actor), document.createTextNode(` ${r.action}${r.target ? ` ${r.target}` : ''}${r.detail ? ` · ${r.detail}` : ''}`));
+    list.append(li);
+  }
+}
+async function setPanic(on) {
+  if (on && !confirm('Acionar o pânico? Todos os agentes param AGORA e os aparelhos conectados são desligados.')) return;
+  const note = $('#security-note');
+  const r = await post('/api/panic', { on }).catch(() => null);
+  note.textContent = !r?.ok ? 'Não deu: só o dono aciona o pânico.' : '';
+  if (r?.ok) { const d = await r.json(); if (on) note.textContent = `Pânico ligado: ${d.pausados.length} projeto(s) parado(s), ${d.aparelhos} aparelho(s) desligado(s).`; }
+  await loadSecurity();
+  loadAudit();
+}
+$('#panic-btn').addEventListener('click', () => setPanic(true));
+$('#panic-off').addEventListener('click', () => { if (confirm('Desligar o pânico? Os agentes voltam na próxima rodada e o time pode entrar de novo.')) setPanic(false); });
+$('#dual-toggle').addEventListener('change', async (e) => {
+  const r = await post('/api/settings', { project: state.project, aprovacaoDupla: e.target.checked }).catch(() => null);
+  if (!r?.ok) $('#security-note').textContent = (await r?.json().catch(() => null))?.error ?? 'Não deu para mudar agora.';
+  loadSecurity();
+});
+$('#security-btn').addEventListener('click', () => { $('#security').showModal(); loadSecurity(); loadAudit(); });
+
 // App instalado (PWA): service worker só em contexto seguro (127.0.0.1 ou HTTPS).
 if ('serviceWorker' in navigator && isSecureContext) navigator.serviceWorker.register('/sw.js').catch(() => {});
 
@@ -903,12 +1004,24 @@ if ('serviceWorker' in navigator && isSecureContext) navigator.serviceWorker.reg
   const projects = await (await fetch('/api/projects')).json();
   const sel = $('#project');
   for (const p of projects) { const o = el('option', null, p.name); o.value = p.id; sel.append(o); }
-  sel.addEventListener('change', () => selectProject(sel.value));
-  const saved = store.get('jarvis.project', '');
+  sel.addEventListener('change', () => selectProject(sel.value).catch(reportBootError));
+  const saved = new URLSearchParams(location.search).get('project') ?? store.get('jarvis.project', '');
   const first = projects.find((p) => p.id === saved)?.id ?? projects[0]?.id;
   sel.value = first;
   const fromHash = location.hash.slice(1);
-  showTab(TAB_TITLE[fromHash] ? fromHash : fromHash === 'personagem' ? 'predio' : store.get('jarvis.tab', 'chat'));
+  showTab(TAB_TITLE[fromHash] ? fromHash : fromHash === 'personagem' ? 'predio' : store.get('jarvis.tab', 'missoes'));
+  if (!first) throw new Error('Nenhum projeto configurado no servidor.');
   await selectProject(first);
   if (fromHash === 'personagem') openPersonagem();
-})();
+  const me = (await (await fetch('/api/team')).json().catch(() => ({}))).me;
+  $('#security-btn').hidden = me?.role !== 'dono';
+  loadSecurity().catch(() => {});
+})().catch(reportBootError);
+
+function reportBootError(e) {
+  $('#conn').dataset.state = 'off';
+  $('#conn').lastElementChild.textContent = 'servidor indisponível';
+  $('#cmd-reply').textContent = `Não foi possível carregar o projeto: ${e.message}. Confira o servidor e recarregue a página.`;
+  $('#cmd-reply').classList.add('err');
+  missions.error($('#cmd-reply').textContent);
+}

@@ -89,6 +89,9 @@ export class PlanStore {
   }
 }
 
+/** Recursos pagos que o servidor confere de verdade (não só a lista de texto da tela). */
+export const planAllowsDual = (s: PlanState) => s.plan.id === 'time' || s.plan.id === 'empresa';
+
 /** Para a tela e a API: Infinity vira null no JSON. */
 export const publicPlan = (s: PlanState) => ({
   plano: s.plan.id, nome: s.plan.nome, pessoas: Number.isFinite(s.pessoas) ? s.pessoas : null, recursos: s.plan.recursos,

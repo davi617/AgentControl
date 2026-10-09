@@ -7,6 +7,9 @@ import { Jarvis } from './jarvis.ts';
 import { createServer } from './server.ts';
 import { writeDiary } from './extras.ts';
 
+// Uma promessa rejeitada sem dono derrubaria o Agent Control inteiro; fica no log e a sala continua de pé.
+process.on('unhandledRejection', (e) => console.error('[erro]', (e as Error)?.message ?? e));
+
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cfg = loadConfig(process.env.JARVIS_CONFIG ?? path.join(root, 'jarvis.config.json'));
 const j = new Jarvis(cfg);

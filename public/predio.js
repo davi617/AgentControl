@@ -639,7 +639,7 @@ export function createPredio(root, hooks = {}) {
   let salt = Number(store.get('predio.roupas', '0')) || 0;
   let zoom = 1, cam = { x: 0, y: 0 }, follow = null, selected = null;
   const people = new Map(); // id → bonequinho
-  let pending = 0, callData = null, running = false, last = 0, dpr = 1, k = 1, portrait = false, ox = 0, oy = 0, cw = 0, ch = 0;
+  let pending = 0, callData = null, running = false, raf = 0, last = 0, dpr = 1, k = 1, portrait = false, ox = 0, oy = 0, cw = 0, ch = 0;
   const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
   // camada fixa (chão, paredes, tapetes, quadros, nomes das salas): desenhada só quando algo muda
   const bg = document.createElement('canvas'); let bgKey = '';
@@ -1505,7 +1505,7 @@ export function createPredio(root, hooks = {}) {
   function frame(ts) {
     if (!running) return;
     // 30 quadros por segundo bastam para bonequinhos: metade do trabalho da CPU/bateria
-    if (ts - lastDraw < 32) { requestAnimationFrame(frame); return; }
+    if (ts - lastDraw < 32) { raf = requestAnimationFrame(frame); return; }
     lastDraw = ts;
     const dt = Math.min(0.1, (ts - (last || ts)) / 1000);
     last = ts;
@@ -1528,12 +1528,12 @@ export function createPredio(root, hooks = {}) {
     }
     if (follow) { const p = people.get(follow); if (p) { if (p.floor !== view) { view = p.floor; renderFloors(); } if (zoom > 1) { cam.x = p.x - W / 2; cam.y = p.y - H / 2; clampCam(); } } }
     drawFloor(t);
-    requestAnimationFrame(frame);
+    raf = requestAnimationFrame(frame);
   }
 
   // ---------- toque, arrastar, zoom ----------
   let drag = null; const touches = new Map(); let pinch = null;
-  canvas.addEventListener('pointerdown', (e) => { touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); canvas.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moved: false }; if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: zoom }; } });
+  canvas.addEventListener('pointerdown', (e) => { touches.set(e.pointerId, { x: e.clientX, y: e.clientY }); canvas.setPointerCapture(e.pointerId); drag = { x: e.clientX, y: e.clientY, cx: cam.x, cy: cam.y, moved: false }; if (touches.size === 2) { const [a, b] = [...touches.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y), z: zoom }; drag.moved = true; } });
   canvas.addEventListener('pointermove', (e) => {
     if (!touches.has(e.pointerId)) return;
     touches.set(e.pointerId, { x: e.clientX, y: e.clientY });
@@ -1553,6 +1553,7 @@ export function createPredio(root, hooks = {}) {
   canvas.addEventListener('pointercancel', (e) => { touches.delete(e.pointerId); drag = null; pinch = null; });
   canvas.addEventListener('wheel', (e) => { if (!e.ctrlKey && !root.classList.contains('full')) return; e.preventDefault(); setZoom(zoom * (e.deltaY < 0 ? 1.12 : 1 / 1.12)); }, { passive: false });
   canvas.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     if (e.key === 'PageUp' || e.key === 'ArrowUp') { e.preventDefault(); goFloor(view + 1); }
     if (e.key === 'PageDown' || e.key === 'ArrowDown') { e.preventDefault(); goFloor(view - 1); }
     if (e.key === '+' || e.key === '=') setZoom(zoom * 1.25);
@@ -1588,6 +1589,14 @@ export function createPredio(root, hooks = {}) {
   }
 
   function closeCard() { card.hidden = true; selected = null; }
+  const cardSig = (p) => [p.mood, p.away, p.floor, p.info?.latest?.task, p.info?.latest?.status, p.info?.model, p.lastSaid, p.boss ? pending : ''].join('|');
+  /** O cartão aberto mostrava o estado de quando foi aberto; agora acompanha, sem apagar o que a pessoa está digitando. */
+  function refreshCard() {
+    if (!selected || card.hidden || card.contains(document.activeElement)) return;
+    const p = people.get(selected);
+    if (!p) { closeCard(); return; }
+    if (card.dataset.sig !== cardSig(p)) openCard(p);
+  }
   function openCard(p) {
     selected = p.id;
     card.replaceChildren();
@@ -1633,6 +1642,7 @@ export function createPredio(root, hooks = {}) {
     }
     if (p.boss && hooks.openApprovals) { const b2 = el('button', 'btn', 'Ver aprovações'); b2.type = 'button'; b2.addEventListener('click', hooks.openApprovals); acts.append(b2); }
     card.append(acts);
+    card.dataset.sig = cardSig(p);
     card.hidden = false;
   }
 
@@ -1643,7 +1653,7 @@ export function createPredio(root, hooks = {}) {
 
   const ro = new ResizeObserver(() => { if (running) resize(); });
   ro.observe(stage);
-  document.addEventListener('visibilitychange', () => { if (document.hidden) running = false; else if (root.getClientRects().length) api.show(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { running = false; cancelAnimationFrame(raf); } else if (root.getClientRects().length) api.show(); });
 
   const api = {
     /** Estado vindo de /api/state: cria/atualiza os bonequinhos e manda cada um para o lugar certo. */
@@ -1668,6 +1678,7 @@ export function createPredio(root, hooks = {}) {
         for (const p of people.values()) if (p.floor >= floors.length && !p.inCar) { leaveQueue(p); p.floor = 0; p.x = 175; p.y = 250; p.path = []; p.target = null; }
       }
       placeAll();
+      refreshCard();
       // o time todo acabou de terminar (não conta quem já estava assim ao abrir a tela): festa
       const all = allDone([...people.values()].filter((q) => !q.boss).map((q) => q.mood));
       if (allBefore === false && all) startParty('o time todo terminou!');
@@ -1690,8 +1701,9 @@ export function createPredio(root, hooks = {}) {
     },
     call(c) { callData = c; if (people.size) placeAll(); },
     pending(n) { if (n > pending) sfx('ding'); pending = n; },
-    show() { if (running) return; running = true; last = 0; resize(); renderFloors(); requestAnimationFrame(frame); },
-    hide() { running = false; },
+    // cancelAnimationFrame: esconder e mostrar rápido (trocar de aba) deixava dois laços desenhando ao mesmo tempo
+    show() { if (running) return; running = true; last = 0; resize(); renderFloors(); cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); },
+    hide() { running = false; cancelAnimationFrame(raf); },
     get floors() { return floors; },
     get people() { return people; },
     /** Abre o editor de personagem (você ou um agente). */
