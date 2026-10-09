@@ -7,8 +7,10 @@ Achou uma falha? **Não abra issue pública.** Use **Security → Report a vulne
 ## O que o Agent Control garante
 - O servidor só escuta em `127.0.0.1`. O acesso de fora (celular/iPhone) só existe se você ligar, só no IP do
   Tailscale (`100.64.0.0/10`) e sempre com token de 256 bits.
-- Na tela de entrar do iPhone: o token vira cookie `HttpOnly` + `SameSite=Strict`, login de outra origem é recusado
-  e 8 tentativas erradas bloqueiam aquele aparelho por 15 minutos. **Sair** apaga o cookie.
+- Na tela de entrar do iPhone: o token é trocado por uma **sessão só daquele aparelho** (cookie `HttpOnly` +
+  `SameSite=Strict`, 30 dias; o token nunca fica no cookie e o servidor guarda só o hash). Login de outra origem é
+  recusado e 8 tentativas erradas bloqueiam aquele aparelho por 15 minutos. **Sair** encerra a sessão no servidor;
+  em **Aparelhos conectados** o dono desconecta qualquer navegador. Quem sai do time perde todas as sessões.
 - Escritas pelo navegador exigem `Origin` da própria sala e token CSRF; checagem de `Host` contra DNS rebinding.
 - CSP estrita (`script-src 'self'`, sem inline), `frame-ancestors 'none'`, `nosniff`, `no-referrer`,
   `Permissions-Policy` (só microfone, para a chamada) e `Cross-Origin-Opener-Policy`.

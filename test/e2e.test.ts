@@ -471,6 +471,42 @@ test('navegador (iPhone/PWA): entrar guarda o token em cookie HttpOnly; escrita 
     assert.equal((await chat({})).status, 403, 'escrita só com cookie (sem CSRF) é recusada');
     const { csrf } = await (await fetch(`${rb}/api/session`, { headers: { Cookie: cookie } })).json();
     assert.equal((await chat({ Origin: rb, 'X-Jarvis-Csrf': csrf })).status, 201, 'com CSRF e Origin a escrita passa');
+
+    // sessão: o cookie NÃO é o token; o token cru em cookie (formato antigo) não entra mais
+    assert.match(cookie, /^ac_session=/);
+    assert.ok(!cookie.includes(token), 'token não vai para o cookie');
+    assert.equal((await fetch(`${rb}/api/projects`, { headers: { Cookie: `ac_token=${token}` } })).status, 401, 'cookie antigo com token cru não vale');
+
+    // aparelhos conectados: aparece com nome do aparelho; desconectar pelo dono derruba aquele cookie
+    const ua = { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1' };
+    const login2 = await fetch(`${rb}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...ua }, body: JSON.stringify({ token }) });
+    const cookie2 = (login2.headers.get('set-cookie') ?? '').split(';')[0];
+    const list = await (await fetch(`${rb}/api/sessions`, { headers: { Cookie: cookie2 } })).json();
+    const iphone = list.find((x: { atual: boolean }) => x.atual);
+    assert.equal(iphone.device, 'iPhone · Safari');
+    assert.equal(iphone.nome, 'Você');
+    assert.equal(iphone.hash, undefined, 'hash não sai');
+    const revoke = await fetch(`${rb}/api/sessions/revoke`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: iphone.id }) });
+    assert.equal(revoke.status, 200);
+    assert.equal((await fetch(`${rb}/api/projects`, { headers: { Cookie: cookie2 } })).status, 401, 'desconectado');
+    assert.equal((await fetch(`${rb}/api/projects`, { headers: { Cookie: cookie } })).status, 200, 'o outro aparelho segue');
+
+    // sair encerra a sessão no servidor: o mesmo cookie, copiado, para de valer
+    assert.equal((await fetch(`${rb}/api/logout`, { method: 'POST', headers: { Cookie: cookie } })).status, 200);
+    assert.equal((await fetch(`${rb}/api/projects`, { headers: { Cookie: cookie } })).status, 401);
+
+    // convidado removido do time perde a sessão do navegador
+    await fetch(`${rb}/api/team/remove`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: 'CARLA' }) }); // vaga no plano Grátis
+    const inv = await (await fetch(`${rb}/api/team/invite`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'Visita', role: 'leitura' }) })).json();
+    const gl = await fetch(`${rb}/api/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: inv.token }) });
+    const gcookie = (gl.headers.get('set-cookie') ?? '').split(';')[0];
+    const gme = await (await fetch(`${rb}/api/team`, { headers: { Cookie: gcookie } })).json();
+    assert.equal(gme.me.id, inv.person.id, 'sessão do convidado é dele, com o papel dele');
+    assert.equal(gme.me.role, 'leitura');
+    const mine = await (await fetch(`${rb}/api/sessions`, { headers: { Cookie: gcookie } })).json();
+    assert.ok(mine.every((x: { person: string }) => x.person === inv.person.id), 'convidado só vê as próprias sessões');
+    await fetch(`${rb}/api/team/remove`, { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id: inv.person.id }) });
+    assert.equal((await fetch(`${rb}/api/projects`, { headers: { Cookie: gcookie } })).status, 401);
   } finally {
     rs.closeAllConnections();
     await new Promise<void>((r) => rs.close(() => r()));

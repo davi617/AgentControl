@@ -454,3 +454,11 @@ h1 { margin: 0 0 2px; font: 600 24px/1.2 var(--display); }
   .pe-shot { width: 150px; height: 150px; }
   .pe-photo input[type=range] { width: 150px; }
 }
+
+/* Aparelhos conectados */
+.devices { max-width: min(520px, calc(100vw - 32px)); width: 100%; padding: 20px; border: 1px solid var(--line-2); border-radius: var(--r); background: var(--surface); color: var(--text); }
+.devices::backdrop { background: rgba(0,0,0,.5); }
+.devices-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 8px; }
+.device { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-s); background: var(--raised); }
+.device strong { display: block; font-size: 14px; }
+.device span { font-size: 12px; overflow-wrap: anywhere; }

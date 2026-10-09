@@ -79,6 +79,13 @@ export class Team extends EventEmitter {
     return null;
   }
 
+  /** Quem é este id agora (papel atual), ou null se saiu do time. */
+  byId(id: string): Who | null {
+    if (id === OWNER.id) return OWNER;
+    const p = this.people.find((x) => x.id === id);
+    return p ? { id: p.id, name: p.name, role: p.role, owner: false } : null;
+  }
+
   touch(who: Who, via: string) { this.seen.set(who.id, { at: Date.now(), via }); }
 
   /** Todos (o dono primeiro) com online/visto por último. */
