@@ -813,7 +813,7 @@ const FEATS = [
   ['M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z', 'AgentC que lembra', 'Diga “lembra que…” e ele guarda. Dá um resumo quando você chega, fica quieto de madrugada e silencia por 1 hora com um toque.'],
   ['M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM11 18h2', 'Celular sempre em dia', 'O app do Android se atualiza pelo seu PC. No iPhone, a sala vira app pela tela de início do Safari, sem App Store.'],
   ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8', 'Modo Time', 'Convide pessoas com token próprio: dono, membro ou só leitura. Quem está online, @menções na sala e aviso no Slack ou Discord.'],
-  ['M16 18l6-6-6-6M8 6l-6 6 6 6', 'Código que se confere', 'Aberto (MIT), com 159 testes, checagem de tipos, CodeQL e varredura de segredos a cada mudança. Cada download vem com SHA-256 e atestado de origem.'],
+  ['M16 18l6-6-6-6M8 6l-6 6 6 6', 'Código que se confere', 'Aberto (MIT), com 160 testes, checagem de tipos, CodeQL e varredura de segredos a cada mudança. Cada download vem com SHA-256 e atestado de origem.'],
   ['M12 8v4l3 3M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z', 'Loops que se cuidam', 'Só rodam com ordem nova, esperam memória livre, cortam rodadas longas e tentam de novo quando o modelo não responde.'],
 ];
 $('#feats').innerHTML = FEATS.map(([d, t, p]) => `<div class="feat reveal"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg></span>${t}</h3><p>${p}</p></div>`).join('');

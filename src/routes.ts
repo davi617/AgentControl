@@ -234,7 +234,7 @@ export const ROUTES: Route[] = [
       c.j.say(p, as, to, str(c.body.assunto), text);
       c.send(201, { ok: true, mentions: mentions(text, [...c.team.ids(), ...p.agents.map((a) => a.id)]) });
       // O JARVIS responde o dono na sala (os agentes não leem o chat).
-      if (as !== 'CHATGPT') void replyToDono(c.j, p, text, c.j.fetchImpl, c.who.owner ? undefined : c.who.name).catch((e) => console.error('[resposta]', (e as Error).message));
+      if (as !== 'CHATGPT') void replyToDono(c.j, p, text, c.j.fetchImpl, c.who.owner ? undefined : c.who.name, c.who.id).catch((e) => console.error('[resposta]', (e as Error).message));
     },
   },
   { method: 'POST', path: '/api/notes', role: 'membro', run: (c) => c.send(201, addNote(c.j.store, c.project(), str(c.body.text))) },
