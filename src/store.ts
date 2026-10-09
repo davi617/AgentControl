@@ -100,7 +100,7 @@ export class Store {
       CREATE TABLE IF NOT EXISTS alert_prefs (
         project TEXT PRIMARY KEY, prefs TEXT NOT NULL
       );
-      -- Personagens do Modo Prédio (só cores e estilos; a foto nunca vem para cá).
+      -- Personagens do antigo Modo Prédio (removido na v4.0). A tabela fica para não mexer em banco de ninguém.
       CREATE TABLE IF NOT EXISTS looks (
         project TEXT NOT NULL, id TEXT NOT NULL, look TEXT NOT NULL, PRIMARY KEY (project, id)
       );
@@ -315,16 +315,6 @@ export class Store {
   setAlertPrefs(project: string, prefs: Record<string, boolean>) {
     this.db.prepare('INSERT INTO alert_prefs(project, prefs) VALUES (?,?) ON CONFLICT(project) DO UPDATE SET prefs=excluded.prefs')
       .run(project, JSON.stringify(prefs));
-  }
-
-  // ---------- personagens do prédio ----------
-  looks(project: string): Record<string, unknown> {
-    const rows = this.db.prepare('SELECT id, look FROM looks WHERE project = ? ORDER BY id').all(project) as Array<{ id: string; look: string }>;
-    return Object.fromEntries(rows.map((r) => [r.id, JSON.parse(r.look)]));
-  }
-  setLook(project: string, id: string, look: object | null) {
-    if (look) this.db.prepare('INSERT INTO looks(project, id, look) VALUES (?,?,?) ON CONFLICT(project, id) DO UPDATE SET look=excluded.look').run(project, id, JSON.stringify(look));
-    else this.db.prepare('DELETE FROM looks WHERE project = ? AND id = ?').run(project, id);
   }
 
   // ---------- estatísticas do time ----------

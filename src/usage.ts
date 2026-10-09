@@ -57,9 +57,11 @@ export class Usage {
     if (r.status >= 200 && r.status < 300) b.ok++; else b.err++;
     b.ms += r.ms; b.pin += r.pin; b.pout += r.pout;
     // O nome do modelo vem no pedido: "__proto__" & cia. não viram chave (poluiria o protótipo do objeto).
+    // O nome do modelo vem no pedido: conta num Map (chave qualquer, até "__proto__", sem tocar no protótipo).
     if (model) {
-      const key = model === '__proto__' || model === 'constructor' || model === 'prototype' ? `_${model}` : model;
-      b.models[key] = (Object.hasOwn(b.models, key) ? b.models[key] : 0) + 1;
+      const m = new Map(Object.entries(b.models));
+      m.set(model, (m.get(model) ?? 0) + 1);
+      b.models = Object.fromEntries(m);
     }
     this.save();
   }

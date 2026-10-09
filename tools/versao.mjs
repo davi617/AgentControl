@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Fonte única (v4.0): a versão mora em version.json e o Prédio do site vem de public/predio.js.
-//   node tools/versao.mjs           copia para package.json, package-lock.json, .csproj e docs/js/predio.js
+// Fonte única (v4.0): a versão mora em version.json.
+//   node tools/versao.mjs           copia para package.json, package-lock.json e .csproj
 //   node tools/versao.mjs --check   só confere (CI); sai com erro e diz o que está fora
 // O Android lê version.json direto no build.gradle.kts; a release confere que a versão pedida é esta.
-import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,13 +26,9 @@ sync('package.json', (s) => s.replace(/("version":\s*")[^"]+(")/, `$1${version}$
 sync('package-lock.json', (s) => { let n = 0; return s.replace(/("version":\s*")[^"]+(")/g, (m, a, b) => (n++ < 2 ? `${a}${version}${b}` : m)); });
 sync('desktop/AgentControl/AgentControl.csproj', (s) => s.replace(/<Version>[^<]+<\/Version>/, `<Version>${version}</Version>`));
 
-const predio = readFileSync(at('public/predio.js'), 'utf8');
-if (readFileSync(at('docs/js/predio.js'), 'utf8') !== predio) {
-  if (check) wrong.push('docs/js/predio.js (diferente de public/predio.js)'); else copyFileSync(at('public/predio.js'), at('docs/js/predio.js'));
-}
 
 if (check && wrong.length) {
-  console.error(`Fora da versão ${version} / da fonte única:\n  ${wrong.join('\n  ')}\nRode: node tools/versao.mjs`);
+  console.error(`Fora da versão ${version}:\n  ${wrong.join('\n  ')}\nRode: node tools/versao.mjs`);
   process.exit(1);
 }
 console.log(check ? `ok: tudo em ${version}` : `sincronizado: ${version}`);

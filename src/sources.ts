@@ -8,6 +8,7 @@ import { normalize } from './normalize.ts';
 import { canonicalStatus, parseTasks, statusInText, readKey, sha, splitSections, type TaskRow } from './parser.ts';
 import { redact } from './redact.ts';
 import { localIso } from './date.ts';
+import { agentName } from './agents.ts';
 import type { Entry, Store } from './store.ts';
 
 export type Kind = 'chat' | 'command' | 'status' | 'leader' | 'events' | 'decisions' | 'inbox' | 'goal' | 'handoff' | 'tasks' | 'meta';
@@ -160,6 +161,7 @@ function tail(file: string, n: number): string[] {
 
 export interface AgentView {
   id: string;
+  name: string; // nome para as telas (Claude Code, Codex…)
   worktree: string | null;
   model: string | null; // active-model-<agent>.txt
   statusFileMtime: string | null;
@@ -194,6 +196,7 @@ export function agents(store: Store, p: ProjectCfg): AgentView[] {
     const latest = store.latestByAgent(p.id, a.id);
     return {
       id: a.id,
+      name: agentName(a.id),
       worktree: a.worktree ?? null,
       model: modelFile ? (model => model ? redact(model).slice(0, 120) : null)(readSafe(modelFile)?.trim()) : null,
       statusFileMtime: hasStatus ? mtimeOf(statusFile!) : null,

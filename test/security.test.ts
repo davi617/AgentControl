@@ -56,7 +56,7 @@ test('remoto: login de outra origem é recusado, chute demais vira 429, sair apa
   } finally { await r.close(); }
 });
 
-test('remoto: cabeçalhos de segurança e ícones do app abrem sem token; a sala e o prédio não', async () => {
+test('remoto: cabeçalhos de segurança e ícones do app abrem sem token; a sala não', async () => {
   const r = await remote();
   try {
     const icon = await fetch(`${r.base}/icon-192.png`);
@@ -65,11 +65,11 @@ test('remoto: cabeçalhos de segurança e ícones do app abrem sem token; a sala
     assert.match(icon.headers.get('permissions-policy') ?? '', /camera=\(\)/);
     assert.equal(icon.headers.get('cross-origin-opener-policy'), 'same-origin');
     assert.match(icon.headers.get('content-security-policy') ?? '', /frame-ancestors 'none'/);
-    assert.equal((await fetch(`${r.base}/predio.js`)).status, 401);
+    assert.equal((await fetch(`${r.base}/app.js`)).status, 401);
     assert.equal((await fetch(`${r.base}/sw.js`)).status, 401);
-    const ok = await fetch(`${r.base}/predio.js`, { headers: { Authorization: `Bearer ${r.token}` } });
+    const ok = await fetch(`${r.base}/app.js`, { headers: { Authorization: `Bearer ${r.token}` } });
     assert.equal(ok.status, 200);
-    assert.match(await ok.text(), /createPredio/);
+    assert.match(await ok.text(), /loadCode/);
   } finally { await r.close(); }
 });
 

@@ -19,7 +19,7 @@
   ],
   "shortcuts": [
     { "name": "Sala", "url": "/#chat", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Prédio", "url": "/#predio", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Código ao vivo", "url": "/#codigo", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     { "name": "Aprovações", "url": "/#comandos", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     { "name": "Chamada", "url": "/#chamada", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]

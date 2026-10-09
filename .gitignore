@@ -9,6 +9,7 @@ launcher/
 /jarvis.config.json.*
 !jarvis.config.example.json
 **/bin/
+!/bin/
 **/obj/
 /desktop/dist/
 **/.gradle/

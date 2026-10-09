@@ -10,8 +10,9 @@
   "scripts": {
     "start": "node src/main.ts",
     "gate": "node src/gate.ts",
-    "test": "node --test --test-concurrency=1 test/*.test.ts test/*.test.mjs",
-    "typecheck": "tsc -p ."
+    "test": "node --test --test-concurrency=1 test/*.test.ts",
+    "typecheck": "tsc -p .",
+    "cli": "node bin/agentcontrol.mjs"
   },
   "dependencies": {
     "chokidar": "^5.0.0"
@@ -19,5 +20,8 @@
   "devDependencies": {
     "@types/node": "^24.19.1",
     "typescript": "^5.9.3"
+  },
+  "bin": {
+    "agentcontrol": "bin/agentcontrol.mjs"
   }
 }
