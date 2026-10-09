@@ -314,3 +314,14 @@ The UI is in Brazilian Portuguese. MIT licensed. See [ARCHITECTURE.md](ARCHITECT
 and [SECURITY.md](SECURITY.md).
 
 Prebuilt apps for Windows, macOS, Linux and Android: [Releases](../../releases/latest). Website: <docs/index.html>.
+
+
+### Assinatura estável do Android (releases a partir da 4.1.1)
+
+O workflow de release exige uma chave de assinatura Android persistente; ele interrompe a publicação se a chave não estiver configurada. Em um Linux com `openssl` e `gh` autenticado, o mantenedor pode executar **localmente**:
+
+```bash
+bash tools/ci/configurar-assinatura-android.sh
+```
+
+O script pede confirmação, cria (ou reutiliza) um arquivo PKCS#12 fora do repositório e configura os quatro segredos `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` e `ANDROID_KEY_PASSWORD` no GitHub Actions. Ele não imprime segredos nem adiciona a chave ao Git. Faça backup offline do arquivo de assinatura **e** da senha; eles são necessários para futuras atualizações de APK com a mesma identidade. Aplicativos instalados com outra assinatura precisam ser desinstalados após backup dos dados antes da primeira instalação com essa chave.
