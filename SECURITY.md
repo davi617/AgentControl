@@ -14,7 +14,14 @@ Achou uma falha? **Não abra issue pública.** Use **Security → Report a vulne
 - Escritas pelo navegador exigem `Origin` da própria sala e token CSRF; checagem de `Host` contra DNS rebinding.
 - CSP estrita (`script-src 'self'`, sem inline), `frame-ancestors 'none'`, `nosniff`, `no-referrer`,
   `Permissions-Policy` (só microfone, para a chamada) e `Cross-Origin-Opener-Policy`.
-- Papéis no Modo Time: só leitura não escreve; aprovar comando protegido e mexer no time é só do dono.
+- Papéis no Modo Time: só leitura não escreve; aprovar comando protegido, mexer no time, nos atalhos, nos agentes
+  e no pânico é só do dono. Cada rota da API declara o papel mínimo (`src/routes.ts`) e um teste confere todas.
+- **Botão de pânico**: para todos os agentes na hora, derruba as sessões e fecha a API para quem não é dono até o
+  dono desligar (fica gravado, sobrevive a reinício).
+- **Aprovação em dupla** (plano Time): duas pessoas diferentes com papel de dono; um "recusar" basta.
+- **Auditoria só de acréscimo** com hash encadeado: o banco recusa editar/apagar e a sala mostra se alguma linha foi
+  alterada por fora. Exporta CSV com fórmulas neutralizadas.
+- Android: digital/rosto/PIN antes de aprovar; a ação "Aprovar" da notificação exige desbloquear a tela.
 - Deploy, push, merge, release, apagar e pagar ficam esperando aprovação, que vale para um comando só.
 - Filtro de segredos (`src/redact.ts`) antes de gravar, mostrar ou mandar texto para um modelo — inclusive anexos
   de texto da chamada, que vão para o vault já filtrados.

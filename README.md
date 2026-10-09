@@ -48,6 +48,16 @@ No macOS, na primeira vez: botão direito no app → **Abrir** (o app não é as
 > Os logos dos agentes são marcas dos respectivos donos, usados só para indicar compatibilidade. O Agent Control não é afiliado a eles.
 
 
+## Novo na 4.0
+
+- **Botão de pânico** no PC, no celular e na sala: para todos os agentes na hora, desliga os aparelhos conectados e
+  fecha o acesso do time até você desligar.
+- **Aprovação em dupla** (plano Time): deploy, push e outras ações protegidas só andam com o "sim" de duas pessoas.
+- **Auditoria** de tudo (comandos, aprovações, time, aparelhos, pânico), com corrente de hash que denuncia qualquer
+  alteração e exportação em CSV.
+- **Digital no Android** antes de aprovar.
+- Mais de uma dezena de correções. Lista completa no [CHANGELOG](CHANGELOG.md).
+
 ## O que é
 
 Você escolhe quais agentes de código quer usar (um só, ou vários). Cada um trabalha na própria pasta (worktree git),
@@ -227,6 +237,8 @@ Tudo é Markdown, para você ler e versionar:
 - Filtro de segredos antes de gravar, mostrar ou mandar qualquer texto para um modelo.
 - O Launcher avisa em vermelho se algo estiver escutando em `0.0.0.0`.
 - Ordens perigosas ficam `AWAITING_APPROVAL` até você aprovar; a aprovação vale só para aquele comando.
+- Cada rota da API declara o papel mínimo (leitura, membro, dono), e um teste passa por todas elas com cada papel.
+- Pânico, aprovação em dupla e auditoria encadeada (só acréscimo). Detalhes no [SECURITY.md](SECURITY.md).
 
 ## Estrutura
 
@@ -239,17 +251,19 @@ tools/               instalar, publicar, ligar os agentes, loops e lançadores d
 test/                testes do servidor (node --test)
 ```
 
-Testes: `npm test`. Conferência visual do app: `AgentControl --print <pasta>` salva um PNG de cada tela.
+Como as peças conversam: [ARCHITECTURE.md](ARCHITECTURE.md). Para contribuir: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Testes: `npm test` e `npm run typecheck`. Conferência visual do app: `AgentControl --print <pasta>` salva um PNG de cada tela.
 
 ## Android e validação
 
-Para compilar o Android: JDK 17, Android SDK 35 e `cd android && ./gradlew assembleDebug` (Windows: `gradlew.bat`).
-O APK fica em `android/app/build/outputs/apk/debug/`. É uma versão de desenvolvimento; o release atual também usa
-a assinatura de debug. Defina sua própria assinatura antes de distribuir atualizações a terceiros.
+Para compilar o Android: JDK 17, Android SDK (compileSdk 37) e `cd android && ./gradlew assembleDebug` (Windows:
+`gradlew.bat`). O APK fica em `android/app/build/outputs/apk/debug/`. A release sai assinada com a chave do
+`ANDROID_KEYSTORE_B64` (segredo do repositório); sem ele, com uma chave de teste que não atualiza por cima.
 
-Validação local em 02/10/2026: 100 testes do servidor passaram; o desktop compilou no Windows; o cliente HUD foi
-conferido com servidor de teste para projeto/porta, pausa, loop desligado e proporção de uso. Linux e macOS têm
-código e instaladores próprios, mas ainda precisam de execução e conferência visual nesses sistemas.
+Validação da 4.0 (09/10/2026): 159 testes do servidor e `tsc` passaram no Linux; o app do PC compilou no Linux; a sala
+web foi conferida em navegador (desktop e celular, tema claro). O CI compila o app do PC em Windows, Linux e macOS e
+gera o APK a cada push.
 
 ---
 
@@ -259,14 +273,25 @@ código e instaladores próprios, mas ainda precisam de execução e conferênci
 from one place. Pick the agents you want in *Settings → Your team* (or `AgentControl --time claude,hermes`); each one
 runs in its own git worktree inside a loop that only wakes up on new orders and reports back in Markdown.
 
-- Local server (Node) with a team chat room, commands with human approval for risky actions, and an anti-429 queue
-  in front of the model provider. Loopback only.
-- Desktop app (C#/Avalonia) for Windows, Linux and macOS: launcher, top-of-screen HUD with per-agent usage, a full
-  window, and **AgentC**, an animated mascot that talks, thinks, celebrates and sleeps with your team's state.
-- Android app (Kotlin/Compose) with voice calls and approvals, remote access only through Tailscale with a token.
+- **Local server** (Node 24, no framework, SQLite built in): team chat room, orders (`J-001`…) and **human approval**
+  for risky actions (deploy, push, merge, delete, pay). Loopback only; remote access only through Tailscale with a
+  256-bit token. An anti-429 queue sits in front of the model provider so agents slow down instead of failing.
+- **Desktop app** (C#/Avalonia) for Windows, Linux and macOS: launcher, top-of-screen HUD with per-agent usage, a
+  full window, and **AgentC**, an animated mascot that talks, celebrates and sleeps with your team's state.
+- **Android app** (Kotlin/Compose): chat, voice calls with the agents, one-tap approvals.
+
+### New in 4.0
+- **Panic button** (desktop, phone, web): stops every agent now, signs out connected devices and locks out everyone
+  but the owner until you turn it off. Survives restarts.
+- **Two-person approval** (Team plan): a protected order only runs after two different owners approve; a single
+  reject wins. Agents only ever see the final decision.
+- **Append-only audit log** with a hash chain (the database refuses edits/deletes; tampering is detected), CSV export.
+- **Biometric confirmation** on Android before approving.
+- Every API route declares its minimum role, and a test walks all routes with every role.
 
 Quick start: `bash tools/instalar.sh --agentes` (Linux/macOS) or `tools\publicar-pc.ps1` (Windows), copy
 `jarvis.config.example.json` to `jarvis.config.json`, choose your team and press **Ligar tudo** (Start everything).
-The UI is in Brazilian Portuguese. MIT licensed.
+The UI is in Brazilian Portuguese. MIT licensed. See [ARCHITECTURE.md](ARCHITECTURE.md), [CHANGELOG.md](CHANGELOG.md)
+and [SECURITY.md](SECURITY.md).
 
 Prebuilt apps for Windows, macOS, Linux and Android: [Releases](../../releases/latest). Website: <docs/index.html>.
