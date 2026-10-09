@@ -10,6 +10,10 @@ import { Jarvis } from '../src/jarvis.ts';
 import { diffSnapshots, LiveCode, readWorktree } from '../src/live.ts';
 import { Store } from '../src/store.ts';
 
+/** Os contêineres das distros no CI não têm git: o que precisa de um repositório de verdade é pulado lá, com motivo. */
+const HAS_GIT = (() => { try { execFileSync('git', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; } })();
+const gitTest = HAS_GIT ? test : test.skip;
+
 function repo() {
   const wt = mkdtempSync(path.join(tmpdir(), 'ac-live-'));
   const git = (...a: string[]) => execFileSync('git', ['-C', wt, ...a], { encoding: 'utf8' });
@@ -28,7 +32,7 @@ test('nomes dos agentes', () => {
   assert.equal(agentName('MEU_AGENTE'), 'Meu agente');
 });
 
-test('lê arquivos alterados, novos e apagados com +/- contra o HEAD', async () => {
+gitTest('lê arquivos alterados, novos e apagados com +/- contra o HEAD', async () => {
   const { wt } = repo();
   try {
     writeFileSync(path.join(wt, 'src', 'a.ts'), 'um\nDOIS\ntrês\nquatro\n');
@@ -67,7 +71,7 @@ test('linha do tempo: edição, desfazer e commit viram eventos com o nome do ag
   assert.deepEqual(diffSnapshots({ ...b, changedAt: null }, d, 't').map((e) => [e.kind, e.msg]), [['commit', 'feat: login']], 'commit não conta como desfazer');
 });
 
-test('LiveCode: emite "code" no SSE, mostra o diff filtrado e recusa arquivo fora da lista', async () => {
+gitTest('LiveCode: emite "code" no SSE, mostra o diff filtrado e recusa arquivo fora da lista', async () => {
   const { wt, git } = repo();
   const cfg = {
     host: '127.0.0.1', port: 1, db: ':memory:',

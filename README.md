@@ -273,7 +273,7 @@ Para compilar o Android: JDK 17, Android SDK (compileSdk 37) e `cd android && ./
 `gradlew.bat`). O APK fica em `android/app/build/outputs/apk/debug/`. A release sai assinada com a chave do
 `ANDROID_KEYSTORE_B64` (segredo do repositório); sem ele, com uma chave de teste que não atualiza por cima.
 
-Validação da 4.1 (09/10/2026): 157 testes do servidor e `tsc` passaram no Linux; o app do PC compilou no Linux; a sala
+Validação da 4.1 (09/10/2026): 158 testes do servidor e `tsc` passaram no Linux; o app do PC compilou no Linux; a sala
 web foi conferida em navegador (desktop e celular, tema claro). O CI compila o app do PC em Windows, Linux e macOS e
 gera o APK a cada push.
 

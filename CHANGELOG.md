@@ -67,7 +67,7 @@ tudo o que acontece.
 - `tsc --noEmit` no CI (`npm run typecheck`); o Node roda `.ts` sem conferir tipos.
 - Versão única em `version.json`; `node tools/versao.mjs` sincroniza `package.json` e `.csproj`, e `--check` roda
   no CI e no `npm test`. A release recusa versão diferente do arquivo.
-- Testes do servidor: 148 na 3.1; a 4.1 tem 157 (os do Prédio saíram; entraram código ao vivo, CLI e missões).
+- Testes do servidor: 148 na 3.1; a 4.1 tem 158 (os do Prédio saíram; entraram código ao vivo, CLI e missões).
 
 ## 3.1.0 — 2026-10-09
 Segurança: sessões no navegador em vez do token no cookie, tela de aparelhos conectados, inbox forjado é restaurado e

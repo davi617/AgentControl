@@ -47,8 +47,11 @@ export class Usage {
   }
 
   private bucket(agent: string, now = new Date()): Bucket {
+    // Nome que é chave especial de objeto (__proto__…) nunca vira chave: os contadores iriam parar no Object.prototype.
+    const who = agent === '__proto__' || agent === 'constructor' || agent === 'prototype' ? 'OUTRO' : agent;
     const d = (this.days[dayKey(now)] ??= {});
-    return (d[agent] ??= empty());
+    if (!Object.hasOwn(d, who)) d[who] = empty();
+    return d[who];
   }
 
   record(agent: string, model: string, r: { status: number; ms: number; pin: number; pout: number }, now = new Date()) {
@@ -56,7 +59,6 @@ export class Usage {
     b.req++;
     if (r.status >= 200 && r.status < 300) b.ok++; else b.err++;
     b.ms += r.ms; b.pin += r.pin; b.pout += r.pout;
-    // O nome do modelo vem no pedido: "__proto__" & cia. não viram chave (poluiria o protótipo do objeto).
     // O nome do modelo vem no pedido: conta num Map (chave qualquer, até "__proto__", sem tocar no protótipo).
     if (model) {
       const m = new Map(Object.entries(b.models));

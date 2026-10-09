@@ -10,6 +10,10 @@ import { Jarvis } from '../src/jarvis.ts';
 import { createServer } from '../src/server.ts';
 import { Store } from '../src/store.ts';
 
+/** Os contêineres das distros no CI não têm git: o que precisa de um repositório de verdade é pulado lá, com motivo. */
+const HAS_GIT = (() => { try { execFileSync('git', ['--version'], { stdio: 'ignore' }); return true; } catch { return false; } })();
+const gitTest = HAS_GIT ? test : test.skip;
+
 const CLI = path.join(import.meta.dirname, '..', 'bin', 'agentcontrol.mjs');
 const root = mkdtempSync(path.join(tmpdir(), 'ac-cli-'));
 const vault = path.join(root, 'vault');
@@ -22,6 +26,7 @@ const run = (...args: string[]) => new Promise<{ code: number; out: string; err:
     resolve({ code: (e as { code?: number } | null)?.code ?? 0, out, err })));
 
 before(async () => {
+  if (!HAS_GIT) return;
   mkdirSync(path.join(vault, '00-System'), { recursive: true });
   mkdirSync(path.join(vault, 'Goals', 'G1'), { recursive: true });
   writeFileSync(path.join(vault, '00-System', 'ACTIVE_GOAL.md'), '- goal: `G1`\n');
@@ -45,12 +50,11 @@ before(async () => {
 });
 
 after(async () => {
-  srv.closeAllConnections();
-  await new Promise<void>((r) => srv.close(() => r()));
+  if (srv) { srv.closeAllConnections(); await new Promise<void>((r) => srv.close(() => r())); }
   rmSync(root, { recursive: true, force: true });
 });
 
-test('cli: codigo mostra o agente pelo nome e o arquivo que ele mudou', async () => {
+gitTest('cli: codigo mostra o agente pelo nome e o arquivo que ele mudou', async () => {
   const r = await run('codigo');
   assert.equal(r.code, 0, r.err);
   assert.match(r.out, /Codex agent\/codex/);
@@ -60,14 +64,14 @@ test('cli: codigo mostra o agente pelo nome e o arquivo que ele mudou', async ()
   assert.match((await run('diff', 'CODEX', 'a.ts')).out, /^\+y$/m);
 });
 
-test('cli: manda ordem, ordem protegida espera e aprovar libera', async () => {
+gitTest('cli: manda ordem, ordem protegida espera e aprovar libera', async () => {
   assert.match((await run('mandar', 'CODEX', 'rode', 'os', 'testes')).out, /J-001 registrado para CODEX/);
   assert.match((await run('mandar', 'LEADER', 'faça', 'deploy')).out, /J-002 registrado.*PARADO/);
   assert.match((await run()).out, /1 esperando sua aprovação:[\s\S]*J-002/);
   assert.match((await run('aprovar', 'j-002')).out, /J-002 aprovado/);
 });
 
-test('cli: erro claro (comando desconhecido, servidor desligado)', async () => {
+gitTest('cli: erro claro (comando desconhecido, servidor desligado)', async () => {
   const r = await run('voar');
   assert.equal(r.code, 2);
   assert.match(r.err, /Não conheço "voar"/);
