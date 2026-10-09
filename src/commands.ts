@@ -19,6 +19,8 @@ const NEEDS_APPROVAL = [
   /\b(deploy|push|merge|rebase|release|publicar|publica|publish|producao|prod\b|force|apagar|apaga|deletar|delete|remover|excluir|exclui|destroy|wipe|drop|truncate|billing|pagar|pagamento|compra|comprar|credito|plano pago)\w*/,
   // git e shell que reescrevem ou somem com coisa
   /\brm\s+-[a-z]*[rf]|\breset\s+--hard|\bclean\s+-[a-z]*f|\bgit\s+tag\b|\bchmod\s+(-r\s+)?777|\b(curl|wget)\b[^|\n]*\|\s*(ba|z)?sh\b/,
+  // disco e sistema: formatar, sobrescrever, fork bomb, desligar a máquina
+  /\bmkfs\b|\bdd\s+if=|:\(\)\s*\{|\bshutdown\b|\bsudo\s+rm\b/,
   // "manda/sobe/envia pro main" sem dizer push
   /\b(pro|pra|para|para o|no|na|into|to|on)\s+(a\s+|o\s+)?(main|master)\b/,
   // infraestrutura e pacotes publicados

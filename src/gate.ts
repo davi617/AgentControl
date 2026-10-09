@@ -87,6 +87,8 @@ export const PRIORITY_HEADER = 'x-gate-priority';
 export const VOICE_MODE_MS = 120_000;
 
 const MAX_BACKOFF_MS = 30_000;
+/** Maior corpo aceito pela fila (contexto grande de agente cabe folgado). */
+const MAX_REQUEST_BYTES = 64 * 1024 * 1024;
 /** Pedido grande sem stream pode levar alguns minutos para começar a responder; 5 min sem nada = pendurado. */
 export const IDLE_TIMEOUT_MS = 300_000;
 
@@ -136,11 +138,18 @@ export function createGate(o: GateOpts = DEFAULTS) {
       return;
     }
     const chunks: Buffer[] = [];
-    req.on('data', (c: Buffer) => chunks.push(c));
+    // Corpo sem teto enchia a memória da fila: passou do limite, responde 413 e descarta o resto.
+    let size = 0, tooBig = false;
+    req.on('data', (c: Buffer) => {
+      size += c.length;
+      if (tooBig) return;
+      if (size > MAX_REQUEST_BYTES) { tooBig = true; chunks.length = 0; res.writeHead(413, { 'content-type': 'application/json', connection: 'close' }).end('{"error":"pedido grande demais"}'); return; }
+      chunks.push(c);
+    });
     // Quem é: /a/<agente>/… no endereço (tirado antes de mandar ao 9Router) ou o cabeçalho de prioridade.
     const who = agentFromUrl(req.url ?? '/', String(req.headers[PRIORITY_HEADER] ?? ''));
     req.url = who.url;
-    req.on('end', () => { void handle(req, res, Buffer.concat(chunks), who.agent); });
+    req.on('end', () => { if (!tooBig) void handle(req, res, Buffer.concat(chunks), who.agent); });
   };
   const server = http.createServer(listener);
 
