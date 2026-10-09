@@ -20,6 +20,8 @@ flowchart LR
   API --> WEB["Sala no navegador<br/>public/"]
   API --> PC["App do PC<br/>desktop/ (C# + Avalonia)"]
   API -- "Tailscale + token" --> AND["Android<br/>android/ (Kotlin + Compose)"]
+  API --> CLI["CLI<br/>bin/agentcontrol.mjs"]
+  A1 & A2 & A3 -. "git da worktree<br/>(código ao vivo)" .-> J
 ```
 
 ## Caminho de uma ordem
@@ -53,6 +55,7 @@ banco recusa `UPDATE`/`DELETE` nela.
 | `plans.ts` | Planos e licença assinada (Ed25519, conferida offline). |
 | `redact.ts`, `normalize.ts` | Filtro de segredos e limpeza de texto antes de gravar, mostrar ou mandar a um modelo. |
 | `gate.ts`, `usage.ts` | Fila anti-429 na frente do provedor e o uso por agente. |
+| `live.ts`, `agents.ts` | Código ao vivo: lê o git de cada worktree (só leitura), linha do tempo e diff; nomes dos agentes. |
 
 ## Papéis
 
@@ -62,5 +65,5 @@ rotas com cada papel; uma rota nova sem papel certo quebra o CI.
 
 ## Versão
 
-`version.json` é a fonte única. `node tools/versao.mjs` copia para `package.json`, `.csproj` e o `predio.js` do site;
-o Android lê o arquivo no build.
+`version.json` é a fonte única. `node tools/versao.mjs` copia para `package.json` e `.csproj`; o Android lê o arquivo
+no build.

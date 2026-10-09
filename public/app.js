@@ -12,7 +12,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* modo privado */ } },
 };
 
-// Dentro do app do celular (WebView do Prédio): sem a barra da sala, só a tela pedida.
+// Dentro do app do celular (WebView do Código ao vivo): sem a barra da sala, só a tela pedida.
 if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
 
 const state = { csrf: null, project: null, agent: '', oldest: null, es: null, taskFilter: 'abertas', agentsKnown: [] };

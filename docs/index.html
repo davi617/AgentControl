@@ -168,7 +168,7 @@ h2{font-size:clamp(30px,4.4vw,48px);line-height:1.08;letter-spacing:-.035em;font
 
 /* recursos */
 .term{margin-top:44px;background:#0a0a0a;border:1px solid var(--line);border-radius:var(--r);padding:18px 20px;overflow-x:auto;font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#d4d4d8;white-space:pre}
-.term .o{color:#F97316}.term .g{color:#4ade80}.term .d{color:#71717a}.term .y{color:#facc15}.term .c{color:#22d3ee}
+.term .o{color:#F97316}.term .r{color:#f87171}.term .g{color:#4ade80}.term .d{color:#71717a}.term .y{color:#facc15}.term .c{color:#22d3ee}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:44px}
 
 /* downloads */
@@ -195,99 +195,6 @@ h2{font-size:clamp(30px,4.4vw,48px);line-height:1.08;letter-spacing:-.035em;font
 .term pre{padding:18px;font:13.5px/1.75 "JetBrains Mono",monospace;color:var(--text2);overflow-x:auto}
 .term .c{color:var(--faint)}.term .p{color:var(--brand)}
 
-.predio-demo{margin-top:40px;border:1px solid var(--line);border-radius:20px;background:var(--surface);padding:14px}
-.predio-demo .predio-btn,.predio-demo .predio-floor{color:var(--text);font-family:inherit}
-.predio-demo{--line-2:#252525;--line-3:#333;--text-2:#E4E4E7;--brand-line:rgba(249,115,22,.45);--on-brand:#0A0A0A;--r-s:8px;--r:16px}
-.predio-demo .btn{min-height:36px;padding:6px 12px;font-size:14px}
-.predio-demo .primary{border:0;border-radius:8px;background:var(--brand);color:#0a0a0a;font-weight:700;padding:0 14px;cursor:pointer}
-.predio-demo .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
-.predio-demo .predio-card dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:0 0 10px;font-size:13px}
-/* ---------- Prédio: bonequinhos andando pelos andares ---------- */
-.predio { position: relative; display: flex; flex-direction: column; gap: 10px; }
-.predio-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.predio-floors { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; flex: 1; min-width: 0; }
-.predio-floors::-webkit-scrollbar { display: none; }
-.predio-floor { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); cursor: pointer; white-space: nowrap; }
-.predio-floor b { display: grid; place-items: center; min-width: 24px; height: 24px; border-radius: 7px; background: var(--raised); font-size: 12px; }
-.predio-floor span { font-size: 13px; color: var(--text-2); }
-.predio-floor small { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--raised); color: var(--muted); font-size: 11px; display: grid; place-items: center; }
-.predio-floor.on { border-color: var(--brand-line); background: var(--brand-soft); }
-.predio-floor.on b { background: var(--brand); color: var(--on-brand); }
-.predio-tools { display: flex; gap: 6px; }
-.predio-btn { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); cursor: pointer; font-size: 16px; }
-.predio-btn:hover, .predio-floor:hover, .predio-find:hover { border-color: var(--brand); }
-.predio-find { height: 40px; max-width: 140px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
-.predio-tools { flex-wrap: wrap; justify-content: flex-end; }
-@media (max-width: 520px) { .predio-tools { width: 100%; gap: 4px; justify-content: space-between; } .predio-find { max-width: none; flex: 1 0 100%; } .predio-btn { width: 36px; height: 36px; font-size: 15px; } }
-.predio-stage { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--surface); touch-action: none; }
-.predio-canvas { display: block; cursor: pointer; }
-.predio-card { position: absolute; right: 12px; top: 12px; width: min(320px, calc(100% - 24px)); padding: 14px; border-radius: var(--r); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--line-3); box-shadow: 0 18px 40px rgba(0,0,0,.45); backdrop-filter: blur(8px); }
-.predio-card-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.predio-card-h i { width: 10px; height: 10px; border-radius: 50%; }
-.predio-card-h span { color: var(--muted); font-size: 12px; flex: 1; }
-.predio-x { border: 0; background: none; font-size: 20px; cursor: pointer; color: var(--muted); width: 32px; height: 32px; }
-.predio-card dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0 0 10px; font-size: 13px; }
-.predio-card dt { color: var(--muted); }
-.predio-card dd { margin: 0; overflow-wrap: anywhere; }
-.predio-order { display: flex; gap: 6px; }
-.predio-order input { flex: 1; min-width: 0; height: 40px; padding: 0 10px; border-radius: var(--r-s); border: 1px solid var(--line-3); background: var(--bg); font-size: 16px; }
-.predio-order .primary { min-height: 40px; padding: 0 14px; }
-.predio-msg { display: block; min-height: 18px; margin-top: 4px; color: var(--muted); }
-.predio-acts { display: flex; gap: 6px; flex-wrap: wrap; }
-.predio-acts .btn { height: 36px; }
-.predio-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--muted); }
-.predio-legend span { display: inline-flex; align-items: center; gap: 6px; }
-.predio-legend i { width: 8px; height: 8px; border-radius: 50%; }
-.predio.full { position: fixed; inset: 0; z-index: 50; padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); background: var(--bg); }
-.predio.full .predio-legend { display: none; }
-/* ---------- Prédio: editor de personagem (cores, cabelo, roupa e a foto) ---------- */
-.predio-editor { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; padding: 16px; background: rgba(0,0,0,.6); }
-.predio-editor[hidden] { display: none; }
-.pe-panel { width: min(800px, 100%); max-height: calc(100dvh - 32px); overflow: auto; border-radius: 20px; background: var(--surface); color: var(--text); border: 1px solid var(--line-3); box-shadow: 0 24px 60px rgba(0,0,0,.5); padding: 18px 20px; display: flex; flex-direction: column; gap: 16px; }
-.pe-h { display: flex; align-items: center; gap: 10px; }
-.pe-h h2 { margin: 0; font-size: 19px; flex: 1; }
-.pe-body { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 22px; }
-.pe-left { display: flex; flex-direction: column; gap: 14px; align-items: center; }
-.pe-preview { width: 200px; height: 230px; border-radius: 16px; }
-.pe-photo { width: 100%; display: flex; flex-direction: column; gap: 8px; align-items: center; }
-.pe-shot { width: 200px; height: 200px; border-radius: 16px; border: 2px dashed var(--line-3); background: var(--bg); cursor: grab; touch-action: none; }
-.pe-photo input[type=range] { width: 200px; accent-color: var(--brand); }
-.pe-photo .btn { min-height: 44px; }
-.pe-note { font-size: 12px; color: var(--muted); margin: 0; text-align: center; }
-.pe-found { font-size: 13px; color: var(--brand-text); margin: 0; text-align: center; }
-.pe-found:empty { display: none; }
-.pe-right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.pe-group { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; min-width: 0; }
-.pe-group legend { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding: 0; margin-bottom: 6px; }
-.pe-sw { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--line-3); cursor: pointer; padding: 0; }
-.pe-sw[aria-pressed="true"] { outline: 3px solid var(--brand); outline-offset: 2px; border-color: var(--surface); }
-.pe-color { width: 36px; height: 36px; border-radius: 50%; border: 2px dashed var(--line-3); padding: 2px; background: none; cursor: pointer; }
-.pe-chip { min-height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--raised); color: var(--text-2); cursor: pointer; font: inherit; font-size: 13px; }
-.pe-chip[aria-pressed="true"] { background: var(--brand-soft); border-color: var(--brand-line); color: var(--brand-text); font-weight: 600; }
-.pe-foot { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--line-2); padding-top: 14px; }
-.pe-foot .btn, .pe-foot .primary { min-height: 44px; }
-.pe-spacer { flex: 1; }
-.pe-msg { width: 100%; margin: 0; font-size: 13px; color: var(--err-text, #F87171); }
-.pe-msg:empty { display: none; }
-@media (max-width: 640px) {
-  .predio-editor { padding: 0; }
-  .pe-panel { max-height: 100dvh; height: 100dvh; border-radius: 0; border: 0; padding: max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom)); }
-  .pe-body { grid-template-columns: 1fr; }
-  .pe-left { flex-direction: row; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
-  .pe-preview { width: 150px; height: 172px; }
-  .pe-photo { width: auto; max-width: 200px; }
-  .pe-shot { width: 150px; height: 150px; }
-  .pe-photo input[type=range] { width: 150px; }
-}
-.predio-editor{--line-2:#252525;--line-3:#333;--text-2:#E4E4E7;--brand-line:rgba(249,115,22,.45);--on-brand:#0A0A0A;font-family:Inter,system-ui,sans-serif}
-.predio-editor .btn{padding:8px 14px;font-size:14px}
-.predio-editor .primary{border:0;border-radius:12px;background:var(--brand);color:#0a0a0a;font-weight:700;padding:0 18px;cursor:pointer;font:inherit;font-weight:700}
-.predio-editor .predio-x{border:0;background:none;font-size:22px;cursor:pointer;color:var(--muted);width:44px;height:44px}
-@media (max-width: 860px) {
-  .predio-floor span { display: none; }
-  .predio-card { left: 8px; right: 8px; top: auto; bottom: 8px; width: auto; }
-}
-@media (max-width: 860px) { .predio-floors { flex-basis: 100%; order: 2; } .predio-tools { margin-left: auto; } .predio-floor { flex: 1; justify-content: center; } }
 /* fim */
 .final{text-align:center;padding:110px 0}
 footer{border-top:1px solid var(--line);padding:30px 0;color:var(--faint);font-size:14px}
@@ -365,12 +272,12 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <nav><div class="wrap">
   <a class="logo" href="#"><img src="img/agentc.png" alt="">Agent Control</a>
-  <div class="links"><a href="#pc">PC</a><a href="#celular">Celular</a><a href="#predio">Prédio</a><a href="#agentc">AgentC</a><a href="#recursos">Recursos</a><a href="#baixar">Baixar</a><a href="instalar/">Instalar</a></div>
+  <div class="links"><a href="#pc">PC</a><a href="#celular">Celular</a><a href="#codigo">Código</a><a href="#agentc">AgentC</a><a href="#recursos">Recursos</a><a href="#baixar">Baixar</a><a href="instalar/">Instalar</a></div>
   <a class="btn" href="https://github.com/OWNER/AgentControl"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-6 0-1.2.5-2.3 1.3-3.1-.2-.4-.6-1.6 0-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.6.2 2.8.1 3.2.8.8 1.3 1.9 1.3 3.1 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .5Z"/></svg>GitHub<span class="stars" id="stars" hidden></span></a>
   <button class="menu-btn" id="menuBtn" aria-label="Abrir o menu" aria-expanded="false" aria-controls="sheet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
 </div></nav>
 <div class="progress" id="progress"></div>
-<div class="sheet" id="sheet"><a href="#pc">App do PC</a><a href="#celular">App do celular</a><a href="#predio">Modo Prédio</a><a href="#agentc">Conheça o AgentC</a><a href="#recursos">Recursos</a><a href="#baixar">Baixar</a><a href="instalar/">Como instalar (passo a passo)</a></div>
+<div class="sheet" id="sheet"><a href="#pc">App do PC</a><a href="#celular">App do celular</a><a href="#codigo">Código ao vivo</a><a href="#agentc">Conheça o AgentC</a><a href="#recursos">Recursos</a><a href="#baixar">Baixar</a><a href="instalar/">Como instalar (passo a passo)</a></div>
 
 <header class="hero"><div class="wrap">
   <div class="mascot-stage">
@@ -462,18 +369,30 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
   </div>
 </div></section>
 
-<section id="predio"><div class="wrap">
-  <div class="center reveal"><span class="kicker">Novo na 3.0 · Modo Prédio</span><h2>Seu time num escritório de verdade.</h2>
-  <p class="sub">Cada agente vira um bonequinho que anda pelos andares: senta na mesa quando trabalha, vai à sala do chefe quando trava, toma café quando termina e dorme no sofá quando para. Você é o chefe, de terno e gravata vermelha. Salas decoradas, o AgentC passeando como mascote e confete quando alguém termina. Toque num bonequinho para mandar uma ordem.</p></div>
-  <div class="predio-demo reveal" id="predioDemo"></div>
-  <p class="sub center" style="margin:14px auto 0;font-size:14px">Demonstração com dados de mentira. No app, é o estado real dos seus agentes · PC, Android e iPhone.</p>
-  <div class="grid3" id="novo30">
-    <div class="feat reveal"><h3>🏆 Placar do dia</h3><p>Telão no Térreo com quem mais terminou tarefas hoje e o destaque do dia. Cada tarefa conta uma vez, mesmo recarregando.</p></div>
-    <div class="feat reveal"><h3>🎉 Festa do time</h3><p>Quando o time todo termina ou o Goal fecha, todo mundo desce para o Térreo, com confete e balões.</p></div>
-    <div class="feat reveal"><h3>🌙 Fim de expediente</h3><p>Das 22 h às 6 h, quem está parado vai para casa pela recepção e o andar vazio apaga a luz. Chegou ordem, ele volta.</p></div>
-    <div class="feat reveal"><h3>🔊 Sons opcionais</h3><p>"Ding" de aprovação e do elevador, confete e fanfarra de festa. Desligados por padrão: liga no 🔇 ou na tecla M.</p></div>
-    <div class="feat reveal"><h3>🔎 Achar agente</h3><p>Escolha um agente na lista: a tela vai para o andar dele, aproxima e segue. Atalhos: 0–9 (andar), F (tela cheia), P (foto).</p></div>
-    <div class="feat reveal"><h3>📷 Foto do andar</h3><p>Salva o andar que você está vendo como imagem PNG, para mostrar o time trabalhando.</p></div>
+<section id="codigo"><div class="wrap">
+  <div class="center reveal"><span class="kicker">Novo na 4.0 · Código ao vivo</span><h2>Veja os agentes mexendo no seu código.</h2>
+  <p class="sub">Cada agente trabalha na própria pasta. O Agent Control lê o git de cada um a cada 3 segundos e mostra, pelo nome, quem está editando o quê: arquivos alterados, linhas a mais e a menos, o diff e cada commit. Na sala, no app do PC, no celular e no terminal.</p></div>
+  <div class="term reveal">
+    <div class="tb"><i></i><i></i><i></i></div>
+<pre><span class="p">$</span> agentcontrol ao-vivo --diff
+<span class="d">Código ao vivo · Ctrl+C sai</span>
+
+<b>Claude Code</b> <span class="d">agent/claude 2f04dd2</span> <span class="o">● mexendo agora</span>
+    <span class="y">alterado</span> src/math.ts  <span class="g">+5</span> <span class="r">−1</span>
+<b>Codex</b> <span class="d">agent/codex 90dffbd</span>
+    <span class="g">novo    </span> src/math.test.ts  <span class="g">+3</span> <span class="r">−0</span>
+
+<span class="d">15:54</span> <b>Claude Code </b> <span class="y">editou</span> src/math.ts  <span class="g">+5</span> <span class="r">−1</span>
+<span class="r">-export function soma(a, b) {</span>
+<span class="g">+export function soma(a: number, b: number): number {</span>
+<span class="g">+export function media(xs: number[]): number {</span>
+<span class="d">15:54</span> <b>Codex       </b> <span class="g">criou </span> src/math.test.ts  <span class="g">+3</span> <span class="r">−0</span>
+<span class="d">15:55</span> <b>Claude Code </b> <span class="c">commit</span> 2f04dd2 feat: media</pre>
+  </div>
+  <div class="grid3">
+    <div class="feat reveal"><h3>Quem mexeu em quê</h3><p>Cada agente pelo nome (Claude Code, Codex, Qwen Code…), com os arquivos que ele está mudando agora e o que ainda não foi para commit.</p></div>
+    <div class="feat reveal"><h3>O diff na hora</h3><p>Toque num arquivo e veja as linhas. Senhas e chaves são cortadas antes de aparecer, e só os arquivos que o agente mudou podem ser abertos.</p></div>
+    <div class="feat reveal"><h3>CLI no terminal</h3><p class="mono" style="font-size:13px">npm i -g . &amp;&amp; agentcontrol</p><p>Status, ao vivo, ordens, aprovar, pânico e auditoria. Funciona no PC e de fora pelo Tailscale (--token).</p></div>
   </div>
 </div></section>
 
@@ -809,11 +728,11 @@ const FEATS = [
   ['M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01', 'Ordens com aprovação', 'Deploy, push, merge, apagar e pagar esperam o seu OK, que vale para um comando só.'],
   ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', 'Tudo em Markdown', 'Os agentes conversam por arquivos .md que você lê e versiona. Nada preso num banco fechado.'],
   ['M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5 11a7 7 0 0 0 14 0M12 18v3', 'Chamada no painel', 'Debate, ideias, revisão ou Goal: os agentes falam um de cada vez, com voz se você quiser. No menu ⋯ você expulsa quem quiser, e quem fica sem tokens sai sozinho. A ata fica salva.'],
-  ['M4 21V5l8-3 8 3v16M4 21h16M9 21v-4h6v4', 'Modo Prédio', 'Os agentes viram bonequinhos andando por andares: mesa, copa, sala do chefe e reunião, conforme o estado real de cada um. No PC, Android e iPhone.'],
+  ['M4 17l6-6-6-6M12 19h8', 'Código ao vivo e CLI', 'Veja cada agente mexendo no código, com o diff de cada arquivo. No terminal: agentcontrol ao-vivo, mandar, aprovar e pânico.'],
   ['M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7V17h8v-2.3A7 7 0 0 0 12 2Z', 'AgentC que lembra', 'Diga “lembra que…” e ele guarda. Dá um resumo quando você chega, fica quieto de madrugada e silencia por 1 hora com um toque.'],
   ['M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2ZM11 18h2', 'Celular sempre em dia', 'O app do Android se atualiza pelo seu PC. No iPhone, a sala vira app pela tela de início do Safari, sem App Store.'],
   ['M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM23 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8', 'Modo Time', 'Convide pessoas com token próprio: dono, membro ou só leitura. Quem está online, @menções na sala e aviso no Slack ou Discord.'],
-  ['M16 18l6-6-6-6M8 6l-6 6 6 6', 'Código que se confere', 'Aberto (MIT), com 161 testes, checagem de tipos, CodeQL e varredura de segredos a cada mudança. Cada download vem com SHA-256 e atestado de origem.'],
+  ['M16 18l6-6-6-6M8 6l-6 6 6 6', 'Código que se confere', 'Aberto (MIT), com 151 testes, checagem de tipos, CodeQL e varredura de segredos a cada mudança. Cada download vem com SHA-256 e atestado de origem.'],
   ['M12 8v4l3 3M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z', 'Loops que se cuidam', 'Só rodam com ordem nova, esperam memória livre, cortam rodadas longas e tentam de novo quando o modelo não responde.'],
 ];
 $('#feats').innerHTML = FEATS.map(([d, t, p]) => `<div class="feat reveal"><h3><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg></span>${t}</h3><p>${p}</p></div>`).join('');
@@ -886,9 +805,6 @@ menuBtn.addEventListener('click', () => setMenu(!sheet.classList.contains('open'
 $$('#sheet a').forEach(a => a.addEventListener('click', () => setMenu(false)));
 addEventListener('keydown', e => { if (e.key === 'Escape') setMenu(false); });
 
-/* Modo Prédio: demonstração com dados de mentira (o mesmo código do app) */
-const demoBox = $('#predioDemo');
-new IntersectionObserver((es, ob) => { if (!es.some((e) => e.isIntersecting)) return; ob.disconnect(); import('./js/predio-demo.js').then((m) => m.start(demoBox)).catch(() => { demoBox.textContent = 'Não deu para carregar a demonstração.'; }); }, { rootMargin: '200px' }).observe(demoBox);
 
 /* AgentC do fim comemora ao aparecer */
 $('#endC').closest('.reveal').addEventListener('shown', () => setTimeout(() => { endC.celebrate(); endC.talk(1500); }, 500), { once: true });

@@ -8,6 +8,11 @@ A maior atualização até agora: o Agent Control passa a ter trava de verdade p
 tudo o que acontece.
 
 ### Novo
+- **Código ao vivo** (sala, app do PC e Android): cada agente, pelo nome, mexendo no código agora. Arquivos alterados,
+  linhas a mais e a menos, o diff de cada arquivo (filtrado de segredos) e uma linha do tempo com edições e commits.
+- **CLI `agentcontrol`**: `ao-vivo --diff`, `codigo`, `diff`, `mandar`, `comandos`, `aprovar`, `recusar`, `falar`,
+  `panico`, `auditoria`; no PC ou de fora com `--token`; `--json` para scripts.
+- **Nomes dos agentes** em todas as telas (Claude Code, Codex, Qwen Code, Gemini CLI…), não só o id.
 - **Botão de pânico** (sala web, app do PC e Android): para todos os agentes na hora (corta a rodada em andamento),
   desliga os aparelhos conectados e fecha o acesso de quem não é dono até você desligar. Fica gravado: reiniciar o
   Agent Control não reabre o acesso. Avisa a sala e entra na auditoria.
@@ -20,7 +25,13 @@ tudo o que acontece.
 - Comandos guardam **quem pediu** (`created_by`), não só o `[Nome]` no texto.
 - `/api/about` mostra a versão.
 
+### Removido
+- **Modo Prédio** (os bonequinhos no escritório), na sala, no app do PC, no Android e no site. No lugar dele entra o
+  Código ao vivo. A tabela de personagens fica no banco; `/api/state` ainda manda `looks: {}` para apps antigos.
+
 ### Corrigido
+- Android: a tela da sala dentro do app (era a do Prédio) entrava mandando o token cru num cookie que o servidor
+  recusa desde a 3.1, e caía na tela de login. Agora o app abre uma sessão e entra de novo sozinho se ela cair.
 - Pessoa com papel **membro** conseguia criar e apagar atalhos (um atalho escrito por membro e rodado pelo dono saía
   como ordem do dono, sem o nome de quem escreveu) e mudar os avisos do celular do dono. Agora é só do dono.
 - Notas rápidas, atalhos e favoritos eram gravados em UTC: no Brasil, uma nota feita depois das 21h ia para o
@@ -32,7 +43,6 @@ tudo o que acontece.
   mais a busca.
 - Disco cheio ou arquivo travado ao gravar o uso da fila derrubava o processo; agora fica no log, e a gravação é
   atômica (queda de energia não deixa o JSON pela metade). Promessa rejeitada sem dono também não derruba mais.
-- O `predio.js` do site tinha ficado para trás da sala (sem as correções do laço de animação e do pinça).
 - App do PC: depois de aprovar, a tela dizia "aprovado" mesmo quando o servidor respondia outra coisa.
 - Sala web: no tema "sistema" com o sistema claro, o cartão de aprovação ficava escuro com texto escuro.
 - `/api/app/apk` sem APK publicado respondia 500; agora 404.
@@ -43,9 +53,9 @@ tudo o que acontece.
   rotas com cada papel (anônimo, leitura, membro, dono) e confirma que nenhuma escrita passa sem CSRF no navegador.
 - Migrações do SQLite numeradas (`PRAGMA user_version`), em transação.
 - `tsc --noEmit` no CI (`npm run typecheck`); o Node roda `.ts` sem conferir tipos.
-- Versão única em `version.json`; `node tools/versao.mjs` sincroniza `package.json`, `.csproj` e o `predio.js` do
-  site, e `--check` roda no CI e no `npm test`. A release recusa versão diferente do arquivo.
-- 161 testes (eram 148).
+- Versão única em `version.json`; `node tools/versao.mjs` sincroniza `package.json` e `.csproj`, e `--check` roda
+  no CI e no `npm test`. A release recusa versão diferente do arquivo.
+- 151 testes (eram 148; os do Prédio saíram com ele).
 
 ## 3.1.0 — 2026-10-09
 Segurança: sessões no navegador em vez do token no cookie, tela de aparelhos conectados, inbox forjado é restaurado e

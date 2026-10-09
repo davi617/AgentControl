@@ -23,7 +23,8 @@ Android: JDK 17 + Android SDK, `cd android && ./gradlew assembleDebug`.
 - Ação que mexe no time, na segurança ou nos agentes: registre na auditoria (`audit(c, ...)` em `routes.ts`).
 - Texto que vai para arquivo, tela ou modelo passa por `redact()`.
 - Hora: use `localIso()`/`localDay()` (`src/date.ts`). Os registros são em hora local, sem fuso.
-- `public/predio.js` é a fonte; `docs/js/predio.js` é cópia (`node tools/versao.mjs`).
+- A CLI (`bin/agentcontrol.mjs`) é JavaScript puro de propósito: instalada com `npm i -g`, o Node não roda `.ts`
+  de dentro de `node_modules`. Ela só fala com a API, como os apps.
 - Comentários e textos de tela em português do Brasil, curtos e diretos, explicando o porquê.
 
 ## Versão e release
