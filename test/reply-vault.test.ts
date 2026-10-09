@@ -101,3 +101,13 @@ test('comando pelo chat: "COMANDO: CLAUDE" vira J-xxx com as palavras do dono; d
   assert.equal(r('x', 'Certo.\nCOMANDO: HACKER'), 'Certo.');
   assert.equal(made.length, 0);
 });
+test('comando pelo chat de alguém do time fica no nome dessa pessoa (created_by), não do dono', () => {
+  const by: string[] = [];
+  const j = { command: (_p: unknown, _t: string, _to: string, who?: string) => { by.push(who ?? 'DONO'); return { code: 'J-010', requires_approval: 0 }; } };
+  const p = { agents: [{ id: 'CLAUDE' }] };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  routeCommand(j as any, p as any, '[Mia] roda os testes', 'Ok.\nCOMANDO: CLAUDE', 'MIA');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  routeCommand(j as any, p as any, 'roda os testes', 'Ok.\nCOMANDO: CLAUDE');
+  assert.deepEqual(by, ['MIA', 'DONO']);
+});

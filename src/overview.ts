@@ -35,7 +35,7 @@ export function overview(j: Pick<Jarvis, 'state' | 'store'>, p: ProjectCfg, now 
     generatedAt: now.toISOString(), day, goal: state.goal,
     progress: { total: tasks.length, ...lanes, percent: tasks.length ? Math.round(lanes.done / tasks.length * 100) : 0 },
     agents: state.agents.map((a) => ({
-      id: a.id, model: a.model ?? a.latest?.model ?? null, status: a.latest?.status ?? null,
+      id: a.id, name: a.name ?? a.id, model: a.model ?? a.latest?.model ?? null, status: a.latest?.status ?? null,
       task: a.latest?.task ?? null, updatedAt: a.statusFileMtime,
       lane: taskLane(a.latest?.status), vaultCopyStale: a.vaultCopyStale,
       hasWorktree: !!a.worktree,

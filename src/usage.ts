@@ -47,8 +47,14 @@ export class Usage {
   }
 
   private bucket(agent: string, now = new Date()): Bucket {
-    const d = (this.days[dayKey(now)] ??= {});
-    return (d[agent] ??= empty());
+    // Nome que é chave especial de objeto (__proto__…) nunca vira chave: os contadores iriam parar no Object.prototype.
+    const who = agent === '__proto__' || agent === 'constructor' || agent === 'prototype' ? 'OUTRO' : agent;
+    const day = dayKey(now);
+    const d = new Map(Object.entries(this.days[day] ?? {}));
+    let b = d.get(who);
+    // Map + fromEntries: o nome vira chave própria do objeto, nunca uma escrita direta por nome vindo do pedido.
+    if (!b) { b = empty(); d.set(who, b); this.days[day] = Object.fromEntries(d); }
+    return b;
   }
 
   record(agent: string, model: string, r: { status: number; ms: number; pin: number; pout: number }, now = new Date()) {
@@ -56,7 +62,12 @@ export class Usage {
     b.req++;
     if (r.status >= 200 && r.status < 300) b.ok++; else b.err++;
     b.ms += r.ms; b.pin += r.pin; b.pout += r.pout;
-    if (model) b.models[model] = (b.models[model] ?? 0) + 1;
+    // O nome do modelo vem no pedido: conta num Map (chave qualquer, até "__proto__", sem tocar no protótipo).
+    if (model) {
+      const m = new Map(Object.entries(b.models));
+      m.set(model, (m.get(model) ?? 0) + 1);
+      b.models = Object.fromEntries(m);
+    }
     this.save();
   }
 

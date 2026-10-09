@@ -1,5 +1,4 @@
 // JARVIS — UI. Todo dado do bus entra via textContent (nunca innerHTML).
-import { createPredio } from '/predio.js';
 import { createMissions, createProjectSearch } from '/missions.js';
 
 const $ = (s) => document.querySelector(s);
@@ -14,7 +13,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch { /* modo privado */ } },
 };
 
-// Dentro do app do celular (WebView do Prédio): sem a barra da sala, só a tela pedida.
+// Dentro do app do celular (WebView do Código ao vivo): sem a barra da sala, só a tela pedida.
 if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
 
 const state = { csrf: null, project: null, projectEpoch: 0, agent: '', oldest: null, es: null, taskFilter: 'abertas', agentsKnown: [] };
@@ -36,7 +35,7 @@ $('#theme').addEventListener('click', () => {
 });
 
 // ---------- abas ----------
-const TAB_TITLE = { missoes: 'Central de Missões', chat: 'Sala central', chamada: 'Chamada em grupo', predio: 'Prédio', sala: 'Sala (bus)', comandos: 'Comandos', agentes: 'Agentes', tarefas: 'Tarefas', resumos: 'Resumos' };
+const TAB_TITLE = { missoes: 'Central de Missões', chat: 'Sala central', chamada: 'Chamada em grupo', codigo: 'Código ao vivo', sala: 'Sala (bus)', comandos: 'Comandos', agentes: 'Agentes', tarefas: 'Tarefas', resumos: 'Resumos' };
 function showTab(name) {
   if (!TAB_TITLE[name]) name = 'chat';
   $('#view-title').textContent = TAB_TITLE[name];
@@ -45,42 +44,13 @@ function showTab(name) {
   document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-current', b.dataset.tab === name ? 'page' : 'false'));
   store.set('jarvis.tab', name);
   if (location.hash.slice(1) !== name) history.replaceState(null, '', `#${name}`);
-  if (name === 'predio') predio.show(); else predio.hide();
+  if (name === 'codigo' && state.project) loadCode();
   missions.show(name === 'missoes');
   if (name === 'resumos' && state.project) loadSummary();
   if (name === 'chat') $('#thread').lastElementChild?.scrollIntoView({ block: 'end' });
 }
 document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
-addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TAB_TITLE[h]) showTab(h); if (h === 'personagem') openPersonagem(); });
-// #personagem (o app do PC abre aqui): vai para o Prédio com o editor do seu personagem aberto
-function openPersonagem() { showTab('predio'); predio.editLook('VOCÊ'); }
-
-// ---------- prédio (bonequinhos) ----------
-const predio = createPredio($('#predio-root'), {
-  async sendCommand(agent, text) {
-    const r = await fetch('/api/commands', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
-      body: JSON.stringify({ project: state.project, text, to: agent }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error ?? r.status);
-    loadCommands();
-    return data.reply;
-  },
-  openApprovals: () => showTab('comandos'),
-  /** Personagem do prédio: só cores e estilos vão para o servidor (a foto fica no aparelho). null = volta ao sorteado. */
-  async saveLook(id, look) {
-    const r = await fetch('/api/looks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
-      body: JSON.stringify({ project: state.project, id, look }),
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error ?? r.status);
-    return data;
-  },
-});
+addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TAB_TITLE[h]) showTab(h); });
 
 // Missões preparam a ordem no compositor existente, com o mesmo protocolo de aprovação.
 const missions = createMissions($('#missions-root'), {
@@ -237,7 +207,7 @@ function renderAgents(s) {
     const h = el('header', 'card-h');
     const av = el('div', 'avatar', initials(a.id));
     paint(av, a.id);
-    h.append(av, el('h3', null, a.id));
+    h.append(av, el('h3', null, a.name ?? a.id));
     const b = badge(a.latest?.status ?? 'SEM STATUS');
     if (b) h.append(b);
     c.append(h);
@@ -339,14 +309,13 @@ function appendChat(entries) {
   // Sessão longa: não deixa a conversa crescer sem fim na memória e na tela.
   while (th.childElementCount > 600) th.firstElementChild.remove();
   if (chatCache.length > 600) chatCache.splice(0, chatCache.length - 600);
-  predio.chat(entries);
   th.lastElementChild?.scrollIntoView({ block: 'end', behavior: 'smooth' });
 }
 function fillChatTargets(agents) {
   const sel = $('#chat-to');
   const cur = sel.value;
   sel.replaceChildren(Object.assign(el('option', null, 'Todos'), { value: 'TODOS' }));
-  for (const a of agents) sel.append(Object.assign(el('option', null, a.id), { value: a.id }));
+  for (const a of agents) sel.append(Object.assign(el('option', null, a.name ?? a.id), { value: a.id }));
   sel.value = cur || 'TODOS';
 }
 $('#chat-as').addEventListener('change', () => {
@@ -431,7 +400,6 @@ async function decide(code, decision, btns) {
 // Fase 3: cartões de aprovação (um clique = um comando) + aviso no chat + contador na navegação.
 function renderApprovals(rows) {
   const pending = rows.filter((c) => c.approval === 'pending');
-  predio.pending(pending.length);
   const box = $('#approvals');
   box.replaceChildren();
   if (!pending.length) box.append(el('div', 'empty', 'Nada esperando você.'));
@@ -491,7 +459,7 @@ async function loadCommands() {
 function fillTargets(agents) {
   const sel = $('#cmd-to');
   sel.replaceChildren(Object.assign(el('option', null, 'Líder (distribui)'), { value: 'LEADER' }));
-  for (const a of agents) sel.append(Object.assign(el('option', null, a.id), { value: a.id }));
+  for (const a of agents) sel.append(Object.assign(el('option', null, a.name ?? a.id), { value: a.id }));
 }
 $('#composer').addEventListener('submit', async (ev) => {
   ev.preventDefault();
@@ -528,7 +496,7 @@ function renderRail(s) {
     const tone = statusTone(st);
     const row = el('div', 'ra');
     const when = a.latest?.task || (a.statusFileMtime ? fmtTime(a.statusFileMtime) : '—');
-    row.append(el('span', `dot ${tone}`), el('strong', null, a.id), el('code', null, when), el('span', `st ${tone}`, st ?? 'sem status'));
+    row.append(el('span', `dot ${tone}`), el('strong', null, a.name ?? a.id), el('code', null, when), el('span', `st ${tone}`, st ?? 'sem status'));
     box.append(row);
   }
   const alerts = [];
@@ -682,7 +650,6 @@ function logTurn(turn) {
 }
 function renderCall() {
   const active = !!call.data && call.data.status !== 'ENCERRADA';
-  predio.call(active ? call.data : null);
   $('#call-start').hidden = active;
   $('#call-bar').hidden = !active;
   $('#call-timer').hidden = !active;
@@ -826,16 +793,95 @@ async function loadCall() {
   renderCall();
 }
 
+// ---------- código ao vivo (o que cada agente está mexendo no código) ----------
+const code = { data: null, open: null };
+const secsAgo = (iso) => (iso ? (Date.now() - new Date(iso).getTime()) / 1000 : Infinity);
+async function loadCode() {
+  try { code.data = await api('/api/code'); } catch { return; }
+  renderCode();
+}
+function renderCode() {
+  const d = code.data;
+  if (!d) return;
+  const box = $('#code-agents');
+  box.replaceChildren();
+  if (!d.agents.length) box.append(el('div', 'empty', 'Nenhum agente com pasta de código (worktree) neste projeto.'));
+  let anyLive = false;
+  for (const a of d.agents) {
+    const live = secsAgo(a.changedAt) < 45;
+    anyLive ||= live;
+    const card = el('article', `code-card${live ? ' live' : ''}`);
+    const h = el('div', 'code-card-h');
+    const av = el('div', 'avatar', initials(a.agent));
+    paint(av, a.agent);
+    const t = el('div', 'code-who');
+    t.append(el('h3', null, a.name), el('span', 'muted', a.error ? a.error : `${a.branch ?? 'sem branch'} · ${a.head ?? ''}${a.headMsg ? ` ${a.headMsg}` : ''}`));
+    h.append(av, t);
+    if (live) h.append(el('span', 'code-now', 'mexendo agora'));
+    else if (a.files.length) h.append(el('span', 'code-pend', 'sem commit'));
+    card.append(h);
+    if (a.files.length) {
+      const sum = el('p', 'code-sum');
+      sum.append(document.createTextNode(`${a.files.length} arquivo${a.files.length > 1 ? 's' : ''} · `), el('span', 'add', `+${a.adds}`), document.createTextNode(' '), el('span', 'del', `−${a.dels}`));
+      card.append(sum);
+      const ul = el('ul', 'code-files');
+      for (const f of a.files.slice(0, 40)) {
+        const li = el('li');
+        const b = el('button', 'code-file');
+        b.type = 'button';
+        b.append(el('span', `code-st st-${f.status}`, f.status), el('code', null, f.path), el('span', 'add', f.binary ? 'bin' : `+${f.adds}`), el('span', 'del', f.binary ? '' : `−${f.dels}`));
+        b.addEventListener('click', () => openDiff(a.agent, f.path));
+        li.append(b);
+        ul.append(li);
+      }
+      if (a.files.length > 40) ul.append(el('li', 'muted', `+${a.files.length - 40} arquivos`));
+      card.append(ul);
+    } else if (!a.error) card.append(el('p', 'muted code-clean', 'Nada alterado desde o último commit.'));
+    box.append(card);
+  }
+  $('#code-live-dot').hidden = !anyLive;
+  const feed = $('#code-feed');
+  feed.replaceChildren();
+  if (!d.feed.length) feed.append(el('li', 'muted', 'Assim que um agente mexer num arquivo, aparece aqui.'));
+  for (const e of d.feed.slice(0, 120)) {
+    const li = el('li');
+    li.append(el('span', 'muted', `${fmtTime(e.at)} `), el('b', null, e.name), document.createTextNode(' '));
+    if (e.kind === 'commit') li.append(document.createTextNode('fez commit '), el('code', null, e.hash), document.createTextNode(` ${e.msg ?? ''}`));
+    else if (e.kind === 'reverted') li.append(document.createTextNode('desfez '), el('code', null, e.path));
+    else {
+      const btn = el('button', 'link-btn code-feed-file', e.path);
+      btn.type = 'button';
+      btn.addEventListener('click', () => openDiff(e.agent, e.path));
+      li.append(document.createTextNode(e.status === 'novo' ? 'criou ' : e.status === 'apagado' ? 'apagou ' : 'editou '), btn, document.createTextNode(' '), el('span', 'add', `+${e.adds ?? 0}`), document.createTextNode(' '), el('span', 'del', `−${e.dels ?? 0}`));
+    }
+    feed.append(li);
+  }
+  if (code.open) openDiff(code.open.agent, code.open.path, true);
+}
+async function openDiff(agent, path, quiet) {
+  code.open = { agent, path };
+  const box = $('#code-diff'), body = $('#code-diff-body');
+  box.hidden = false;
+  let d;
+  try { d = await api(`/api/code/diff?agent=${encodeURIComponent(agent)}&path=${encodeURIComponent(path)}`); }
+  catch { if (!quiet) { $('#code-diff-title').textContent = path; body.replaceChildren(el('span', 'muted', 'Esse arquivo não tem mais mudança (o agente desfez ou fez commit).')); } return; }
+  $('#code-diff-title').textContent = `${d.name} · ${d.path}`;
+  body.replaceChildren();
+  for (const line of d.diff.split('\n')) {
+    if (/^(diff --git|index |--- |\+\+\+ |new file mode|deleted file mode)/.test(line)) continue;
+    body.append(el('span', line.startsWith('+') ? 'add' : line.startsWith('-') ? 'del' : line.startsWith('@@') ? 'hunk' : null, `${line}\n`));
+  }
+  if (d.cortado) body.append(el('span', 'muted', '… (cortado: arquivo grande)'));
+  if (!quiet) box.scrollIntoView({ block: 'nearest' });
+}
+$('#code-diff-close').addEventListener('click', () => { code.open = null; $('#code-diff').hidden = true; });
+
 // ---------- ao vivo ----------
-let stateTimer, lastGoal;
+let stateTimer;
 async function refreshState() {
   const s = await api('/api/state');
   $('#goal').textContent = s.goal ?? 'sem Goal ativo';
   renderAgents(s);
-  predio.update(s);
-  // o Goal ativo saiu (concluído ou trocado): festa no Térreo do Prédio
-  if (lastGoal && s.goal !== lastGoal) predio.party(`Goal ${lastGoal} encerrado`);
-  lastGoal = s.goal ?? null;
   renderRail(s);
   renderTasks(s.tasks);
   if (JSON.stringify(s.agents.map((a) => a.id)) !== JSON.stringify(state.agentsKnown)) {
@@ -871,11 +917,13 @@ function connect() {
   listen('tasks', scheduleState);
   listen('commands', () => loadCommands().catch(() => {}));
   listen('panic', () => { loadSecurity().catch(() => {}); missions.schedule(); });
+  // Mudança de código chega já pronta pelo SSE; a lista completa é relida (barata) se a aba estiver aberta.
+  listen('code', () => { if ($('#codigo').classList.contains('active')) loadCode(); else $('#code-live-dot').hidden = false; });
   listen('chat', (m) => appendChat(JSON.parse(m.data).entries));
   // Falas vindas de outro aparelho (ex.: o dono falou pelo celular) entram na transcrição.
   listen('call', (m) => { const ev = JSON.parse(m.data); if (ev.turn) logTurn(ev.turn); if (ev.status && call.data) { call.data.status = ev.status; renderCall(); } });
   listen('summary', () => { loadRailSummary().catch(() => {}); if ($('#resumos').classList.contains('active')) loadSummary().catch(() => {}); });
-  for (const event of ['entries', 'agents', 'tasks', 'commands', 'chat']) listen(event, () => missions.schedule());
+  for (const event of ['entries', 'agents', 'tasks', 'commands', 'chat', 'code']) listen(event, () => missions.schedule());
   let opened = false;
   listen('open', () => {
     missions.schedule();
@@ -906,6 +954,8 @@ async function selectProject(id) {
     $('#conn').lastElementChild.textContent = 'alguns dados indisponíveis';
   }
   if ($('#resumos').classList.contains('active')) await loadSummary();
+  code.data = null; code.open = null; $('#code-diff').hidden = true;
+  if ($('#codigo').classList.contains('active')) await loadCode();
   connect();
 }
 
@@ -1009,10 +1059,9 @@ if ('serviceWorker' in navigator && isSecureContext) navigator.serviceWorker.reg
   const first = projects.find((p) => p.id === saved)?.id ?? projects[0]?.id;
   sel.value = first;
   const fromHash = location.hash.slice(1);
-  showTab(TAB_TITLE[fromHash] ? fromHash : fromHash === 'personagem' ? 'predio' : store.get('jarvis.tab', 'missoes'));
+  showTab(TAB_TITLE[fromHash] ? fromHash : fromHash === 'predio' || fromHash === 'personagem' ? 'codigo' : store.get('jarvis.tab', 'missoes'));
   if (!first) throw new Error('Nenhum projeto configurado no servidor.');
   await selectProject(first);
-  if (fromHash === 'personagem') openPersonagem();
   const me = (await (await fetch('/api/team')).json().catch(() => ({}))).me;
   $('#security-btn').hidden = me?.role !== 'dono';
   loadSecurity().catch(() => {});

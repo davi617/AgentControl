@@ -63,7 +63,7 @@ public sealed class HudHost
             case "hud": OpenHud(0); break;
             case "mini": OpenMini(); break;
             case "web": OpenHud(2); break; // chamada agora fica no painel (antes abria a página antiga no navegador)
-            case "predio": OpenPredio(); break;
+            case "codigo": case "predio": OpenCode(); break;
             case "goal": StartGoal(); break;
             case "launcher": OpenLauncher(); break;
             case "pausa": SetPause(!Snap.Paused); break;
@@ -83,7 +83,8 @@ public sealed class HudHost
             else if (msg == "hud") { if (hidden) ShowAll(); OpenHud(0); }
             else if (msg == "mini") { if (hidden) ShowAll(); OpenMini(); }
             else if (msg == "call") { if (hidden) ShowAll(); OpenHud(2); }
-            else if (msg == "predio") { if (hidden) ShowAll(); OpenPredio(); }
+            // "predio": Launcher de antes da v4.0 ainda manda esse nome
+            else if (msg is "codigo" or "predio") { if (hidden) ShowAll(); OpenCode(); }
             else if (msg == "esconder") HideAll();
             else if (msg == "demo") { if (hidden) ShowAll(); Mascot.Celebrate(); DispatcherTimer.RunOnce(() => Mascot.Say("AgentC", "Oi! Assim eu fico quando um agente fala com você: a boca mexe e a onda sai de mim."), TimeSpan.FromSeconds(2.6)); }
         }));
@@ -98,8 +99,8 @@ public sealed class HudHost
 
     public void KickRefresh() { _ = Poll(); }
 
-    /// <summary>Modo Prédio: os agentes como bonequinhos andando pelos andares, dentro da tela completa (sem navegador).</summary>
-    public void OpenPredio() { Full.Open(); Full.ShowView(FullWindow.View.Predio, animate: false); }
+    /// <summary>Código ao vivo: o que cada agente está mexendo no código agora (tela completa).</summary>
+    public void OpenCode() { Full.Open(); Full.ShowView(FullWindow.View.Code, animate: false); }
 
     public async Task Poll()
     {
@@ -299,7 +300,8 @@ public sealed class HudHost
         var working = Snap.Agents.Count(a => a.Status == "WORKING");
         var txt = $"AgentC · {working} trabalhando de {Snap.Agents.Count}";
         if (Snap.Pending > 0) txt += $" · {Snap.Pending} aprovação(ões)";
-        if (Snap.Paused) txt += " · pausado";
+        if (Snap.Panic) txt += " · PÂNICO";
+        else if (Snap.Paused) txt += " · pausado";
         if (Snap.CallActive) txt += " · em chamada";
         return txt;
     }
@@ -313,7 +315,7 @@ public sealed class HudHost
             Item("Mostrar AgentC e a HUD", ShowAll);
             Item("Esconder", HideAll);
             Item("Tela completa", OpenFull);
-            Item("Prédio dos agentes", OpenPredio);
+            Item("Código ao vivo", OpenCode);
             Item("Central de Missões", OpenMissions);
             Item("Abrir o Launcher", OpenLauncher);
             Item("Pausar / retomar os agentes", () => SetPause(!Snap.Paused));
@@ -358,6 +360,13 @@ public sealed class HudHost
         try { svc.Load(); } catch (Exception ex) { Mascot.Say("AgentC", $"Não li os ajustes: {ex.Message}"); return; }
         Mascot.Say("AgentC", svc.StartAgents() ? "Ligando os agentes. Em alguns segundos eles aparecem trabalhando." : "Não consegui ligar os agentes. Veja os logs no Launcher.");
         DispatcherTimer.RunOnce(() => _ = Poll(), TimeSpan.FromSeconds(6));
+    }
+
+    public async void SetPanic(bool on)
+    {
+        var msg = await Api.Panic(on);
+        Mascot.Say("AgentC", msg);
+        await Poll();
     }
 
     public async void SetPause(bool on)

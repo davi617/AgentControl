@@ -28,7 +28,7 @@ export function missionReport(data) {
     `# Missão · ${data.project.name}`, `\nGerado: ${data.generatedAt}`, `Goal: ${data.goal ?? 'nenhum ativo'}`,
     `\n## Progresso`, `${data.progress.done}/${data.progress.total} tarefas concluídas (${data.progress.percent}%).`,
     `Aprovações pendentes: ${data.commands.counts.pending}. Comandos concluídos em ${data.day}: ${data.commands.counts.doneToday}.`,
-    '\n## Agentes', ...data.agents.map((a) => `- ${a.id}: ${a.status ?? 'sem STATUS'} · ${a.task ?? 'sem tarefa informada'} · atualização: ${a.updatedAt ?? 'nenhuma'}`),
+    '\n## Agentes', ...data.agents.map((a) => `- ${a.name ?? a.id}: ${a.status ?? 'sem STATUS'} · ${a.task ?? 'sem tarefa informada'} · atualização: ${a.updatedAt ?? 'nenhuma'}`),
     '\n## Tarefas', ...data.tasks.map((t) => `- ${t.id} · ${t.owner} · ${t.status}: ${t.task}${t.gate ? ` (gate: ${t.gate})` : ''}`),
     '\n## Comandos recentes (até 30)', ...data.commands.recent.map((c) => `- ${c.code} → ${c.target} · ${c.status}${c.approval ? ` · aprovação: ${c.approval}` : ''}\n  ${c.text.replace(/\n/g, '\n  ')}`),
     '\n## Coordenação',
@@ -132,7 +132,7 @@ export function createMissions(root, { onNavigate, onCommand }) {
       const row = node('article', `mission-agent lane-${a.lane}`);
       const avatar = node('div', 'avatar', a.id.slice(0, 2));
       const info = node('div', 'mission-agent-info');
-      info.append(node('strong', null, a.id), node('p', null, a.task ?? 'Sem tarefa informada'), node('small', 'muted', `${a.model ?? 'Modelo não informado'} · ${time(a.updatedAt)}`));
+      info.append(node('strong', null, a.name ?? a.id), node('p', null, a.task ?? 'Sem tarefa informada'), node('small', 'muted', `${a.model ?? 'Modelo não informado'} · ${time(a.updatedAt)}`));
       if (a.vaultCopyStale) info.append(node('small', 'mission-warning', 'Cópia no vault diferente da worktree'));
       const status = node('span', `mission-status lane-${a.lane}`, a.status ?? 'Sem STATUS');
       const actions = node('div', 'mission-agent-actions');
@@ -154,7 +154,7 @@ export function createMissions(root, { onNavigate, onCommand }) {
     if (!pending.length && !d.progress.blocked && !d.alerts.length) attention.append(node('p', 'empty', 'Nenhuma aprovação ou tarefa bloqueada no momento.'));
     const chosen = target.value;
     target.replaceChildren(Object.assign(node('option', null, 'Líder · distribui para o time'), { value: 'LEADER' }));
-    for (const a of d.agents) target.append(Object.assign(node('option', null, a.id), { value: a.id }));
+    for (const a of d.agents) target.append(Object.assign(node('option', null, a.name ?? a.id), { value: a.id }));
     target.value = [...target.options].some((o) => o.value === chosen) ? chosen : 'LEADER';
     const selected = owner.value;
     owner.replaceChildren(Object.assign(node('option', null, 'Todos'), { value: '' }));

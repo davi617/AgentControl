@@ -60,3 +60,19 @@ test('fila: pedido por /a/qwen/… chega ao 9Router sem o prefixo e conta tokens
   assert.deepEqual(u.agentes[0].models, { 'nvidia/moonshotai/kimi-k3': 1 });
   g.server.close(); up.close();
 });
+
+test('uso da fila: modelo chamado __proto__ não polui o objeto', async () => {
+  const { Usage } = await import('../src/usage.ts');
+  const u = new Usage();
+  u.record('A', '__proto__', { status: 200, ms: 1, pin: 1, pout: 1 });
+  assert.equal(({} as Record<string, unknown>).req, undefined);
+  assert.equal(Object.getPrototypeOf(u.snapshot(1)), Object.prototype);
+});
+
+test('uso da fila: agente chamado __proto__ não grava no Object.prototype', async () => {
+  const { Usage } = await import('../src/usage.ts');
+  const u = new Usage();
+  u.record('__proto__', 'm', { status: 200, ms: 1, pin: 1, pout: 1 });
+  assert.equal((Object.prototype as Record<string, unknown>).req, undefined);
+  assert.ok(u.snapshot(1).agentes.some((a: { agent: string }) => a.agent === 'OUTRO'));
+});

@@ -81,7 +81,7 @@ import dev.agentcontrol.app.UiState
 import dev.agentcontrol.app.data.Command
 import kotlinx.coroutines.launch
 
-enum class Screen(val title: String) { HOME("Início"), VOZ("Falar com o AgentC"), CHAMADA("Chamada em grupo"), SAUDE("Saúde do PC"), CEREBRO("Cérebro (Obsidian)"), TAREFAS("Tarefas"), MODELOS("Modelos e força"), VOZES("Vozes"), NOTAS("Notas rápidas"), BUSCA("Buscar em tudo"), STATS("Estatísticas do time"), AJUSTES("Ajustes e avisos"), USO("Uso dos agentes"), LINHA("Linha do tempo"), CHAMADAS("Histórico de chamadas"), SOBRE("Sobre"), SALA("Sala central"), COMANDOS("Comandos"), AGENTES("Agentes"), RESUMOS("Resumos"), MAIS("Mais"), TIME("Time"), PREDIO("Prédio") }
+enum class Screen(val title: String) { HOME("Início"), VOZ("Falar com o AgentC"), CHAMADA("Chamada em grupo"), SAUDE("Saúde do PC"), CEREBRO("Cérebro (Obsidian)"), TAREFAS("Tarefas"), MODELOS("Modelos e força"), VOZES("Vozes"), NOTAS("Notas rápidas"), BUSCA("Buscar em tudo"), STATS("Estatísticas do time"), AJUSTES("Ajustes e avisos"), USO("Uso dos agentes"), LINHA("Linha do tempo"), CHAMADAS("Histórico de chamadas"), SOBRE("Sobre"), SALA("Sala central"), COMANDOS("Comandos"), AGENTES("Agentes"), RESUMOS("Resumos"), MAIS("Mais"), TIME("Time"), CODIGO("Código ao vivo") }
 
 @Composable
 fun JarvisApp(vm: MainViewModel) {
@@ -146,7 +146,7 @@ fun JarvisApp(vm: MainViewModel) {
                             else -> openNote(h.ref)
                         }
                     }
-                    Screen.PREDIO -> PredioScreen(dev.agentcontrol.app.data.JarvisApi.normalize(vm.savedUrl), vm.savedToken)
+                    Screen.CODIGO -> CodeScreen(dev.agentcontrol.app.data.JarvisApi.normalize(vm.savedUrl), vm.savedToken)
                     Screen.TIME -> TeamScreen(ui, { keep -> vm.watchTeam(keep) }, vm::inviteToTeam, vm::removeFromTeam)
                     Screen.STATS -> StatsScreen(ui.stats) { vm.loadStats(it) }
                     Screen.USO -> UsageScreen(ui.usage, ui.limits) { vm.loadUsage(it) }
@@ -170,7 +170,7 @@ fun JarvisApp(vm: MainViewModel) {
                             vm.watchHealth { open }
                             onDispose { open = false }
                         }
-                        HealthScreen(ui.health, pause = { on, agora -> vm.pauseAgents(on, agora) }, latencyMs = ui.healthMs)
+                        HealthScreen(ui.health, pause = { on, agora -> vm.pauseAgents(on, agora) }, latencyMs = ui.healthMs, panic = ui.security?.panico, isOwner = ui.team?.me?.role != "membro" && ui.team?.me?.role != "leitura", onPanic = vm::panic)
                     }
                     Screen.CHAMADA -> {
                         LaunchedEffect(Unit) { vm.callRefresh(); vm.callLoadPeople() }

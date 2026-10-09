@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readFileSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -16,7 +16,6 @@ const STATIC: Record<string, [string, string]> = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
   '/missions.js': ['missions.js', 'text/javascript; charset=utf-8'],
-  '/predio.js': ['predio.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8'],
   '/icon.svg': ['icon.svg', 'image/svg+xml'],
   // iPhone/iPad e navegador de qualquer celular: app instalável pela tela de início (PWA) e tela de entrar.
@@ -36,12 +35,16 @@ const OPEN_STATIC = new Set(['/entrar', '/entrar.js', '/icon.svg', '/apple-touch
 const staticCache = new Map<string, { mtime: number; data: Buffer }>();
 function staticFile(name: string): Buffer {
   const file = path.join(PUBLIC, name);
-  const mtime = statSync(file).mtimeMs;
-  const hit = staticCache.get(file);
-  if (hit && hit.mtime === mtime) return hit.data;
-  const data = readFileSync(file);
-  staticCache.set(file, { mtime, data });
-  return data;
+  // Um descritor só para conferir e ler: sem janela entre o stat e a leitura (CodeQL js/file-system-race).
+  const fd = openSync(file, 'r');
+  try {
+    const mtime = fstatSync(fd).mtimeMs;
+    const hit = staticCache.get(file);
+    if (hit && hit.mtime === mtime) return hit.data;
+    const data = readFileSync(fd);
+    staticCache.set(file, { mtime, data });
+    return data;
+  } finally { closeSync(fd); }
 }
 
 /**

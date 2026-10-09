@@ -30,11 +30,21 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxHeight
 import dev.agentcontrol.app.data.Health
+import dev.agentcontrol.app.data.PanicInfo
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import dev.agentcontrol.app.data.LoopInfo
 
 /** Saúde: a fila da NVIDIA está andando? Os agentes estão rodando? O PC tem RAM? Tudo do celular. */
 @Composable
-fun HealthScreen(h: Health?, pause: (on: Boolean, agora: Boolean) -> Unit = { _, _ -> }, latencyMs: Long? = null) {
+fun HealthScreen(
+    h: Health?, pause: (on: Boolean, agora: Boolean) -> Unit = { _, _ -> }, latencyMs: Long? = null,
+    panic: PanicInfo? = null, isOwner: Boolean = true, onPanic: (Boolean) -> Unit = {},
+) {
     val k = Clay.c
     if (h == null) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Conferindo o PC…", color = k.muted) }
@@ -68,6 +78,25 @@ fun HealthScreen(h: Health?, pause: (on: Boolean, agora: Boolean) -> Unit = { _,
                     else {
                         PauseButton("Parar", k.warn, Modifier.weight(1f)) { pause(true, false) }
                         PauseButton("Parar agora", k.err, Modifier.weight(1f)) { pause(true, true) }
+                    }
+                }
+            }
+        }
+        // Pânico (v4.0): só o dono. Dois toques para não disparar sem querer; o segundo tem 5 s para vir.
+        if (isOwner || panic != null) item {
+            var armed by remember { mutableStateOf(false) }
+            LaunchedEffect(armed) { if (armed) { delay(5_000); armed = false } }
+            Column(Modifier.fillMaxWidth().clay(RoundedCornerShape(22.dp), elevation = 8.dp, color = if (panic != null) k.brandSoft else null).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(if (panic != null) "PÂNICO ligado por ${panic.by}" else "Pânico", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = if (panic != null) k.err else k.text)
+                Text(
+                    if (panic != null) "Agentes parados e acesso fechado para quem não é dono até você desligar."
+                    else "Para TODOS os agentes agora, desliga os aparelhos conectados e fecha o acesso do time até você desligar.",
+                    color = k.muted, fontSize = 13.sp, lineHeight = 18.sp,
+                )
+                if (isOwner) {
+                    if (panic != null) PauseButton("Desligar o pânico", k.ok, Modifier.fillMaxWidth()) { onPanic(false) }
+                    else PauseButton(if (armed) "Toque de novo: parar TUDO" else "Acionar pânico", k.err, Modifier.fillMaxWidth()) {
+                        if (!armed) armed = true else { armed = false; onPanic(true) }
                     }
                 }
             }

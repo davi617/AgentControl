@@ -6,7 +6,7 @@ body:
     id: onde
     attributes:
       label: Onde
-      options: [App do PC (Launcher/HUD/AgentC), Prédio, Sala no navegador, App do Android, iPhone (Safari), Servidor, Site, Outro]
+      options: [App do PC (Launcher/HUD/AgentC), Código ao vivo, CLI (terminal), Sala no navegador, App do Android, iPhone (Safari), Servidor, Site, Outro]
     validations: { required: true }
   - type: input
     id: sistema

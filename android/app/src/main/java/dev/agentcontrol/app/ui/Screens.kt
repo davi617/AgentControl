@@ -550,12 +550,23 @@ fun ApprovalSheet(c: Command, busy: Boolean, onDismiss: () -> Unit, decide: (Str
             Column(Modifier.fillMaxWidth().clay(RoundedCornerShape(22.dp), elevation = 8.dp).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row { Text("Quem executa", color = k.muted, fontSize = 14.sp, modifier = Modifier.weight(1f)); Text(if (c.target == "LEADER") "Líder" else c.target, fontWeight = FontWeight.SemiBold, color = k.text) }
                 Row { Text("Pedido", color = k.muted, fontSize = 14.sp, modifier = Modifier.weight(1f)); Text(shortTime(c.createdAt), color = k.text) }
+                if (c.precisa > 1) Row {
+                    Text("Aprovação em dupla", color = k.muted, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    Text(if (c.votos.isEmpty()) "precisa de ${c.precisa} pessoas" else "${c.votos.size} de ${c.precisa} · ${c.votos.joinToString()}", fontWeight = FontWeight.SemiBold, color = k.warn)
+                }
             }
             Text("Aprovar libera só este comando. Merge, deploy e release continuam precisando de aprovação própria.", color = k.muted, fontSize = 13.sp, lineHeight = 19.sp)
             if (!confirming) {
                 ClayButton("Aprovar ${c.code}", { confirming = true }, enabled = !busy, height = 58)
             } else {
-                ClayButton("Confirmar: aprovar só ${c.code}", { decide(c.code, true); onDismiss() }, enabled = !busy, height = 58)
+                // v4.0: digital/rosto/PIN do celular antes de liberar (se o celular tem tela de bloqueio).
+                val activity = LocalContext.current as? android.app.Activity
+                var bioErr by remember { mutableStateOf<String?>(null) }
+                ClayButton("Confirmar: aprovar só ${c.code}", {
+                    dev.agentcontrol.app.Biometric.confirm(activity, "Aprovar ${c.code}", c.text.take(80),
+                        onOk = { decide(c.code, true); onDismiss() }, onFail = { bioErr = "Não aprovei: $it" })
+                }, enabled = !busy, height = 58)
+                bioErr?.let { Text(it, color = k.err, fontSize = 13.sp) }
             }
             ClayButton("Recusar", { decide(c.code, false); onDismiss() }, enabled = !busy, primary = false, height = 52)
         }

@@ -426,7 +426,7 @@ public sealed class HudWindow : Window
         v.Children.Add(Gap(8));
         v.Children.Add(new Cols(3).Add(Quick(K.ITerminal, "Comandos", () => Select(5), badge: s.Pending > 0 ? $"{s.Pending}" : null))
             .Add(Quick(K.IApps, "Tela completa", () => { Collapse(); host.OpenFull(); }))
-            .Add(Quick(K.IBuilding, "Prédio", () => { Collapse(); host.OpenPredio(); })).Panel);
+            .Add(Quick(K.ICode, "Código", () => { Collapse(); host.OpenCode(); })).Panel);
 
         v.Children.Add(Gap(16));
         var head = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
@@ -776,7 +776,20 @@ public sealed class HudWindow : Window
         }
         v.Children.Add(Gap(14));
         v.Children.Add(s.Paused ? K.Button("Retomar os agentes", K.IPlay, () => host.SetPause(false)) : K.Button("Pausar os agentes", K.IPause, () => host.SetPause(true), primary: false));
+        // Pânico (v4.0): dois toques para não disparar sem querer; o segundo tem 5 s para vir.
+        v.Children.Add(Gap(8));
+        if (s.Panic)
+            v.Children.Add(K.Button($"Desligar o pânico (acionado por {K.Nice(s.PanicBy!)})", K.IPlay, () => host.SetPanic(false), primary: false));
+        else
+            v.Children.Add(K.Button(panicArmed ? "Toque de novo: parar TUDO agora" : "Pânico: parar tudo agora", K.IWarn, () =>
+            {
+                if (!panicArmed) { panicArmed = true; Refresh(); DispatcherTimer.RunOnce(() => { panicArmed = false; Refresh(); }, TimeSpan.FromSeconds(5)); return; }
+                panicArmed = false;
+                host.SetPanic(true);
+            }, primary: false, danger: true));
     }
+
+    bool panicArmed;
 
     void Comandos(StackPanel v, HudSnapshot s)
     {
@@ -797,8 +810,8 @@ public sealed class HudWindow : Window
                 var code = c.Code;
                 var g = new StackPanel { Spacing = 8 };
                 g.Children.Add(new StackPanel { Children = { K.T($"{c.Code} · {K.Nice(c.Target)}", 11.5, K.Warn, FontWeight.SemiBold, K.Mono), K.Wrap(c.Text, 12.5, K.Text, 3).Also(t => t.Margin = new Thickness(0, 3, 0, 0)) } });
-                g.Children.Add(new Cols().Add(K.Button("Recusar", K.IClose, async () => { var e = await host.Api.Decide(code, false); toast = e ?? $"{code} recusado."; host.KickRefresh(); await LoadCmds(); }, primary: false, danger: true, height: 32))
-                    .Add(K.Button("Aprovar", K.ICheck, async () => { var e = await host.Api.Decide(code, true); toast = e ?? $"{code} aprovado (só este comando)."; host.KickRefresh(); await LoadCmds(); }, height: 32)).Panel);
+                g.Children.Add(new Cols().Add(K.Button("Recusar", K.IClose, async () => { toast = await host.Api.Decide(code, false); host.KickRefresh(); await LoadCmds(); }, primary: false, danger: true, height: 32))
+                    .Add(K.Button("Aprovar", K.ICheck, async () => { toast = await host.Api.Decide(code, true); host.KickRefresh(); await LoadCmds(); }, height: 32)).Panel);
                 v.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(22, 245, 158, 11)), BorderBrush = new SolidColorBrush(Color.FromArgb(70, 245, 158, 11)), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(12), Padding = new Thickness(12, 10), Margin = new Thickness(0, 0, 0, 8), Child = g });
             }
             if (pend.Count > 3) v.Children.Add(K.T($"+{pend.Count - 3} na tela completa", 11.5, K.Muted));

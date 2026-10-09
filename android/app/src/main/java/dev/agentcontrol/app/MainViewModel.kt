@@ -101,6 +101,7 @@ data class UiState(
     val muteUntil: Long = 0, // não perturbe: avisos calados até esse horário
     val healthMs: Long? = null, // quanto o PC demorou para responder a Saúde (latência)
     val openScreen: String? = null, // atalho do ícone do app pediu uma tela
+    val security: dev.agentcontrol.app.data.SecuritySettings? = null, // v4.0: pânico e aprovação em dupla
     val team: dev.agentcontrol.app.data.TeamInfo? = null, // Modo Time: eu e as pessoas do time (presença)
 ) {
     val pending: List<Command> get() = commands.filter { it.pending }
@@ -123,7 +124,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         set(v) { AlertCenter.foreground = v }
 
     val savedUrl: String get() = settings.baseUrl
-    /** Para o Prédio (WebView): o token vai num cookie só daquele WebView, nunca para log ou tela. */
+    /** Para o Código ao vivo (WebView): o token só serve para abrir a sessão da sala; nunca vai para log ou tela. */
     val savedToken: String get() = settings.token
 
     init {
@@ -149,7 +150,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         // Botão "Desconectar" do menu: apaga endereço e token deste celular.
         sse?.cancel(); reconnect?.cancel()
         JarvisService.stop(getApplication())
-        // O Prédio (WebView) guarda o token num cookie: some junto ao desconectar.
+        // A sala no WebView (Código ao vivo) guarda a sessão num cookie: some junto ao desconectar.
         runCatching { android.webkit.CookieManager.getInstance().removeAllCookies(null) }
         settings.clear()
         api = null
@@ -740,6 +741,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .onFailure { e -> _ui.update { it.copy(busy = false, message = "Não troquei: ${e.message}") } }
     }
 
+    /** Botão de pânico (v4.0): para todos os agentes agora, desliga os aparelhos e fecha o acesso de quem não é dono. */
+    fun panic(on: Boolean) = viewModelScope.launch {
+        val a = api ?: return@launch
+        runCatching { a.panic(on) }
+            .onSuccess { r ->
+                _ui.update { it.copy(message = if (on) "PÂNICO ligado: ${r.pausados.size} projeto(s) parado(s), ${r.aparelhos} aparelho(s) desligado(s)." else "Pânico desligado. Os agentes voltam na próxima rodada.") }
+                runCatching { a.security(_ui.value.project) }.onSuccess { s -> _ui.update { it.copy(security = s) } }
+                runCatching { a.health(_ui.value.project) }.onSuccess { h -> _ui.update { it.copy(health = h) } }
+            }
+            .onFailure { e -> _ui.update { it.copy(message = "Não consegui: ${e.message}") } }
+    }
+
     fun pauseAgents(on: Boolean, agora: Boolean = false) = viewModelScope.launch {
         val a = api ?: return@launch
         runCatching { a.pauseAgents(_ui.value.project, on, agora) }
@@ -837,6 +850,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             api?.let { a ->
                 val t0 = System.currentTimeMillis()
                 runCatching { a.health(_ui.value.project) }.onSuccess { h -> _ui.update { it.copy(health = h, healthMs = System.currentTimeMillis() - t0) } }
+                runCatching { a.security(_ui.value.project) }.onSuccess { s -> _ui.update { it.copy(security = s) } }
             }
             delay(10_000)
         }

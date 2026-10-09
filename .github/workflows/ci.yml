@@ -25,14 +25,14 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
-      - name: Versão única e Prédio do site igual ao da sala
+      - name: Versão única
         run: node tools/versao.mjs --check
       - name: Tipos (o Node roda .ts sem conferir tipos)
         run: npm run typecheck
       - run: npm test
       - name: Sintaxe da sala web e do site
         run: |
-          for f in public/*.js; do node --check "$f"; done
+          for f in public/*.js bin/*.mjs; do node --check "$f"; done
           for f in $(git ls-files 'docs/**/*.js' 'docs/**/*.js' | grep -v vendor); do node --check "$f"; done
 
   app-pc:

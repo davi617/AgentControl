@@ -162,7 +162,7 @@ export class Jarvis extends EventEmitter {
   }
 
   state(p: ProjectCfg) {
-    return { goal: activeGoalId(p) ?? null, agents: agents(this.store, p), locks: locks(p), tasks: tasks(p), looks: this.store.looks(p.id) };
+    return { goal: activeGoalId(p) ?? null, agents: agents(this.store, p), locks: locks(p), tasks: tasks(p), looks: {} }; // looks: o Modo Prédio saiu na v4.0; fica vazio para apps antigos
   }
 
   recent(p: ProjectCfg): Entry[] {

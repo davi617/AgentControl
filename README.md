@@ -48,6 +48,24 @@ No macOS, na primeira vez: botão direito no app → **Abrir** (o app não é as
 > Os logos dos agentes são marcas dos respectivos donos, usados só para indicar compatibilidade. O Agent Control não é afiliado a eles.
 
 
+## Novo na 4.1
+
+- **Código ao vivo**: veja cada agente, pelo nome, mexendo no seu código, com o diff de cada arquivo.
+- **CLI `agentcontrol`** para acompanhar e mandar no time pelo terminal.
+- O Modo Prédio saiu.
+
+## Novo na 4.0
+
+- **Central de Missões**: quadro de tarefas, contexto compartilhado, busca e reconexão.
+
+- **Botão de pânico** no PC, no celular e na sala: para todos os agentes na hora, desliga os aparelhos conectados e
+  fecha o acesso do time até você desligar.
+- **Aprovação em dupla** (plano Time): deploy, push e outras ações protegidas só andam com o "sim" de duas pessoas.
+- **Auditoria** de tudo (comandos, aprovações, time, aparelhos, pânico), com corrente de hash que denuncia qualquer
+  alteração e exportação em CSV.
+- **Digital no Android** antes de aprovar.
+- Mais de uma dezena de correções. Lista completa no [CHANGELOG](CHANGELOG.md).
+
 ## O que é
 
 ### Em desenvolvimento · 4.0 · Central de Missões e novo núcleo
@@ -124,43 +142,28 @@ Compile/publice uma versão maior com `tools/publicar-app.ps1`. O celular conect
 **Sobre → Atualizar app**. O Android pede confirmação da instalação; a nova versão só está instalada após esse passo.
 O dispositivo deve alcançar o PC pelo Tailscale. Nenhum celular precisa ficar exposto na internet.
 
-## Modo Prédio
+## Código ao vivo e CLI
 
-Na sala (aba **Prédio**), no app do PC (botão **Prédio** no HUD, no Launcher e no menu do AgentC) e no app do Android
-(**Mais → Prédio**): cada agente vira um bonequinho andando pelos andares de um escritório. Cada tela é um andar.
+Cada agente trabalha na própria pasta (worktree git). O Agent Control lê o git de cada um a cada 3 segundos e mostra,
+pelo nome (Claude Code, Codex, Qwen Code…), quem está mexendo em quê: arquivos alterados, linhas a mais e a menos, o
+diff de cada arquivo e cada commit, numa linha do tempo. Na sala (aba **Código**), no app do PC (tela completa →
+**Código ao vivo**, ou o botão **Código** na HUD) e no Android (**Mais → Código ao vivo**). O diff passa pelo filtro
+de segredos, e só abre arquivo que o agente mudou.
 
-- **Térreo**: recepção, copa, descanso, jogos e jardim. Quem terminou toma café; quem está parado dorme no sofá.
-- **1º andar · Diretoria**: a sala do chefe (você, de terno e gravata vermelha), reunião e o painel de aprovações.
-  Quem trava ou espera aprovação vai até a sua mesa; na chamada, todo mundo vai para a reunião.
-- **2º andar em diante · Time**: mesas de trabalho (8 por andar). Quem trabalha senta e digita; às vezes busca um café.
-- Roupas sorteadas pelo nome (camiseta, calça e tênis); 🎲 sorteia de novo. Balões com as falas da sala.
-- Toque num bonequinho para ver tarefa e modelo, mandar uma ordem ou segui-lo pelos andares. Zoom, arrastar e tela cheia.
+No terminal, a CLI `agentcontrol` (instale com `npm i -g .` na pasta do projeto, ou rode `npm run cli --`):
 
-**Novo na 3.1 · segurança**
+```
+agentcontrol                      quem está trabalhando e o que espera você
+agentcontrol ao-vivo --diff       os agentes mexendo no código, em tempo real
+agentcontrol codigo [AGENTE]      o que cada um mudou desde o último commit
+agentcontrol diff CODEX src/a.ts  as linhas que o agente mudou
+agentcontrol mandar CLAUDE "rode os testes"
+agentcontrol aprovar J-012        ·  agentcontrol recusar J-012
+agentcontrol panico [desligar]    ·  agentcontrol auditoria
+```
 
-- **Aparelhos conectados**: no navegador (iPhone/PWA) cada aparelho entra com uma sessão própria; o token não fica
-  mais no cookie. O dono vê a lista e desconecta qualquer um. **Sair** encerra a sessão no servidor. Quem já usava o
-  iPhone precisa entrar de novo uma vez.
-- **Aprovação mais difícil de driblar**: caractere invisível, acento, "manda pro main", `rm -rf`, `npm publish`,
-  `terraform apply` e afins também ficam esperando o seu OK.
-- **Inbox vigiado**: se um agente escrever no `JARVIS-INBOX.md` (por exemplo um `approved:` falso), o arquivo volta ao
-  certo e a sala avisa quem mexeu.
-- Ordem de alguém do time sempre leva o nome (também por atalho e pelo chat); quem sai do time perde o acesso aberto
-  na hora; anexos de texto da chamada passam pelo filtro de segredos antes de ir para o vault; mais tipos de chave
-  mascarados (Stripe, GitLab, HuggingFace, npm, Telegram, webhooks).
-- Release com atestado de origem (`gh attestation verify`), actions fixadas por SHA e CodeQL.
-
-**Novo na 3.0**
-
-- **Placar do dia**: telão no Correio do Térreo com quem mais terminou tarefas hoje e o destaque do dia. Cada tarefa
-  (agente + horário do STATUS) conta uma vez, mesmo recarregando; o placar fica no aparelho e zera à meia-noite.
-- **Festa do time**: quando o time todo (2 ou mais) termina ou o Goal ativo é encerrado, todo mundo desce para o Térreo
-  por 15 s, com confete, balões e uma faixa por cima de qualquer andar.
-- **Fim de expediente**: das 22 h às 6 h, quem está parado sai pela recepção e some do prédio; o andar do time sem
-  ninguém trabalhando apaga a luz. Chegou ordem nova, o agente volta.
-- **Sons opcionais** (desligados por padrão, botão 🔇 ou tecla M): "ding" de aprovação e do elevador, confete e fanfarra.
-- **Achar agente** (🔎): vai para o andar do agente, aproxima e passa a segui-lo. **Foto do andar** (📷 ou tecla P) em PNG.
-- **Atalhos**: setas ou PageUp/PageDown trocam de andar, 0–9 vão direto ao andar, F tela cheia, +/− zoom, Esc fecha.
+De fora do PC (Tailscale): `--url http://100.x.y.z:20150 --token <token>` (ou `AGENT_CONTROL_URL` e
+`AGENT_CONTROL_TOKEN`). `--json` em qualquer comando para usar em scripts.
 
 ## Instalar por aparelho
 
@@ -245,11 +248,14 @@ Tudo é Markdown, para você ler e versionar:
 - Filtro de segredos antes de gravar, mostrar ou mandar qualquer texto para um modelo.
 - O Launcher avisa em vermelho se algo estiver escutando em `0.0.0.0`.
 - Ordens perigosas ficam `AWAITING_APPROVAL` até você aprovar; a aprovação vale só para aquele comando.
+- Cada rota da API declara o papel mínimo (leitura, membro, dono), e um teste passa por todas elas com cada papel.
+- Pânico, aprovação em dupla e auditoria encadeada (só acréscimo). Detalhes no [SECURITY.md](SECURITY.md).
 
 ## Estrutura
 
 ```
-src/                 servidor, fila anti-429, leitura dos agentes, sala, comandos, chamada
+src/                 servidor, fila anti-429, leitura dos agentes, sala, comandos, chamada, código ao vivo
+bin/agentcontrol.mjs a CLI (terminal)
 desktop/AgentControl app do PC (Launcher, HUD, AgentC, tela completa) — C# + Avalonia
 android/             app do celular — Kotlin + Compose
 public/              sala no navegador
@@ -257,17 +263,19 @@ tools/               instalar, publicar, ligar os agentes, loops e lançadores d
 test/                testes do servidor (node --test)
 ```
 
-Testes: `npm test`. Conferência visual do app: `AgentControl --print <pasta>` salva um PNG de cada tela.
+Como as peças conversam: [ARCHITECTURE.md](ARCHITECTURE.md). Para contribuir: [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Testes: `npm test` e `npm run typecheck`. Conferência visual do app: `AgentControl --print <pasta>` salva um PNG de cada tela.
 
 ## Android e validação
 
-Para compilar o Android: JDK 17, Android SDK 35 e `cd android && ./gradlew assembleDebug` (Windows: `gradlew.bat`).
-O APK fica em `android/app/build/outputs/apk/debug/`. É uma versão de desenvolvimento; o release atual também usa
-a assinatura de debug. Defina sua própria assinatura antes de distribuir atualizações a terceiros.
+Para compilar o Android: JDK 17, Android SDK (compileSdk 37) e `cd android && ./gradlew assembleDebug` (Windows:
+`gradlew.bat`). O APK fica em `android/app/build/outputs/apk/debug/`. A release sai assinada com a chave do
+`ANDROID_KEYSTORE_B64` (segredo do repositório); sem ele, com uma chave de teste que não atualiza por cima.
 
-Validação local em 02/10/2026: 100 testes do servidor passaram; o desktop compilou no Windows; o cliente HUD foi
-conferido com servidor de teste para projeto/porta, pausa, loop desligado e proporção de uso. Linux e macOS têm
-código e instaladores próprios, mas ainda precisam de execução e conferência visual nesses sistemas.
+Validação da 4.1 (09/10/2026): 158 testes do servidor e `tsc` passaram no Linux; o app do PC compilou no Linux; a sala
+web foi conferida em navegador (desktop e celular, tema claro). O CI compila o app do PC em Windows, Linux e macOS e
+gera o APK a cada push.
 
 ---
 
@@ -277,14 +285,32 @@ código e instaladores próprios, mas ainda precisam de execução e conferênci
 from one place. Pick the agents you want in *Settings → Your team* (or `AgentControl --time claude,hermes`); each one
 runs in its own git worktree inside a loop that only wakes up on new orders and reports back in Markdown.
 
-- Local server (Node) with a team chat room, commands with human approval for risky actions, and an anti-429 queue
-  in front of the model provider. Loopback only.
-- Desktop app (C#/Avalonia) for Windows, Linux and macOS: launcher, top-of-screen HUD with per-agent usage, a full
-  window, and **AgentC**, an animated mascot that talks, thinks, celebrates and sleeps with your team's state.
-- Android app (Kotlin/Compose) with voice calls and approvals, remote access only through Tailscale with a token.
+- **Local server** (Node 24, no framework, SQLite built in): team chat room, orders (`J-001`…) and **human approval**
+  for risky actions (deploy, push, merge, delete, pay). Loopback only; remote access only through Tailscale with a
+  256-bit token. An anti-429 queue sits in front of the model provider so agents slow down instead of failing.
+- **Desktop app** (C#/Avalonia) for Windows, Linux and macOS: launcher, top-of-screen HUD with per-agent usage, a
+  full window, and **AgentC**, an animated mascot that talks, celebrates and sleeps with your team's state.
+- **Android app** (Kotlin/Compose): chat, voice calls with the agents, one-tap approvals.
+
+### New in 4.1
+- **Live code view** and the **`agentcontrol` CLI** (see below); the "Building" mode is gone.
+
+### New in 4.0
+- **Mission Center**: task board, shared context, project search.
+- **Panic button** (desktop, phone, web): stops every agent now, signs out connected devices and locks out everyone
+  but the owner until you turn it off. Survives restarts.
+- **Two-person approval** (Team plan): a protected order only runs after two different owners approve; a single
+  reject wins. Agents only ever see the final decision.
+- **Append-only audit log** with a hash chain (the database refuses edits/deletes; tampering is detected), CSV export.
+- **Biometric confirmation** on Android before approving.
+- **Live code view**: see each agent, by name, editing your code (files, +/- lines, diffs, commits) in the web room,
+  the desktop app and Android.
+- **`agentcontrol` CLI**: status, live stream (`agentcontrol ao-vivo --diff`), orders, approvals, panic, audit.
+- Every API route declares its minimum role, and a test walks all routes with every role. The "Building" mode is gone.
 
 Quick start: `bash tools/instalar.sh --agentes` (Linux/macOS) or `tools\publicar-pc.ps1` (Windows), copy
 `jarvis.config.example.json` to `jarvis.config.json`, choose your team and press **Ligar tudo** (Start everything).
-The UI is in Brazilian Portuguese. MIT licensed.
+The UI is in Brazilian Portuguese. MIT licensed. See [ARCHITECTURE.md](ARCHITECTURE.md), [CHANGELOG.md](CHANGELOG.md)
+and [SECURITY.md](SECURITY.md).
 
 Prebuilt apps for Windows, macOS, Linux and Android: [Releases](../../releases/latest). Website: <docs/index.html>.

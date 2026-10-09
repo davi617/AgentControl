@@ -44,14 +44,14 @@ ${chat}`;
 const targets = (p: ProjectCfg) => ['LEADER', ...p.agents.map((a) => a.id).filter((id) => id !== 'CHATGPT')];
 
 /** "COMANDO: CLAUDE" na última linha da resposta → comando J-xxx com o texto do dono para esse agente. */
-export function routeCommand(j: Pick<Jarvis, 'command'>, p: ProjectCfg, dono: string, answer: string): string {
+export function routeCommand(j: Pick<Jarvis, 'command'>, p: ProjectCfg, dono: string, answer: string, byId = 'DONO'): string {
   const m = /^\s*\**COMANDO\**\s*:\s*\**\s*([A-Z0-9_-]+)\s*\**\s*$/im.exec(answer);
   if (!m) return answer;
   const rest = answer.replace(m[0], '').trim();
   const to = m[1].toUpperCase();
   if (!targets(p).includes(to)) return rest;
   try {
-    const cmd = j.command(p, dono, to);
+    const cmd = j.command(p, dono, to, byId);
     return `${rest}\n\n${cmd.requires_approval
       ? `Registrei como comando ${cmd.code} para ${to}, mas ele é protegido: fica parado até você aprovar em Comandos.`
       : `Registrei como comando ${cmd.code} para ${to}. Ele acorda sozinho e responde no STATUS.`}`.trim();
@@ -67,7 +67,7 @@ const again = new Set<string>();
  * Responde a última mensagem do dono. Mensagens que chegam enquanto ele pensa
  * são respondidas juntas numa segunda rodada (uma resposta por vez por projeto).
  */
-export function replyToDono(j: Jarvis, p: ProjectCfg, text: string, fetchImpl: Fetch = j.fetchImpl, by?: string): Promise<void> {
+export function replyToDono(j: Jarvis, p: ProjectCfg, text: string, fetchImpl: Fetch = j.fetchImpl, by?: string, byId = 'DONO'): Promise<void> {
   if (inflight.has(p.id)) { again.add(p.id); return inflight.get(p.id)!; }
   const run = (async () => {
     let msg = text;
@@ -81,7 +81,8 @@ export function replyToDono(j: Jarvis, p: ProjectCfg, text: string, fetchImpl: F
       }
       // Só a 1ª rodada responde ao texto original do dono; o comando leva as palavras DELE, nunca as do modelo.
       // Pedido de alguém do time leva o nome junto (igual a /api/commands): o histórico sabe quem pediu.
-      if (msg === text) answer = routeCommand(j, p, by ? `[${by}] ${text}` : text, answer);
+      // Ordem vinda da conversa de alguém do time fica no nome dessa pessoa (texto, created_by e auditoria).
+      if (msg === text) answer = routeCommand(j, p, by ? `[${by}] ${text}` : text, answer, byId);
       postChat(p, 'JARVIS', 'DONO', '', answer);
       if (!again.has(p.id)) break;
       msg = 'Responda às mensagens mais novas do dono na conversa.';

@@ -14,7 +14,6 @@ import { about, commandsPerDay, gateUsage, listCalls } from './extras.ts';
 import { health } from './health.ts';
 import type { Jarvis } from './jarvis.ts';
 import { agentLimits } from './limits.ts';
-import { lookOwnerOk, sanitizeLook } from './looks.ts';
 import { modelChoices, setModel } from './models.ts';
 import { addNote, syncNotesFile } from './notes.ts';
 import { planAllowsDual, type PlanStore, publicPlan } from './plans.ts';
@@ -22,6 +21,7 @@ import { replyToDono } from './reply.ts';
 import { searchAll } from './search.ts';
 import type { Sessions } from './sessions.ts';
 import { localIso } from './sources.ts';
+import { liveFor } from './live.ts';
 import { mentions, OWNER, type Role, type Team, type Who } from './team.ts';
 import { overview } from './overview.ts';
 import { readNote, searchNotes } from './vault.ts';
@@ -176,7 +176,6 @@ export const ROUTES: Route[] = [
   { method: 'GET', path: '/api/vault/favorites', role: 'leitura', run: (c) => c.send(200, c.j.store.favorites(c.project().id)) },
   { method: 'GET', path: '/api/shortcuts', role: 'leitura', run: (c) => c.send(200, c.j.store.shortcuts(c.project().id)) },
   { method: 'GET', path: '/api/alerts/prefs', role: 'leitura', run: (c) => c.send(200, c.j.store.alertPrefs(c.project().id)) },
-  { method: 'GET', path: '/api/looks', role: 'leitura', run: (c) => c.send(200, c.j.store.looks(c.project().id)) },
   {
     method: 'GET', path: '/api/usage', role: 'leitura',
     run: async (c) => {
@@ -211,6 +210,12 @@ export const ROUTES: Route[] = [
     },
   },
   { method: 'GET', path: '/api/summary', role: 'leitura', run: (c) => { const p = c.project(); c.send(200, { deterministic: c.j.deterministicSummary(p), llm: c.j.store.summaries(p.id, 10).filter((s) => s.kind === 'llm') }); } },
+  // Código ao vivo: o que cada agente está mexendo agora (git da worktree) e a linha do tempo.
+  { method: 'GET', path: '/api/code', role: 'leitura', fail: 500, run: async (c) => c.send(200, await liveFor(c.j).state(c.project())) },
+  {
+    method: 'GET', path: '/api/code/diff', role: 'leitura', fail: 404,
+    run: async (c) => c.send(200, await liveFor(c.j).diff(c.project(), str(c.url.searchParams.get('agent')), str(c.url.searchParams.get('path')))),
+  },
   { method: 'GET', path: '/events', role: 'leitura', run: events },
 
   // ---------- membro: manda ordem, fala, anota ----------
@@ -243,7 +248,7 @@ export const ROUTES: Route[] = [
       c.j.say(p, as, to, str(c.body.assunto), text);
       c.send(201, { ok: true, mentions: mentions(text, [...c.team.ids(), ...p.agents.map((a) => a.id)]) });
       // O JARVIS responde o dono na sala (os agentes não leem o chat).
-      if (as !== 'CHATGPT') void replyToDono(c.j, p, text, c.j.fetchImpl, c.who.owner ? undefined : c.who.name).catch((e) => console.error('[resposta]', (e as Error).message));
+      if (as !== 'CHATGPT') void replyToDono(c.j, p, text, c.j.fetchImpl, c.who.owner ? undefined : c.who.name, c.who.id).catch((e) => console.error('[resposta]', (e as Error).message));
     },
   },
   { method: 'POST', path: '/api/notes', role: 'membro', run: (c) => c.send(201, addNote(c.j.store, c.project(), str(c.body.text))) },
@@ -298,19 +303,6 @@ export const ROUTES: Route[] = [
         : cmd.approval === 'rejected' ? `${code} recusado. Os agentes não devem executar.`
         : `${code}: sua aprovação foi registrada. Falta mais uma pessoa aprovar (aprovação em dupla).`;
       c.send(200, { command: cmd, reply });
-    },
-  },
-  {
-    // Personagens do prédio são do dono (antes qualquer membro trocava o de todo mundo).
-    method: 'POST', path: '/api/looks', role: 'dono',
-    run: (c) => {
-      const p = c.project();
-      // personagem do prédio: { id, look } grava; { id, look: null } volta ao sorteado pelo nome
-      if (!lookOwnerOk(c.body.id, p.agents.map((a) => a.id))) throw new HttpError(400, 'personagem de quem?');
-      const look = c.body.look === null ? null : sanitizeLook(c.body.look);
-      if (c.body.look !== null && !look) throw new HttpError(400, 'personagem inválido');
-      c.j.store.setLook(p.id, c.body.id as string, look);
-      c.send(200, c.j.store.looks(p.id));
     },
   },
   {
@@ -511,7 +503,7 @@ function events(c: Ctx) {
     if (ev.project !== p.id) return;
     res.write(`event: ${type}\ndata: ${JSON.stringify(ev)}\n\n`);
   };
-  const handlers = Object.fromEntries(['entries', 'agents', 'tasks', 'summary', 'commands', 'chat', 'call', 'panic'].map((k) => [k, push(k)]));
+  const handlers = Object.fromEntries(['entries', 'agents', 'tasks', 'summary', 'commands', 'chat', 'call', 'panic', 'code'].map((k) => [k, push(k)]));
   for (const [k, h] of Object.entries(handlers)) c.j.on(k, h);
   const ping = setInterval(() => res.write(': ping\n\n'), 15_000);
   req.on('close', () => {

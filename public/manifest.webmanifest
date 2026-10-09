@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Agent Control",
   "short_name": "Agent Control",
-  "description": "Seu time de agentes de IA: sala, prédio, chamada, comandos e aprovações.",
+  "description": "Seu time de agentes de IA: sala, código ao vivo, chamada, comandos e aprovações.",
   "lang": "pt-BR",
   "start_url": "/",
   "scope": "/",
@@ -19,7 +19,7 @@
   ],
   "shortcuts": [
     { "name": "Sala", "url": "/#chat", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
-    { "name": "Prédio", "url": "/#predio", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Código ao vivo", "url": "/#codigo", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     { "name": "Aprovações", "url": "/#comandos", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] },
     { "name": "Chamada", "url": "/#chamada", "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }] }
   ]

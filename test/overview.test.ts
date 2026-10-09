@@ -25,7 +25,7 @@ test('quadro: revisão humana e aprovação ficam bloqueadas; estado desconhecid
 const p: ProjectCfg = { id: 'p', name: 'Projeto', vault: '/vault', activeGoalFile: 'ACTIVE.md', goalsDir: 'goals', agents: [] };
 const state = () => ({
   goal: 'G-1', looks: {},
-  agents: [{ id: 'CODEX', worktree: '/private/worktree', model: 'modelo', statusFileMtime: '2026-10-09T10:00:00', vaultCopyStale: true, done: false, lastLog: ['log privado'], latest: { heading: 'Entrega', task: 'T-1', status: 'WORKING', model: 'modelo', ts: '2026-10-09T10:00:00' } }],
+  agents: [{ id: 'CODEX', name: 'Codex', worktree: '/private/worktree', model: 'modelo', statusFileMtime: '2026-10-09T10:00:00', vaultCopyStale: true, done: false, lastLog: ['log privado'], latest: { heading: 'Entrega', task: 'T-1', status: 'WORKING', model: 'modelo', ts: '2026-10-09T10:00:00' } }],
   locks: [{ name: 'slot', pid: 77, alive: false, path: '/private/lock' }],
   tasks: ['QUEUED', 'WORKING', 'BLOCKED', 'REVIEW', 'DONE'].map((status, i) => ({ id: `T-${i}`, owner: 'CODEX', task: `Trabalho ${i}`, status, gate: '', table: 'Sprint' })),
 });

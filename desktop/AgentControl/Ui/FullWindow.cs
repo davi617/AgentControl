@@ -19,7 +19,7 @@ namespace AgentControl.Ui;
 /// </summary>
 public sealed class FullWindow : Window
 {
-    public enum View { Chat, Agents, Commands, Usage, Health, Models, Overview, Predio }
+    public enum View { Chat, Agents, Commands, Usage, Health, Models, Overview, Code }
     readonly HudHost host;
     readonly Border shell;
     readonly TranslateTransform drop = new();
@@ -34,10 +34,12 @@ public sealed class FullWindow : Window
     readonly TextBox input;
     readonly TextBlock toLabel = K.T("Todos", 12, K.Muted, FontWeight.SemiBold);
     readonly Grid chatView = new() { RowDefinitions = new RowDefinitions("*,Auto") };
-    // Prédio: um só para a janela toda (os bonequinhos continuam onde estavam ao trocar de tela)
-    readonly PredioView predio = new();
-    readonly StackPanel predioFloors = new() { Orientation = Orientation.Horizontal, Spacing = 6 };
-    readonly DockPanel predioPanel = new() { Margin = new Thickness(20, 0, 20, 18) };
+    // Código ao vivo: agentes mexendo no código (lido do servidor a cada 3 s com a tela aberta)
+    (List<HudApi.CodeAgent> Agents, List<HudApi.CodeEvent> Feed) code = ([], []);
+    (string Agent, string Path)? codeOpen;
+    string? codeDiff;
+    bool loadingCode;
+    DateTime codeLoadedAt = DateTime.MinValue;
     List<(string Agent, string Text, string Ts)> chat = [];
     Dictionary<string, (string Model, string Effort)> models = [];
     List<HudApi.Cmd> cmds = [];
@@ -66,7 +68,7 @@ public sealed class FullWindow : Window
         K.DragOrClick(this, brand, null);
         DockPanel.SetDock(brand, Dock.Top); side.Children.Add(brand);
         var items = new StackPanel { Margin = new Thickness(10, 0), Spacing = 2 };
-        foreach (var (v, icon, text) in new[] { (View.Chat, K.IChat, "Conversa"), (View.Predio, K.IBuilding, "Prédio"), (View.Agents, K.IPeople, "Agentes"), (View.Commands, K.ISend, "Comandos"), (View.Usage, K.IUsage, "Uso"), (View.Health, K.IHealth, "Saúde do PC"), (View.Models, K.ISettings, "Modelos e força"), (View.Overview, K.IHome, "Visão geral") })
+        foreach (var (v, icon, text) in new[] { (View.Chat, K.IChat, "Conversa"), (View.Code, K.ICode, "Código ao vivo"), (View.Agents, K.IPeople, "Agentes"), (View.Commands, K.ISend, "Comandos"), (View.Usage, K.IUsage, "Uso"), (View.Health, K.IHealth, "Saúde do PC"), (View.Models, K.ISettings, "Modelos e força"), (View.Overview, K.IHome, "Visão geral") })
         {
             var bg = new SolidColorBrush(Colors.Transparent);
             var ic = K.Icon(icon, 16, K.Muted);
@@ -110,29 +112,6 @@ public sealed class FullWindow : Window
         scroll.Content = new Border { Padding = new Thickness(24, 8, 24, 24), Child = messages };
         chatView.Children.Add(scroll); Grid.SetRow(composer, 1); chatView.Children.Add(composer);
 
-        // ---------- prédio ----------
-        var tools = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, HorizontalAlignment = HorizontalAlignment.Right };
-        var dice = new Border { Height = 34, Padding = new Thickness(12, 0), CornerRadius = new CornerRadius(10), Background = K.Raised, Child = K.T("🎲 roupas", 12.5, K.Text2, FontWeight.SemiBold) };
-        dice.Tip("Sortear as roupas de novo");
-        K.Pressable(dice, () => predio.Reroll());
-        tools.Children.Add(dice);
-        // personagem com foto: o editor fica na sala (navegador), que salva no servidor; aqui atualiza sozinho
-        var avatar = new Border { Height = 34, Padding = new Thickness(12, 0), CornerRadius = new CornerRadius(10), Background = K.Raised, Child = K.T("🧑 meu personagem", 12.5, K.Text2, FontWeight.SemiBold) };
-        avatar.Tip("Criar seu personagem: roupa, cabelo e a sua foto (abre no navegador)");
-        K.Pressable(avatar, () => Platform.Open($"{HudApi.Base}/#personagem"));
-        tools.Children.Add(avatar);
-        var top = new DockPanel { Margin = new Thickness(0, 0, 0, 10) };
-        DockPanel.SetDock(tools, Dock.Right); top.Children.Add(tools); top.Children.Add(predioFloors);
-        var legend = new WrapPanel { Margin = new Thickness(2, 10, 0, 0) };
-        foreach (var k in new[] { "trabalhando", "revisando", "travado", "terminou", "parado", "chamada" })
-            legend.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 0, 16, 0), Children = { new Ellipse { Width = 8, Height = 8, Fill = new SolidColorBrush(PredioView.Moods[k].Color) }, K.T(PredioView.Moods[k].Label, 12, K.Muted) } });
-        legend.Children.Add(K.T("· clique num bonequinho para ver o que faz; clique duas vezes para mandar ordem", 12, K.Faint));
-        DockPanel.SetDock(top, Dock.Top); predioPanel.Children.Add(top);
-        DockPanel.SetDock(legend, Dock.Bottom); predioPanel.Children.Add(legend);
-        predioPanel.Children.Add(new Border { CornerRadius = new CornerRadius(16), ClipToBounds = true, BorderBrush = K.Line, BorderThickness = new Thickness(1), Child = predio });
-        predio.FloorsChanged += () => Dispatcher.UIThread.Post(DrawFloors);
-        predio.OrderRequested += id => { cmdTo = id; ShowView(View.Commands); };
-
         var main = new DockPanel();
         DockPanel.SetDock(head, Dock.Top); main.Children.Add(head);
         main.Children.Add(body);
@@ -145,29 +124,6 @@ public sealed class FullWindow : Window
         };
         Content = shell;
         KeyDown += (_, e) => { if (e.Key == Key.Escape) CloseAnimated(); };
-    }
-
-    string floorsSig = "";
-    /// <summary>Abas dos andares (com quantos bonequinhos estão em cada um).</summary>
-    void DrawFloors()
-    {
-        var info = predio.FloorInfo;
-        var sig = string.Join("|", info.Select(i => i.Name + i.Count)) + predio.ViewFloor;
-        if (sig == floorsSig) return;
-        floorsSig = sig;
-        predioFloors.Children.Clear();
-        for (var i = 0; i < info.Count; i++)
-        {
-            var on = i == predio.ViewFloor; var idx = i;
-            var label = info[i].Name.Contains(" · ") ? info[i].Name.Split(" · ")[1] : info[i].Name;
-            var chip = new Border
-            {
-                Height = 34, Padding = new Thickness(10, 0), CornerRadius = new CornerRadius(10), Background = on ? K.Brand : K.Raised,
-                Child = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Children = { K.T(i == 0 ? "T" : $"{i}º", 12.5, on ? K.OnBrand : K.Text, FontWeight.Bold), K.T(label, 12.5, on ? K.OnBrand : K.Text2, FontWeight.SemiBold), K.T($"{info[i].Count}", 11.5, on ? K.OnBrand : K.Muted) } },
-            };
-            K.Pressable(chip, () => { predio.GoFloor(idx); DrawFloors(); });
-            predioFloors.Children.Add(chip);
-        }
     }
 
     /// <summary>Desce do topo da tela, como se viesse puxada da HUD.</summary>
@@ -205,7 +161,7 @@ public sealed class FullWindow : Window
             n.Text.Foreground = on ? K.Text : K.Text2;
             n.Text.FontWeight = on ? FontWeight.SemiBold : FontWeight.Medium;
         }
-        title.Text = v switch { View.Chat => "Conversa", View.Agents => "Agentes", View.Commands => "Comandos", View.Usage => "Uso dos agentes", View.Health => "Saúde do PC", View.Models => "Modelos e força", View.Predio => "Prédio", _ => "Visão geral" };
+        title.Text = v switch { View.Chat => "Conversa", View.Agents => "Agentes", View.Commands => "Comandos", View.Usage => "Uso dos agentes", View.Health => "Saúde do PC", View.Models => "Modelos e força", View.Code => "Código ao vivo", _ => "Visão geral" };
         sig = ""; chatSig = "";
         Refresh();
         if (animate && body.Content is Visual fe) K.EnterUp(fe, 0, 10);
@@ -214,6 +170,7 @@ public sealed class FullWindow : Window
         if (v == View.Commands) _ = LoadCommands();
         if (v == View.Usage) _ = LoadUsage();
         if (v == View.Models) _ = LoadModelOpts();
+        if (v == View.Code) _ = LoadCode();
     }
 
     public void Refresh()
@@ -225,8 +182,7 @@ public sealed class FullWindow : Window
         GoalFoot(s);
         if (!s.Online) { body.Content = OfflineView(); sig = "off"; return; }
         if (view == View.Chat) { body.Content = chatView; if (s.Chat.FirstOrDefault().Ts != chat.LastOrDefault().Ts) _ = LoadChat(); return; }
-        predio.Update(s);
-        if (view == View.Predio) { if (body.Content != predioPanel) body.Content = predioPanel; lastView = view; return; }
+        if (view == View.Code && !loadingCode && DateTime.UtcNow - codeLoadedAt >= TimeSpan.FromSeconds(3)) _ = LoadCode();
         var newSig = Signature(s);
         if (newSig == sig) return;
         sig = newSig;
@@ -243,6 +199,7 @@ public sealed class FullWindow : Window
             View.Usage => UsageView(),
             View.Health => Padded(HealthView(s)),
             View.Models => ModelsView(),
+            View.Code => CodeView(),
             _ => Padded(Overview(s)),
         };
         if (savedY > 0 && body.Content is ScrollViewer sv)
@@ -265,6 +222,7 @@ public sealed class FullWindow : Window
             View.Usage => $"{view}{usage.Days.Sum(d => d.Req)}|{usage.Agents.Sum(a => a.Req)}",
             View.Models => $"{view}{string.Join(",", modelOpts.Select(m => m.Id + m.Current + m.Effort))}|{toast}",
             View.Health => $"{view}{s.RamFreeMb / 200}{s.Cpu / 10}{s.Paused}|{Agents()}|{string.Join(",", s.Alerts)}",
+            View.Code => $"{view}{string.Join(",", code.Agents.Select(a => a.Agent + a.Head + a.Live + string.Join(";", a.Files.Select(f => f.Path + f.Adds + f.Dels))))}|{code.Feed.Count}{code.Feed.FirstOrDefault()?.At}|{codeOpen}{codeDiff?.Length}",
             _ => $"{view}{Agents()}|{Pcts()}|{calls}|{s.RamFreeMb / 200}",
         };
     }
@@ -411,8 +369,8 @@ public sealed class FullWindow : Window
                 g.Children.Add(new StackPanel { Children = { K.T($"{c.Code} · {K.Nice(c.Target)}", 12, K.Warn, FontWeight.SemiBold, K.Mono), K.Wrap(c.Text, 13.5, K.Text).Also(t => t.Margin = new Thickness(0, 4, 12, 0)) } });
                 var code = c.Code;
                 var btns = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
-                btns.Children.Add(K.Button("Recusar", null, async () => { var e = await host.Api.Decide(code, false); toast = e ?? $"{code} recusado."; host.KickRefresh(); await LoadCommands(); }, primary: false, height: 34));
-                btns.Children.Add(K.Button("Aprovar", K.ICheck, async () => { var e = await host.Api.Decide(code, true); toast = e ?? $"{code} aprovado. Vale só para este comando."; host.KickRefresh(); await LoadCommands(); }, height: 34));
+                btns.Children.Add(K.Button("Recusar", null, async () => { toast = await host.Api.Decide(code, false); host.KickRefresh(); await LoadCommands(); }, primary: false, height: 34));
+                btns.Children.Add(K.Button("Aprovar", K.ICheck, async () => { toast = await host.Api.Decide(code, true); host.KickRefresh(); await LoadCommands(); }, height: 34));
                 Grid.SetColumn(btns, 1); g.Children.Add(btns);
                 v.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(22, 245, 158, 11)), BorderBrush = new SolidColorBrush(Color.FromArgb(70, 245, 158, 11)), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 12, 12, 12), Margin = new Thickness(0, 0, 0, 8), Child = g });
             }
@@ -435,6 +393,106 @@ public sealed class FullWindow : Window
     }
 
     // ---------- Uso: gráfico de 7 dias + por agente ----------
+    // ---------- código ao vivo ----------
+    async Task LoadCode()
+    {
+        if (loadingCode) return;
+        loadingCode = true;
+        try
+        {
+            code = await host.Api.CodeAsync();
+            codeLoadedAt = DateTime.UtcNow;
+            if (codeOpen is { } o) codeDiff = await host.Api.DiffAsync(o.Agent, o.Path);
+        }
+        finally { loadingCode = false; }
+        Refresh();
+    }
+
+    async Task OpenDiff(string agent, string path)
+    {
+        codeOpen = (agent, path);
+        codeDiff = await host.Api.DiffAsync(agent, path);
+        sig = "";
+        Refresh();
+    }
+
+    static IBrush StatusBrush(string? st) => st switch { "novo" => K.Ok, "apagado" => K.Err, _ => K.Warn };
+
+    Control CodeView()
+    {
+        var left = new StackPanel { Spacing = 12 };
+        if (code.Agents.Count == 0) left.Children.Add(K.Card(K.Wrap("Nenhum agente com pasta de código (worktree) neste projeto, ou o servidor ainda é de antes da v4.0.", 13, K.Muted), 16, new Thickness(18, 14)));
+        foreach (var a in code.Agents)
+        {
+            var col = new StackPanel { Spacing = 6 };
+            var head = new DockPanel();
+            var badge = a.Live ? K.T("● mexendo agora", 11.5, K.BrandText, FontWeight.SemiBold) : a.Files.Count > 0 ? K.T("sem commit", 11.5, K.Muted) : null;
+            if (badge is not null) { badge.VerticalAlignment = VerticalAlignment.Center; DockPanel.SetDock(badge, Dock.Right); head.Children.Add(badge); }
+            head.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 10, Children = {
+                K.Avatar(a.Agent, 28),
+                new StackPanel { Children = { K.T(a.Name, 14, K.Text, FontWeight.SemiBold), K.T(a.Error ?? $"{a.Branch} · {a.Head} {a.HeadMsg}", 11.5, a.Error is null ? K.Muted : K.Err) } } } });
+            col.Children.Add(head);
+            if (a.Files.Count == 0 && a.Error is null) col.Children.Add(K.T("Nada alterado desde o último commit.", 12.5, K.Muted));
+            if (a.Files.Count > 0) col.Children.Add(K.T($"{a.Files.Count} arquivo(s) · +{a.Adds} −{a.Dels}", 12.5, K.Text2));
+            foreach (var f in a.Files.Take(30))
+            {
+                var row = new Grid { ColumnDefinitions = new ColumnDefinitions("70,*,Auto"), Margin = new Thickness(0, 1) };
+                row.Children.Add(K.T(f.Status, 11.5, StatusBrush(f.Status)));
+                var p = K.T(f.Path, 12.5, K.Text, f: K.Mono); p.TextTrimming = TextTrimming.CharacterEllipsis; Grid.SetColumn(p, 1); row.Children.Add(p);
+                var n = K.T(f.Binary ? "binário" : $"+{f.Adds} −{f.Dels}", 12, K.Muted, f: K.Mono); Grid.SetColumn(n, 2); row.Children.Add(n);
+                var hit = new Border { Padding = new Thickness(6, 4), CornerRadius = new CornerRadius(8), Background = codeOpen == (a.Agent, f.Path) ? K.Raised : Brushes.Transparent, Child = row };
+                var (ag, path) = (a.Agent, f.Path);
+                K.Pressable(hit, () => _ = OpenDiff(ag, path));
+                hit.Tip("Ver as linhas que o agente mudou");
+                col.Children.Add(hit);
+            }
+            if (a.Files.Count > 30) col.Children.Add(K.T($"+{a.Files.Count - 30} arquivos", 12, K.Muted));
+            left.Children.Add(K.Card(col, 16, new Thickness(16, 14)));
+        }
+
+        var right = new StackPanel { Spacing = 12 };
+        if (codeOpen is { } o)
+        {
+            var d = new StackPanel();
+            var name = code.Agents.FirstOrDefault(x => x.Agent == o.Agent)?.Name ?? K.Nice(o.Agent);
+            var dh = new DockPanel { Margin = new Thickness(0, 0, 0, 8) };
+            var close = K.T("Fechar", 12, K.Muted); DockPanel.SetDock(close, Dock.Right);
+            K.Pressable(close, () => { codeOpen = null; codeDiff = null; sig = ""; Refresh(); });
+            dh.Children.Add(close);
+            dh.Children.Add(K.T($"{name} · {o.Path}", 13, K.Text, FontWeight.SemiBold));
+            d.Children.Add(dh);
+            if (codeDiff is null) d.Children.Add(K.T("Esse arquivo não tem mais mudança (o agente desfez ou fez commit).", 12.5, K.Muted));
+            else
+                foreach (var line in codeDiff.Split('\n').Where(l => !System.Text.RegularExpressions.Regex.IsMatch(l, "^(diff --git|index |--- |\\+\\+\\+ |new file mode|deleted file mode)")).Take(400))
+                    d.Children.Add(new Border
+                    {
+                        Background = line.StartsWith('+') ? new SolidColorBrush(Color.FromArgb(30, 34, 197, 94)) : line.StartsWith('-') ? new SolidColorBrush(Color.FromArgb(30, 239, 68, 68)) : Brushes.Transparent,
+                        Child = K.T(line.Length == 0 ? " " : line, 12, line.StartsWith("@@") ? K.Muted : K.Text, f: K.Mono),
+                    });
+            right.Children.Add(K.Card(d, 16, new Thickness(16, 14)));
+        }
+        var tl = new StackPanel { Spacing = 6 };
+        tl.Children.Add(K.Label("Linha do tempo"));
+        if (code.Feed.Count == 0) tl.Children.Add(K.T("Assim que um agente mexer num arquivo, aparece aqui.", 12.5, K.Muted));
+        foreach (var e in code.Feed.Take(60))
+        {
+            var when = e.At.Length >= 16 ? e.At[11..16] : e.At;
+            var text = e.Kind switch
+            {
+                "commit" => $"fez commit {e.Hash} {e.Msg}",
+                "reverted" => $"desfez {e.Path}",
+                _ => $"{(e.Status == "novo" ? "criou" : e.Status == "apagado" ? "apagou" : "editou")} {e.Path}  +{e.Adds} −{e.Dels}",
+            };
+            tl.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.T(when, 12, K.Muted, f: K.Mono), K.T(e.Name, 12.5, K.Text, FontWeight.SemiBold), K.Wrap(text, 12.5, K.Text2).Also(t => t.MaxWidth = 330) } });
+        }
+        right.Children.Add(K.Card(tl, 16, new Thickness(16, 14)));
+
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("1.15*,16,*") };
+        grid.Children.Add(left);
+        Grid.SetColumn(right, 2); grid.Children.Add(right);
+        return Padded(grid);
+    }
+
     async Task LoadUsage()
     {
         if (loadingUsage) return;
