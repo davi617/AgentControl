@@ -11,6 +11,8 @@ import type { Store } from './store.ts';
 import { localDay } from './date.ts';
 
 const STARTED = Date.now();
+/** Versão do Agent Control (version.json, fonte única). */
+const VERSION: string = (() => { try { return JSON.parse(readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'version.json'), 'utf8')).version; } catch { return '?'; } })();
 /** Commit do código que ESTE processo carregou (lido ao ligar). Antes lia o HEAD na hora e mostrava commit novo com código velho rodando. */
 const RUNNING_COMMIT = (() => {
   try { return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: path.join(path.dirname(fileURLToPath(import.meta.url)), '..'), encoding: 'utf8', timeout: 3000, windowsHide: true }).trim(); } catch { return ''; }
@@ -49,7 +51,7 @@ export function about(dbFile: string) {
   let app: unknown = null;
   try { app = JSON.parse(readFileSync(path.join(path.dirname(dbFile), 'app', 'version.json'), 'utf8')); } catch { /* nenhum app publicado */ }
   return {
-    jarvis: { commit, node: process.version, ligadoHaMin: Math.round((Date.now() - STARTED) / 60_000) },
+    jarvis: { versao: VERSION, commit, node: process.version, ligadoHaMin: Math.round((Date.now() - STARTED) / 60_000) },
     pc: { nome: "Computador", ligadoHaMin: Math.round(os.uptime() / 60), nucleos: os.cpus().length },
     app,
   };

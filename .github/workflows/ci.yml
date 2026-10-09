@@ -25,6 +25,8 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - name: Versão única e Prédio do site igual ao da sala
+        run: node tools/versao.mjs --check
       - name: Tipos (o Node roda .ts sem conferir tipos)
         run: npm run typecheck
       - run: npm test

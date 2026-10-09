@@ -188,3 +188,9 @@ test('pânico: para os agentes, fecha o acesso de quem não é dono e desfaz', a
   const acts = j.store.auditLog(null).map((a) => a.action);
   assert.ok(acts.includes('pânico') && acts.includes('fim do pânico'));
 });
+
+test('versão única: package.json, .csproj e o Prédio do site batem com version.json/public', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const out = execFileSync(process.execPath, [path.join(import.meta.dirname, '..', 'tools', 'versao.mjs'), '--check'], { encoding: 'utf8' });
+  assert.match(out, /^ok: tudo em \d+\.\d+\.\d+/);
+});

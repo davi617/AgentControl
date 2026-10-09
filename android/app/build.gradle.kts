@@ -15,7 +15,9 @@ android {
         targetSdk = 36
         // tools/publicar-app.ps1 passa uma versão sempre maior; build comum fica em 1.
         versionCode = (project.findProperty("jarvisVersionCode") as String?)?.toInt() ?: 1
-        versionName = (project.findProperty("jarvisVersionName") as String?) ?: "1.0.0"
+        // Nome da versão: o mesmo version.json do servidor e do app do PC (fonte única, v4.0).
+        val fromFile = Regex("\"version\"\\s*:\\s*\"([^\"]+)\"").find(rootProject.file("../version.json").readText())?.groupValues?.get(1)
+        versionName = (project.findProperty("jarvisVersionName") as String?) ?: fromFile ?: "1.0.0"
     }
 
     // Assinatura: com ANDROID_KEYSTORE_FILE (e as senhas) no ambiente, o release sai assinado com a SUA chave, a que
