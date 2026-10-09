@@ -2,6 +2,13 @@
 
 Formato: a versão mais nova primeiro. A versão mora em `version.json` (fonte única: servidor, app do PC e Android).
 
+## 4.1.1 — 2026-10-09
+
+### Corrigido
+- **App do Android atualiza por cima.** Até a 4.1.0, cada release saía assinada com uma chave nova, e o celular
+  recusava instalar a versão nova sobre a antiga. Agora toda release usa a mesma chave, e a release para se a chave não
+  estiver cadastrada. Quem tem uma versão até a 4.1.0 precisa desinstalar uma última vez.
+
 ## 4.1.0 — 2026-10-09
 
 ### Novo

@@ -6,8 +6,8 @@
 #
 # Assinatura do APK (opcional): o app do celular só atualiza por cima se o APK tiver a MESMA assinatura do que já está
 # instalado. Para manter a sua, cadastre em Settings → Secrets → Actions: ANDROID_KEYSTORE_B64 (o .keystore em base64),
-# ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS e ANDROID_KEY_PASSWORD. Sem eles, o APK sai assinado com uma chave de
-# teste nova (serve para instalar do zero, mas não atualiza por cima de um app assinado com outra chave).
+# ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS e ANDROID_KEY_PASSWORD. Sem eles, a release para (desde a 4.1.1): uma
+# chave nova a cada release fazia o app não atualizar por cima no celular.
 name: Release
 on:
   workflow_dispatch:
@@ -100,7 +100,9 @@ jobs:
             echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.keystore" >> "$GITHUB_ENV"
             echo "Assinando com a chave cadastrada."
           else
-            echo "::warning::Sem ANDROID_KEYSTORE_B64: o APK sai com chave de teste nova e não atualiza por cima de um app assinado com outra chave."
+            # Sem a chave fixa, cada release sairia com uma chave nova e o celular não atualizaria por cima. Melhor parar.
+            echo "::error::Falta o segredo ANDROID_KEYSTORE_B64 (e as senhas). Cadastre a chave de assinatura antes de soltar a release."
+            exit 1
           fi
       - name: Compilar o APK
         env:
