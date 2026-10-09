@@ -72,3 +72,27 @@ test('remoto: cabeçalhos de segurança e ícones do app abrem sem token; a sala
     assert.match(await ok.text(), /createPredio/);
   } finally { await r.close(); }
 });
+
+test('LoginGuard: muitos IPs não soltam quem já estava bloqueado', () => {
+  const g = new LoginGuard(2, 60_000);
+  for (let i = 0; i < 10_050; i++) { g.fail(`10.0.${i >> 8}.${i & 255}`, 1); g.fail(`10.0.${i >> 8}.${i & 255}`, 1); }
+  assert.equal(g.blocked('10.0.39.0', 2), true, 'recente segue bloqueado');
+});
+
+test('remoto: cookie com token que não vale mais é apagado; /events tem limite por pessoa', async () => {
+  const r = await remote();
+  try {
+    const stale = await fetch(`${r.base}/api/projects`, { headers: { Cookie: 'ac_token=velho' } });
+    assert.equal(stale.status, 401);
+    assert.match(stale.headers.get('set-cookie') ?? '', /ac_token=;.*Max-Age=0/);
+    assert.equal((await fetch(`${r.base}/api/projects`, { headers: { Authorization: 'Bearer velho' } })).headers.get('set-cookie'), null, 'Bearer não mexe em cookie');
+
+    const { MAX_STREAMS } = await import('../src/server.ts');
+    const ctrl = new AbortController();
+    const open = () => fetch(`${r.base}/events?project=p`, { headers: { Authorization: `Bearer ${r.token}` }, signal: ctrl.signal });
+    const keep: Response[] = []; // guarda as respostas: o fetch fecha stream de resposta que ninguém referencia
+    for (let i = 0; i < MAX_STREAMS; i++) { keep.push(await open()); assert.equal(keep[i].status, 200); }
+    assert.equal((await open()).status, 429, 'passou do limite');
+    ctrl.abort();
+  } finally { await r.close(); }
+});

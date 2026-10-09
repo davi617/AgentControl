@@ -4,7 +4,7 @@ import chokidar, { type FSWatcher } from 'chokidar';
 import type { Config, ProjectCfg } from './config.ts';
 import { activeGoalId, agents, ingest, locks, metaPaths, nowIso, sourceFiles, tasks, type SourceFile } from './sources.ts';
 import { chatDir, chatSourceFor, chatSources, postChat, writeSala } from './chat.ts';
-import { createCommand, decideCommand, trackCommands } from './commands.ts';
+import { createCommand, decideCommand, guardInbox, inboxPath, mirrorPaths, trackCommands, trustInbox } from './commands.ts';
 import { deterministic, llmInput, llmSummary } from './summarizer.ts';
 import { Store, type Entry } from './store.ts';
 
@@ -21,6 +21,7 @@ export class Jarvis extends EventEmitter {
   private watcher?: FSWatcher;
   private sources = new Map<string, { project: ProjectCfg; src: SourceFile }>();
   private metas = new Map<string, ProjectCfg>();
+  private inboxes = new Map<string, ProjectCfg>();
   private pendingAgents = new Map<string, NodeJS.Timeout>();
   private summaryTimer = new Map<string, NodeJS.Timeout>();
   private summarizing = new Set<string>();
@@ -28,6 +29,8 @@ export class Jarvis extends EventEmitter {
 
   constructor(cfg: Config, store?: Store) {
     super();
+    // Cada /events aberto prende 7 listeners; o teto é por pessoa (MAX_STREAMS em server.ts), não deste emissor.
+    this.setMaxListeners(0);
     this.cfg = cfg;
     this.store = store ?? new Store(cfg.db);
   }
@@ -40,6 +43,9 @@ export class Jarvis extends EventEmitter {
     const paths: string[] = [];
     for (const src of allSources(p)) { this.sources.set(norm(src.path), { project: p, src }); paths.push(src.path); }
     for (const m of metaPaths(p)) { this.metas.set(norm(m), p); paths.push(m); }
+    // Inbox e espelhos: vigiados para ninguém além do JARVIS mexer (guardInbox).
+    for (const f of [inboxPath(p), ...mirrorPaths(p).map((m) => m.file)]) if (f) { this.inboxes.set(norm(f), p); paths.push(f); }
+    trustInbox(p);
     const cd = chatDir(p);
     if (cd) paths.push(cd); // agente novo (fora do launcher) cria o próprio arquivo e já entra na sala
     return paths;
@@ -70,6 +76,15 @@ export class Jarvis extends EventEmitter {
 
   private onChange(file: string) {
     const key = norm(file);
+    const inboxOf = this.inboxes.get(key);
+    if (inboxOf) {
+      const who = guardInbox(inboxOf, file);
+      if (who) {
+        console.error(`[inbox] ${who} alterou ${file}; restaurado`);
+        try { postChat(inboxOf, 'JARVIS', 'DONO', 'inbox', `Atenção: ${who} alterou o JARVIS-INBOX.md (só o JARVIS escreve lá). Voltei o arquivo ao certo. Aprovação continua valendo só pelo Agent Control.`); } catch { /* sem chat configurado */ }
+        this.emit('inbox', { project: inboxOf.id, who });
+      }
+    }
     let hit = this.sources.get(key);
     if (!hit) {
       for (const p of this.cfg.projects) {

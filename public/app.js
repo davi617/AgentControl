@@ -792,12 +792,15 @@ async function loadCall() {
 }
 
 // ---------- ao vivo ----------
-let stateTimer;
+let stateTimer, lastGoal;
 async function refreshState() {
   const s = await api('/api/state');
   $('#goal').textContent = s.goal ?? 'sem Goal ativo';
   renderAgents(s);
   predio.update(s);
+  // o Goal ativo saiu (concluído ou trocado): festa no Térreo do Prédio
+  if (lastGoal && s.goal !== lastGoal) predio.party(`Goal ${lastGoal} encerrado`);
+  lastGoal = s.goal ?? null;
   renderRail(s);
   renderTasks(s.tasks);
   if (JSON.stringify(s.agents.map((a) => a.id)) !== JSON.stringify(state.agentsKnown)) {
@@ -859,6 +862,37 @@ if (!['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname)) {
     b.hidden = false;
     b.addEventListener('click', async () => { await fetch('/api/logout', { method: 'POST' }).catch(() => {}); location.replace('/entrar'); });
   });
+}
+
+// Aparelhos conectados (sessões do navegador). O dono desconecta qualquer um; quem não é dono só vê os próprios.
+async function loadDevices() {
+  const list = $('#devices-list'), note = $('#devices-note');
+  list.replaceChildren();
+  note.textContent = '';
+  let rows = [];
+  try { rows = await (await fetch('/api/sessions')).json(); } catch { note.textContent = 'Não deu para carregar agora.'; return; }
+  if (!rows.length) { note.textContent = 'Nenhum navegador conectado (o app do celular usa token, não aparece aqui).'; return; }
+  for (const s of rows) {
+    const li = el('li', 'device');
+    const info = el('div');
+    info.append(el('strong', null, `${s.device}${s.atual ? ' · este aparelho' : ''}`));
+    info.append(el('span', 'muted', ` ${s.nome} · ${s.ip} · entrou ${fmtTime(s.created)}${s.lastSeen ? ` · visto ${ago(s.lastSeen)}` : ''}`));
+    const b = el('button', 'link-btn', 'Desconectar');
+    b.type = 'button';
+    b.addEventListener('click', async () => {
+      const r = await fetch('/api/sessions/revoke', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf }, body: JSON.stringify({ id: s.id }) }).catch(() => null);
+      if (!r?.ok) { note.textContent = r?.status === 403 ? 'Só o dono do time desconecta aparelhos.' : 'Não deu para desconectar.'; return; }
+      if (s.atual) { location.replace('/entrar'); return; }
+      loadDevices();
+    });
+    li.append(info, b);
+    list.append(li);
+  }
+}
+if (!['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname)) {
+  const btn = $('#devices-btn');
+  btn.hidden = false;
+  btn.addEventListener('click', () => { $('#devices').showModal(); loadDevices(); });
 }
 
 // App instalado (PWA): service worker só em contexto seguro (127.0.0.1 ou HTTPS).

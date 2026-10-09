@@ -34,9 +34,18 @@
       <span id="conn" class="conn" data-state="off"><i></i><span>offline</span></span>
       <code>só local · 127.0.0.1</code>
       <button id="theme" class="link-btn" type="button">Tema: sistema</button>
+      <button id="devices-btn" class="link-btn" type="button" hidden>Aparelhos conectados</button>
       <button class="link-btn logout" type="button" hidden>Sair deste aparelho</button>
     </div>
   </aside>
+
+  <dialog id="devices" class="devices" aria-labelledby="devices-h">
+    <h2 id="devices-h" class="sub">Aparelhos conectados</h2>
+    <p class="muted">Navegadores que entraram com token. Desconectar apaga a sessão daquele aparelho; o token continua valendo.</p>
+    <ul id="devices-list" class="devices-list"></ul>
+    <p id="devices-note" class="muted"></p>
+    <form method="dialog"><button class="link-btn" type="submit">Fechar</button></form>
+  </dialog>
 
   <header class="top">
     <span class="brand small"><img class="mark" src="/icon.svg" alt="" aria-hidden="true">Agent Control</span>

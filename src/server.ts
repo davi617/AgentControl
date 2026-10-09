@@ -17,8 +17,9 @@ import { about, commandsPerDay, gateUsage, listCalls } from './extras.ts';
 import { OWNER, mentions, teamFor, type Role, type Who } from './team.ts';
 import { PlanStore, publicPlan } from './plans.ts';
 import { lookOwnerOk, sanitizeLook } from './looks.ts';
+import { SESSION_COOKIE, SESSION_DAYS, sessionsFor } from './sessions.ts';
 
-const TEAM_POSTS = ['/api/team/invite', '/api/team/remove', '/api/team/role', '/api/plan/license'];
+const TEAM_POSTS = ['/api/team/invite', '/api/team/remove', '/api/team/role', '/api/plan/license', '/api/sessions/revoke'];
 const CALL_POSTS = ['/api/call/start', '/api/call/say', '/api/call/next', '/api/call/end', '/api/call/turn', '/api/call/round', '/api/call/kick'];
 const WRITE_POSTS = [
   '/api/models', '/api/agents/pause', '/api/call/attach',
@@ -26,6 +27,9 @@ const WRITE_POSTS = [
   '/api/vault/favorite', '/api/shortcuts', '/api/shortcuts/delete', '/api/shortcuts/run',
   '/api/alerts/prefs', '/api/looks',
 ];
+
+/** Conexões /events abertas ao mesmo tempo por pessoa: cada uma prende listeners no JARVIS. */
+export const MAX_STREAMS = 12;
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const STATIC: Record<string, [string, string]> = {
@@ -74,7 +78,8 @@ export class LoginGuard {
     if (!f || now - f.first > this.windowMs) { this.fails.set(ip, { n: 1, first: now, until: 0 }); return; }
     f.n++;
     if (f.n >= this.max) f.until = now + this.windowMs;
-    if (this.fails.size > 10_000) this.fails.clear(); // não deixa a memória crescer sem fim
+    // Não deixa a memória crescer sem fim: sai o IP mais antigo (antes um clear() soltava todos os bloqueados de uma vez).
+    while (this.fails.size > 10_000) this.fails.delete(this.fails.keys().next().value!);
   }
   ok(ip: string): void { this.fails.delete(ip); }
 }
@@ -96,6 +101,11 @@ function readBody(req: http.IncomingMessage, limit: number): Promise<string> {
 /** Modo remoto (app do celular via Tailscale): um servidor à parte, preso ao IP do tailnet, só com token. */
 export interface RemoteOpts { host: string; token: string; port?: number }
 
+/** Valor de um cookie pelo nome (sem decodificar). */
+const cookieOf = (req: http.IncomingMessage, name: string) => new RegExp(`(?:^|;\\s*)${name}=([^;]+)`).exec(String(req.headers.cookie ?? ''))?.[1];
+/** Apaga o cookie de sessão e o antigo ac_token (que guardava o token cru, antes das sessões). */
+const CLEAR_COOKIES = [`${SESSION_COOKIE}=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`, 'ac_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'];
+
 function sameSecret(a: string, b: string): boolean {
   const x = Buffer.from(a);
   const y = Buffer.from(b);
@@ -113,6 +123,17 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
   const team = teamFor(j.cfg.db === ':memory:' ? null : path.dirname(j.cfg.db));
   const guard = new LoginGuard();
   const plans = new PlanStore(j.cfg.db === ':memory:' ? null : path.dirname(j.cfg.db));
+  const sessions = sessionsFor(j.cfg.db === ':memory:' ? null : path.dirname(j.cfg.db));
+  // Streams /events abertos, por pessoa: quem sai do time perde na hora o que já estava recebendo.
+  const streams = new Map<string, Set<http.ServerResponse>>();
+  const bySession = new Map<string, Set<http.ServerResponse>>();
+  const endSession = (sid: string) => { for (const r of bySession.get(sid) ?? []) r.end(); bySession.delete(sid); };
+  const onRemoved = (id: string) => {
+    for (const r of streams.get(id) ?? []) r.end();
+    streams.delete(id);
+    sessions.revokePerson(id);
+  };
+  team.on('removed', onRemoved);
   const handle = (req: http.IncomingMessage, res: http.ServerResponse) => {
     // Quem está pedindo: no PC é o dono; no remoto, o token principal é o dono e um token de convite é a pessoa do time.
     // Sem token válido no remoto não responde nada (nem a página).
@@ -120,22 +141,30 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     // Navegador (iPhone/PWA) não manda Bearer: depois de /entrar, o token vai num cookie HttpOnly. Pedido por cookie
     // é credencial automática do navegador, então as escritas por esse caminho exigem o token CSRF (como no PC).
     let viaCookie = false, anon = false;
+    let sessionId: string | undefined;
     // Sair (iPhone/PWA): apaga o cookie. Vale com ou sem token válido; Origin de outro site é recusado.
     if ((req.url ?? '').split('?')[0] === '/api/logout' && req.method === 'POST') {
       const o = req.headers.origin;
       const okOrigin = !o || o.replace(/^https?:\/\//, '') === req.headers.host;
-      res.writeHead(okOrigin ? 200 : 403, { ...SECURITY_HEADERS, 'Content-Type': 'application/json', ...(okOrigin ? { 'Set-Cookie': 'ac_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' } : {}) }).end(okOrigin ? '{"ok":true}' : '{"error":"origem recusada"}');
+      // Sair encerra a sessão no servidor também: o cookie copiado de outro lugar para de valer.
+      const sid = okOrigin ? sessions.verify(decodeURIComponent(cookieOf(req, SESSION_COOKIE) ?? '')) : null;
+      if (sid) { sessions.revoke(sid.id); endSession(sid.id); }
+      res.writeHead(okOrigin ? 200 : 403, { ...SECURITY_HEADERS, 'Content-Type': 'application/json', ...(okOrigin ? { 'Set-Cookie': CLEAR_COOKIES } : {}) }).end(okOrigin ? '{"ok":true}' : '{"error":"origem recusada"}');
       return;
     }
     if (remote) {
       const pathOnly = (req.url ?? '/').split('?')[0];
       const auth = String(req.headers.authorization ?? '');
-      const cookieTok = /(?:^|;\s*)ac_token=([^;]+)/.exec(String(req.headers.cookie ?? ''))?.[1];
-      const tok = auth.startsWith('Bearer ') ? auth.slice(7) : cookieTok ? decodeURIComponent(cookieTok) : '';
-      viaCookie = !auth.startsWith('Bearer ') && !!cookieTok;
-      const guest = tok ? team.byToken(tok) : null;
-      if (tok && sameSecret(tok, remote.token)) who = OWNER;
+      const bearer = auth.startsWith('Bearer ') ? auth.slice(7) : '';
+      // Navegador: cookie de sessão (o token cru nunca fica no cookie). App: Bearer com o token.
+      const sessCookie = bearer ? undefined : cookieOf(req, SESSION_COOKIE);
+      viaCookie = !bearer && (!!sessCookie || !!cookieOf(req, 'ac_token'));
+      const sess = sessCookie ? sessions.verify(decodeURIComponent(sessCookie)) : null;
+      const fromSession = sess ? team.byId(sess.person) : null;
+      const guest = bearer ? team.byToken(bearer) : null;
+      if (bearer && sameSecret(bearer, remote.token)) who = OWNER;
       else if (guest) who = guest;
+      else if (sess && fromSession) { who = fromSession; sessionId = sess.id; }
       else if (STATIC[pathOnly] && OPEN_STATIC.has(pathOnly)) {
         anon = true; // tela de entrar e ícones abrem sem token (e não contam como ninguém)
       } else if (pathOnly === '/api/login' && req.method === 'POST') {
@@ -148,16 +177,18 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         readBody(req, 1_024).then((raw) => {
           let t = '';
           try { t = String(JSON.parse(raw).token ?? '').trim(); } catch { /* vazio */ }
-          if (!t || !(sameSecret(t, remote.token) || team.byToken(t))) { guard.fail(ip); res.writeHead(401, json).end('{"error":"token não confere"}'); return; }
+          const person = t && sameSecret(t, remote.token) ? OWNER : t ? team.byToken(t) : null;
+          if (!person) { guard.fail(ip); res.writeHead(401, json).end('{"error":"token não confere"}'); return; }
           guard.ok(ip);
-          res.writeHead(200, { ...json, 'Set-Cookie': `ac_token=${encodeURIComponent(t)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000` }).end('{"ok":true}');
+          const { secret } = sessions.create(person.id, String(req.headers['user-agent'] ?? ''), ip);
+          res.writeHead(200, { ...json, 'Set-Cookie': [`${SESSION_COOKIE}=${secret}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_DAYS * 86_400}`, CLEAR_COOKIES[1]] }).end('{"ok":true}');
         }).catch(() => res.writeHead(413, SECURITY_HEADERS).end());
         return;
-      } else if ((req.headers.accept ?? '').includes('text/html')) {
-        res.writeHead(302, { ...SECURITY_HEADERS, Location: '/entrar' }).end();
-        return;
       } else {
-        res.writeHead(401, { ...SECURITY_HEADERS, 'WWW-Authenticate': 'Bearer' }).end('token obrigatório');
+        // Cookie com token que não vale mais (pessoa removida, token trocado): apaga, para o navegador parar de mandar.
+        const clear = viaCookie ? { 'Set-Cookie': CLEAR_COOKIES } : {};
+        if ((req.headers.accept ?? '').includes('text/html')) res.writeHead(302, { ...SECURITY_HEADERS, ...clear, Location: '/entrar' }).end();
+        else res.writeHead(401, { ...SECURITY_HEADERS, ...clear, 'WWW-Authenticate': 'Bearer' }).end('token obrigatório');
         return;
       }
     }
@@ -196,6 +227,13 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         let body: { name?: string; role?: string; id?: string; license?: string };
         try { body = JSON.parse(raw); } catch { send(400, { error: 'JSON inválido' }); return; }
         try {
+          if (url.pathname === '/api/sessions/revoke') {
+            const sid = String(body.id ?? '');
+            if (!sessions.revoke(sid)) { send(404, { error: 'aparelho não encontrado' }); return; }
+            endSession(sid);
+            send(200, { ok: true });
+            return;
+          }
           if (url.pathname === '/api/plan/license') { send(200, publicPlan(plans.install(String(body.license ?? '')))); return; }
           if (url.pathname === '/api/team/invite') {
             // Freemium: o plano define quantas pessoas cabem no time (contando o dono).
@@ -273,7 +311,8 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
               return;
             case '/api/vault/favorite': {
               const fp = String(body.path ?? '');
-              if (!fp) { send(400, { error: 'caminho vazio' }); return; }
+              // Só nota que existe no vault (mesma checagem da leitura): nada de caminho inventado na lista.
+              if (!fp || !readNote(p.vault, fp)) { send(400, { error: 'nota não encontrada no vault' }); return; }
               if (j.store.isFavorite(p.id, fp)) j.store.removeFavorite(p.id, fp);
               else j.store.addFavorite(p.id, fp, String(body.title ?? fp));
               send(200, { favorito: j.store.isFavorite(p.id, fp) });
@@ -296,7 +335,8 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
               if (!sc) { send(404, { error: 'atalho não encontrado' }); return; }
               const known = new Set(['LEADER', ...p.agents.map((a) => a.id)]);
               if (!known.has(sc.target)) { send(400, { error: 'destino do atalho não existe mais' }); return; }
-              const cmd = j.command(p, sc.text, sc.target);
+              // Atalho rodado por alguém do time também leva o nome (antes saía como se fosse do dono).
+              const cmd = j.command(p, who.owner ? sc.text : `[${who.name}] ${sc.text}`, sc.target);
               send(201, { command: cmd, reply: `Comando ${cmd.code} registrado para ${sc.target} (atalho "${sc.label}").` });
               return;
             }
@@ -384,7 +424,7 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
           const tagged = mentions(text, [...team.ids(), ...p.agents.map((a) => a.id)]);
           send(201, { ok: true, mentions: tagged });
           // O JARVIS responde o dono na sala (os agentes não leem o chat).
-          if (as !== 'CHATGPT') void replyToDono(j, p, text).catch((e) => console.error('[resposta]', (e as Error).message));
+          if (as !== 'CHATGPT') void replyToDono(j, p, text, j.fetchImpl, who.owner ? undefined : who.name).catch((e) => console.error('[resposta]', (e as Error).message));
         } catch (e) { send(409, { error: (e as Error).message }); }
       }).catch(() => send(413, { error: 'mensagem grande demais' }));
       return;
@@ -424,6 +464,12 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
 
     // Time: quem sou eu e quem mais está aqui (presença).
     if (url.pathname === '/api/team') { send(200, { me: who, people: team.list(), plano: { ...publicPlan(plans.state()), pagarUrl: j.cfg.pagarUrl ?? null } }); return; }
+    if (url.pathname === '/api/sessions') {
+      // Aparelhos conectados: o dono vê todos; cada pessoa, os dela.
+      const list = sessions.view(who.owner ? undefined : who.id, sessionId).map((s) => ({ ...s, nome: s.person === OWNER.id ? 'Você' : team.name(s.person) ?? s.person }));
+      send(200, list);
+      return;
+    }
     if (url.pathname === '/api/plan') { send(200, { ...publicPlan(plans.state()), pagarUrl: j.cfg.pagarUrl ?? null }); return; }
     if (url.pathname === '/api/session') {
       // Outro site não consegue ler esta resposta (sem CORS + checagem de Host), então o token não vaza.
@@ -535,6 +581,11 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         send(200, { deterministic: j.deterministicSummary(p), llm: j.store.summaries(p.id, 10).filter((s) => s.kind === 'llm') });
         return;
       case '/events': {
+        const mine = streams.get(who.id) ?? new Set<http.ServerResponse>();
+        if (mine.size >= MAX_STREAMS) { send(429, { error: 'conexões demais abertas; feche outra aba' }); return; }
+        mine.add(res);
+        streams.set(who.id, mine);
+        if (sessionId) { const ss = bySession.get(sessionId) ?? new Set(); ss.add(res); bySession.set(sessionId, ss); }
         res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': 'text/event-stream', Connection: 'keep-alive' });
         res.write('retry: 2000\n\n');
         const push = (type: string) => (ev: { project: string }) => {
@@ -545,6 +596,9 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         for (const [k, h] of Object.entries(handlers)) j.on(k, h);
         const ping = setInterval(() => res.write(': ping\n\n'), 15_000);
         req.on('close', () => {
+          mine.delete(res);
+          if (sessionId) bySession.get(sessionId)?.delete(res);
+          if (!mine.size && streams.get(who.id) === mine) streams.delete(who.id);
           clearInterval(ping);
           for (const [k, h] of Object.entries(handlers)) j.off(k, h);
         });
@@ -554,11 +608,13 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     send(404, { error: 'não encontrado' });
   };
   // Um erro numa requisição (ex.: OneDrive travando um arquivo, EBUSY) responde 500 em vez de derrubar o servidor.
-  return http.createServer((req, res) => {
+  const server = http.createServer((req, res) => {
     try { handle(req, res); } catch (e) {
       console.error('[req]', req.url, (e as Error).message);
       if (!res.headersSent) res.writeHead(500, { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: 'erro interno, tente de novo' }));
     }
   });
+  server.on('close', () => team.off('removed', onRemoved));
+  return server;
 }

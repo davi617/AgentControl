@@ -118,6 +118,32 @@ Na sala (aba **Prédio**), no app do PC (botão **Prédio** no HUD, no Launcher 
 - Roupas sorteadas pelo nome (camiseta, calça e tênis); 🎲 sorteia de novo. Balões com as falas da sala.
 - Toque num bonequinho para ver tarefa e modelo, mandar uma ordem ou segui-lo pelos andares. Zoom, arrastar e tela cheia.
 
+**Novo na 3.1 · segurança**
+
+- **Aparelhos conectados**: no navegador (iPhone/PWA) cada aparelho entra com uma sessão própria; o token não fica
+  mais no cookie. O dono vê a lista e desconecta qualquer um. **Sair** encerra a sessão no servidor. Quem já usava o
+  iPhone precisa entrar de novo uma vez.
+- **Aprovação mais difícil de driblar**: caractere invisível, acento, "manda pro main", `rm -rf`, `npm publish`,
+  `terraform apply` e afins também ficam esperando o seu OK.
+- **Inbox vigiado**: se um agente escrever no `JARVIS-INBOX.md` (por exemplo um `approved:` falso), o arquivo volta ao
+  certo e a sala avisa quem mexeu.
+- Ordem de alguém do time sempre leva o nome (também por atalho e pelo chat); quem sai do time perde o acesso aberto
+  na hora; anexos de texto da chamada passam pelo filtro de segredos antes de ir para o vault; mais tipos de chave
+  mascarados (Stripe, GitLab, HuggingFace, npm, Telegram, webhooks).
+- Release com atestado de origem (`gh attestation verify`), actions fixadas por SHA e CodeQL.
+
+**Novo na 3.0**
+
+- **Placar do dia**: telão no Correio do Térreo com quem mais terminou tarefas hoje e o destaque do dia. Cada tarefa
+  (agente + horário do STATUS) conta uma vez, mesmo recarregando; o placar fica no aparelho e zera à meia-noite.
+- **Festa do time**: quando o time todo (2 ou mais) termina ou o Goal ativo é encerrado, todo mundo desce para o Térreo
+  por 15 s, com confete, balões e uma faixa por cima de qualquer andar.
+- **Fim de expediente**: das 22 h às 6 h, quem está parado sai pela recepção e some do prédio; o andar do time sem
+  ninguém trabalhando apaga a luz. Chegou ordem nova, o agente volta.
+- **Sons opcionais** (desligados por padrão, botão 🔇 ou tecla M): "ding" de aprovação e do elevador, confete e fanfarra.
+- **Achar agente** (🔎): vai para o andar do agente, aproxima e passa a segui-lo. **Foto do andar** (📷 ou tecla P) em PNG.
+- **Atalhos**: setas ou PageUp/PageDown trocam de andar, 0–9 vão direto ao andar, F tela cheia, +/− zoom, Esc fecha.
+
 ## Instalar por aparelho
 
 Cada aparelho tem a sua tela com o passo a passo no site: `instalar/` (iPhone e iPad, Android, Windows, macOS, Linux,

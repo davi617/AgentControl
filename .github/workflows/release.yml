@@ -61,8 +61,8 @@ jobs:
           - { nome: linux-x64, os: ubuntu-latest, rid: linux-x64, arquivo: AgentControl-linux-x64.tar.gz }
           - { nome: linux-arm64, os: ubuntu-latest, rid: linux-arm64, arquivo: AgentControl-linux-arm64.tar.gz }
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-dotnet@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           dotnet-version: '8.0.x'
       - name: Compilar (self-contained, um arquivo só)
@@ -82,12 +82,12 @@ jobs:
     needs: rascunho
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-java@v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6
         with:
           distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
       - name: Chave de assinatura (se cadastrada)
         env:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
@@ -118,6 +118,12 @@ jobs:
     name: Conferir e publicar
     needs: [pc, android]
     runs-on: ubuntu-latest
+    # Atestado de origem (SLSA): prova que cada arquivo saiu deste workflow, deste commit.
+    # Conferir: gh attestation verify AgentControl-linux-x64.tar.gz --repo davi617/AgentControl
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
     steps:
       - name: Gerar o SHA256SUMS.txt
         run: |
@@ -127,6 +133,10 @@ jobs:
           sha256sum AgentControl-* > SHA256SUMS.txt
           cat SHA256SUMS.txt
           gh release upload "v$VERSION" SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber
+      - name: Atestar a origem dos arquivos
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-path: 'dl/AgentControl-*'
       - name: Publicar
         run: gh release edit "v$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --latest
 

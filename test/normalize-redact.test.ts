@@ -59,3 +59,20 @@ test('redact: não estraga texto normal do bus', () => {
   const t = '- tokens_remaining_estimate: UNKNOWN\n- task: T-010\n- evidence: 22/22 PASS\nToken budget estimate: ~50000';
   assert.equal(redact(t), t);
 });
+
+test('redact: Stripe, GitLab, HuggingFace, npm, Telegram, webhooks do Slack/Discord e .npmrc', () => {
+  // Montados por partes para o gitleaks do CI não confundir com segredo de verdade.
+  const x = (n: number) => 'a1B2c3D4e5'.repeat(5).slice(0, n);
+  const casos = [
+    'sk' + '_live_' + x(24), 'rk' + '_test_' + x(24), 'glpat' + '-' + x(20), 'hf' + '_' + x(34), 'npm' + '_' + x(36),
+    '123456789' + ':AA' + x(33),
+    'https://hooks.slack' + '.com/services/T000/B000/' + x(24),
+    'https://discord' + '.com/api/webhooks/123456789012/' + x(40),
+  ];
+  for (const c of casos) {
+    const r = redact(`erro ao chamar ${c} agora`);
+    assert.ok(!r.includes(c), c);
+    assert.match(r, /\[REDACTED\]/);
+  }
+  assert.equal(redact('//registry.npmjs.org/:_authToken=' + x(30)), '//registry.npmjs.org/:_authToken=[REDACTED]');
+});

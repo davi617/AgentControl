@@ -3,8 +3,9 @@
 // a assinatura sozinho, sem internet, com a chave PÚBLICA abaixo. A chave privada nunca fica no repositório.
 
 import { createPublicKey, verify } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { writePrivate } from './fsutil.ts';
 
 export type PlanId = 'gratis' | 'pro' | 'time' | 'empresa';
 export interface Plan { id: PlanId; nome: string; precoMensalBRL: number | null; pessoas: number; recursos: string[] }
@@ -82,7 +83,7 @@ export class PlanStore {
   install(text: string, now = new Date()): PlanState {
     const r = checkLicense(text, this.publicKey, now);
     if (!r.ok) throw new Error(r.motivo);
-    if (this.file) { mkdirSync(path.dirname(this.file), { recursive: true }); writeFileSync(this.file, text.trim() + '\n'); }
+    if (this.file) writePrivate(this.file, text.trim() + '\n');
     else this.mem = text.trim();
     return this.state(now);
   }

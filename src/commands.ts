@@ -2,7 +2,7 @@
 // O JARVIS escreve SÓ no próprio arquivo (Goals/<ID>/JARVIS-INBOX.md) e no espelho
 // .ai-team/JARVIS-INBOX.md de cada worktree. Nunca edita arquivo de agente/líder.
 
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { ProjectCfg } from './config.ts';
 import { canonicalStatus } from './parser.ts';
@@ -14,10 +14,29 @@ export const INBOX_FILE = 'JARVIS-INBOX.md';
 export const MAX_COMMAND_CHARS = 4000;
 
 // Ações que o protocolo proíbe sem autorização explícita: ficam paradas até você aprovar.
-const NEEDS_APPROVAL = /\b(deploy|push|merge|rebase|release|publicar|publica|produ[cç][aã]o|prod\b|force|apagar|apaga|deletar|delete|remover|drop|billing|pagar|pagamento|compra|comprar|cr[eé]dito|plano pago)\w*/i;
+// Na dúvida, segura: um comando parado à toa custa um toque; um push não aprovado custa caro.
+const NEEDS_APPROVAL = [
+  /\b(deploy|push|merge|rebase|release|publicar|publica|publish|producao|prod\b|force|apagar|apaga|deletar|delete|remover|excluir|exclui|destroy|wipe|drop|truncate|billing|pagar|pagamento|compra|comprar|credito|plano pago)\w*/,
+  // git e shell que reescrevem ou somem com coisa
+  /\brm\s+-[a-z]*[rf]|\breset\s+--hard|\bclean\s+-[a-z]*f|\bgit\s+tag\b|\bchmod\s+(-r\s+)?777|\b(curl|wget)\b[^|\n]*\|\s*(ba|z)?sh\b/,
+  // "manda/sobe/envia pro main" sem dizer push
+  /\b(pro|pra|para|para o|no|na|into|to|on)\s+(a\s+|o\s+)?(main|master)\b/,
+  // infraestrutura e pacotes publicados
+  /\b(terraform|pulumi)\s+(apply|destroy)|\bkubectl\s+(apply|delete|rollout|scale)|\b(npm|pnpm|yarn|cargo|twine|gem)\s+publish|\bgh\s+(release|pr\s+merge|repo\s+delete)/,
+];
+
+/** Texto para a checagem: sem acento, sem caractere invisível (git p\u200Bush), letras de largura total viram normais. */
+export function normalizeForCheck(text: string): string {
+  return text
+    .normalize('NFKC')
+    .replace(/[\u00AD\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
 
 export function requiresApproval(text: string): boolean {
-  return NEEDS_APPROVAL.test(text);
+  const t = normalizeForCheck(text);
+  return NEEDS_APPROVAL.some((re) => re.test(t));
 }
 
 const HEADER = `# JARVIS INBOX
@@ -49,14 +68,54 @@ function entryText(c: Command): string {
   ].join('\n');
 }
 
+/** Espelhos do inbox, um por worktree de agente. */
+export function mirrorPaths(p: ProjectCfg): { agent: string; file: string }[] {
+  return p.agents.filter((a) => a.worktree).map((a) => ({ agent: a.id, file: path.join(a.worktree!, '.ai-team', INBOX_FILE) }));
+}
+
+// Guarda do inbox (2026-10-08): só o JARVIS escreve no JARVIS-INBOX.md, mas o espelho fica na worktree do agente,
+// onde ele PODE escrever. Um "approved: J-xxx" forjado não libera nada no JARVIS (a aprovação vale pelo banco), mas
+// engana os outros agentes que leem o arquivo. Aqui fica o que o JARVIS escreveu por último; diferente disso = mexeram.
+const written = new Map<string, string>();
+const key = (f: string) => path.resolve(f).toLowerCase();
+const readOr = (f: string) => { try { return readFileSync(f, 'utf8'); } catch { return null; } };
+function remember(file: string) { const t = readOr(file); if (t !== null) written.set(key(file), t); }
+
 /** Espelha o inbox para cada worktree (a pasta .ai-team é transporte ignorado pelo Git). */
 export function mirrorInbox(p: ProjectCfg, src: string) {
-  for (const a of p.agents) {
-    if (!a.worktree) continue;
-    const dir = path.join(a.worktree, '.ai-team');
-    if (!existsSync(dir)) continue;
-    try { copyFileSync(src, path.join(dir, INBOX_FILE)); } catch (e) { console.error(`[inbox] espelho ${a.id}:`, (e as Error).message); }
+  remember(src);
+  for (const { agent, file } of mirrorPaths(p)) {
+    if (!existsSync(path.dirname(file))) continue;
+    try { copyFileSync(src, file); } catch (e) { console.error(`[inbox] espelho ${agent}:`, (e as Error).message); }
   }
+}
+
+/** Ao ligar: o que está no disco agora é o ponto de partida (não há como saber o que mudou com o JARVIS desligado). */
+export function trustInbox(p: ProjectCfg) {
+  const src = inboxPath(p);
+  if (src && !written.has(key(src))) remember(src);
+}
+
+/**
+ * Um arquivo de inbox mudou. Se não é o que o JARVIS escreveu, restaura e devolve quem mexeu
+ * (o agente dono da worktree, ou "alguém" no inbox do vault). null = está tudo certo / não é inbox.
+ */
+export function guardInbox(p: ProjectCfg, changed: string): string | null {
+  const src = inboxPath(p);
+  if (!src) return null;
+  const expected = written.get(key(src));
+  if (expected === undefined) return null;
+  if (key(changed) === key(src)) {
+    if (readOr(src) === expected) return null;
+    writeFileSync(src, expected);
+    mirrorInbox(p, src);
+    return 'alguém (no vault)';
+  }
+  const m = mirrorPaths(p).find((x) => key(x.file) === key(changed));
+  if (!m || !existsSync(path.dirname(m.file))) return null;
+  if (readOr(m.file) === expected) return null;
+  copyFileSync(src, m.file);
+  return m.agent;
 }
 
 export function createCommand(store: Store, p: ProjectCfg, rawText: string, target: string): Command {
@@ -77,8 +136,11 @@ export function createCommand(store: Store, p: ProjectCfg, rawText: string, targ
     created_at: now,
     updated_at: now,
   });
-  if (!existsSync(file)) { mkdirSync(path.dirname(file), { recursive: true }); writeFileSync(file, HEADER); }
-  appendFileSync(file, entryText(cmd));
+  // O arquivo novo é sempre "o que o JARVIS escreveu por último + esta entrada", numa escrita só: se alguém mexeu
+  // no inbox, a mudança some aqui, e não há janela entre ler e regravar em que outro processo consiga escrever.
+  const before = written.get(key(file)) ?? readOr(file) ?? HEADER;
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, before + entryText(cmd));
   mirrorInbox(p, file);
   return cmd;
 }
@@ -119,11 +181,13 @@ export function decideCommand(store: Store, p: ProjectCfg, code: string, decisio
   if (!c.requires_approval) throw new Error('este comando não precisa de aprovação');
   if (c.approval !== 'pending') throw new Error(`comando já ${c.approval === 'approved' ? 'aprovado' : 'recusado'}`);
   const file = inboxPath(p);
-  if (!file || !existsSync(file)) throw new Error('JARVIS-INBOX.md não encontrado');
+  // Mesma regra do createCommand: parte do que o JARVIS escreveu, nunca do que está no disco (forja não vira "certa").
+  const base = file ? written.get(key(file)) ?? readOr(file) : null;
+  if (!file || base === null) throw new Error('JARVIS-INBOX.md não encontrado');
   const now = nowIso();
   const [date, time] = now.split('T');
   const approved = decision === 'approve';
-  appendFileSync(file, [
+  writeFileSync(file, base + [
     '',
     `## ${date} ${time.slice(0, 5)} — DONO (via JARVIS)`,
     `- jarvis: ${code}`,

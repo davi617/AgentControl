@@ -129,3 +129,42 @@ test('personagem salvo ida e volta: terno vira paletó com camisa branca e grava
   const w = { ...s, top: 'moletom', shirt: '#22C55E' };
   assert.deepEqual(savedFromLook(lookFromSaved(w)), w);
 });
+
+// ---------- 3.0: placar do dia, noite e festa ----------
+import { noteDone, ranking, dayKey, lateNight, allDone } from '../public/predio.js';
+
+test('placar: cada tarefa terminada hoje conta uma vez só, mesmo recarregando', () => {
+  const now = new Date(2026, 9, 8, 15, 0);
+  const b = { day: '', seen: [] };
+  const done = (id, h) => ({ id, latest: { status: 'DONE', ts: new Date(2026, 9, 8, h, 0).toISOString() } });
+  assert.equal(noteDone(b, done('CLAUDE', 10), now), true);
+  assert.equal(noteDone(b, done('CLAUDE', 10), now), false, 'o mesmo STATUS não conta de novo');
+  assert.equal(noteDone(b, done('CLAUDE', 12), now), true);
+  assert.equal(noteDone(b, done('CODEX', 11), now), true);
+  assert.equal(noteDone(b, { id: 'QWEN', latest: { status: 'WORKING', ts: now.toISOString() } }, now), false, 'trabalhando não conta');
+  assert.equal(noteDone(b, { id: 'QWEN', latest: { status: 'DONE', ts: new Date(2026, 9, 7, 23, 0).toISOString() } }, now), false, 'ontem não conta');
+  assert.deepEqual(ranking(b), [['CLAUDE', 2], ['CODEX', 1]]);
+  assert.equal(b.day, dayKey(now));
+});
+
+test('placar: virou o dia, zera; empate fica em ordem alfabética', () => {
+  const b = { day: '2026-10-07', seen: ['CLAUDE|x', 'CLAUDE|y'] };
+  const now = new Date(2026, 9, 8, 9, 0);
+  noteDone(b, { id: 'QWEN', latest: { status: 'DONE', ts: now.toISOString() } }, now);
+  noteDone(b, { id: 'HERMES', latest: { status: 'DONE', ts: now.toISOString() } }, now);
+  assert.deepEqual(ranking(b), [['HERMES', 1], ['QWEN', 1]]);
+});
+
+test('noite: das 22 h às 6 h o time vai para casa', () => {
+  assert.equal(lateNight(new Date(2026, 9, 8, 21, 59)), false);
+  assert.equal(lateNight(new Date(2026, 9, 8, 22, 0)), true);
+  assert.equal(lateNight(new Date(2026, 9, 9, 5, 59)), true);
+  assert.equal(lateNight(new Date(2026, 9, 9, 6, 0)), false);
+});
+
+test('festa: só com dois ou mais e todo mundo terminou', () => {
+  assert.equal(allDone(['terminou']), false);
+  assert.equal(allDone(['terminou', 'terminou']), true);
+  assert.equal(allDone(['terminou', 'trabalhando']), false);
+  assert.equal(allDone([]), false);
+});

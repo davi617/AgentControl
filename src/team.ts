@@ -3,8 +3,10 @@
 // guardado aqui só como hash. Papel: dono (tudo, inclusive aprovar) · membro (manda ordem e fala) · leitura (só vê).
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { EventEmitter } from 'node:events';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { writePrivate } from './fsutil.ts';
 
 export type Role = 'dono' | 'membro' | 'leitura';
 export interface Person { id: string; name: string; role: Role; color: string; tokenHash?: string; created: string }
@@ -18,11 +20,12 @@ export const ONLINE_MS = 90_000;
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
-export class Team {
+/** Emite 'removed' (id) quando alguém sai do time: o servidor fecha o que essa pessoa ainda tinha aberto (SSE). */
+export class Team extends EventEmitter {
   private people: Person[] = [];
   private seen = new Map<string, { at: number; via: string }>();
   private file: string;
-  constructor(file: string) { this.file = file; this.load(); }
+  constructor(file: string) { super(); this.setMaxListeners(0); this.file = file; this.load(); }
 
   private load() {
     if (!this.file) return; // sem arquivo: time só em memória (testes)
@@ -30,8 +33,7 @@ export class Team {
   }
   private save() {
     if (!this.file) return;
-    mkdirSync(path.dirname(this.file), { recursive: true });
-    writeFileSync(this.file, JSON.stringify({ people: this.people }, null, 2));
+    writePrivate(this.file, JSON.stringify({ people: this.people }, null, 2));
   }
 
   /** Cria uma pessoa e devolve o token UMA vez (só o hash fica salvo). */
@@ -55,6 +57,7 @@ export class Team {
     this.seen.delete(id);
     if (this.people.length === before) return false;
     this.save();
+    this.emit('removed', id);
     return true;
   }
 
@@ -74,6 +77,13 @@ export class Team {
       if (p.tokenHash && p.tokenHash.length === h.length && timingSafeEqual(Buffer.from(p.tokenHash), h)) return { id: p.id, name: p.name, role: p.role, owner: false };
     }
     return null;
+  }
+
+  /** Quem é este id agora (papel atual), ou null se saiu do time. */
+  byId(id: string): Who | null {
+    if (id === OWNER.id) return OWNER;
+    const p = this.people.find((x) => x.id === id);
+    return p ? { id: p.id, name: p.name, role: p.role, owner: false } : null;
   }
 
   touch(who: Who, via: string) { this.seen.set(who.id, { at: Date.now(), via }); }
