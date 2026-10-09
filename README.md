@@ -118,6 +118,20 @@ Na sala (aba **Prédio**), no app do PC (botão **Prédio** no HUD, no Launcher 
 - Roupas sorteadas pelo nome (camiseta, calça e tênis); 🎲 sorteia de novo. Balões com as falas da sala.
 - Toque num bonequinho para ver tarefa e modelo, mandar uma ordem ou segui-lo pelos andares. Zoom, arrastar e tela cheia.
 
+**Novo na 3.1 · segurança**
+
+- **Aparelhos conectados**: no navegador (iPhone/PWA) cada aparelho entra com uma sessão própria; o token não fica
+  mais no cookie. O dono vê a lista e desconecta qualquer um. **Sair** encerra a sessão no servidor. Quem já usava o
+  iPhone precisa entrar de novo uma vez.
+- **Aprovação mais difícil de driblar**: caractere invisível, acento, "manda pro main", `rm -rf`, `npm publish`,
+  `terraform apply` e afins também ficam esperando o seu OK.
+- **Inbox vigiado**: se um agente escrever no `JARVIS-INBOX.md` (por exemplo um `approved:` falso), o arquivo volta ao
+  certo e a sala avisa quem mexeu.
+- Ordem de alguém do time sempre leva o nome (também por atalho e pelo chat); quem sai do time perde o acesso aberto
+  na hora; anexos de texto da chamada passam pelo filtro de segredos antes de ir para o vault; mais tipos de chave
+  mascarados (Stripe, GitLab, HuggingFace, npm, Telegram, webhooks).
+- Release com atestado de origem (`gh attestation verify`), actions fixadas por SHA e CodeQL.
+
 **Novo na 3.0**
 
 - **Placar do dia**: telão no Correio do Térreo com quem mais terminou tarefas hoje e o destaque do dia. Cada tarefa

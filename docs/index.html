@@ -384,7 +384,7 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
     </svg>
     <div class="bubble" id="heroBubble"><b id="hbWho">AgentC</b><span id="hbText">Oi! Eu cuido do seu time.</span></div>
   </div>
-  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT · <a class="verlink" id="verPill" href="https://github.com/OWNER/AgentControl/releases/latest">v3.0.0</a><span class="pill-os"> · PC, Android e iPhone</span></span>
+  <span class="pill"><span class="dot"></span><b>Código aberto</b> · MIT · <a class="verlink" id="verPill" href="https://github.com/OWNER/AgentControl/releases/latest">v3.1.0</a><span class="pill-os"> · PC, Android e iPhone</span></span>
   <h1 id="title"><span class="word">Seu</span> <span class="word">time</span> <span class="word">de</span> <span class="word grad">agentes</span> <span class="word grad">de</span> <span class="word grad">IA</span> <span class="word">num</span> <span class="word">só</span> <span class="word">lugar.</span></h1>
   <p class="lead reveal-hero">Claude Code, Codex, Gemini, Qwen, Hermes e outros trabalhando juntos. Sala de conversa, ordens com aprovação, HUD no topo da tela, app no celular e o <b style="color:var(--brand-text)">AgentC</b> avisando tudo.</p>
   <div class="cta reveal-hero">
@@ -512,7 +512,7 @@ a:focus-visible,button:focus-visible,.btn:focus-visible{outline:2px solid var(--
 
 <section id="baixar"><div class="wrap">
   <div class="center reveal"><span class="kicker">Baixar</span><h2>Escolha o seu sistema.</h2><p class="sub">Grátis e de código aberto. Cada sistema tem a sua tela com o passo a passo: <a href="instalar/" style="color:var(--brand-text);text-decoration:underline">ver todos</a>.</p></div>
-  <div class="relbar reveal" id="relbar"><span class="relbadge" id="relTag">Versão 3.0.0</span><span class="reldate" id="relDate">8 de outubro de 2026</span><a class="relnotes" id="relNotes" href="https://github.com/OWNER/AgentControl/releases/tag/v3.0.0">Ver o que mudou →</a></div>
+  <div class="relbar reveal" id="relbar"><span class="relbadge" id="relTag">Versão 3.1.0</span><span class="reldate" id="relDate">8 de outubro de 2026</span><a class="relnotes" id="relNotes" href="https://github.com/OWNER/AgentControl/releases/tag/v3.1.0">Ver o que mudou →</a></div>
   <div class="dl" id="dl"></div>
   <div class="term reveal">
     <div class="tb"><i></i><i></i><i></i><button class="copy" id="copy">Copiar</button></div>
@@ -803,6 +803,7 @@ const FEATS = [
   ['M12 3 2 8l10 5 10-5-10-5Zm-10 9 10 5 10-5M2 16l10 5 10-5', 'Escolha o time', 'Claude Code, Codex, Gemini, Qwen, Hermes, Grok CLI, Aider, Cursor, Amp e outros. Use um só ou todos: marque no Launcher e pronto.'],
   ['M4 12h4l3-8 4 16 3-8h2', 'Fila anti-429', 'Todos os agentes passam por uma fila. No limite do provedor, ela segura todo mundo e tenta de novo.'],
   ['M12 2 4 5v6c0 5 3.5 9.5 8 11 4.5-1.5 8-6 8-11V5l-8-3Z', 'Só no seu PC', 'Tudo escuta em 127.0.0.1. Filtro de segredos, token CSRF e CSP estrita. Remoto só pelo Tailscale.'],
+  ['M5 11h14v10H5zM8 11V7a4 4 0 0 1 8 0v4', 'Novo na 3.1 · Segurança', 'Cada navegador entra com sessão própria e você desconecta pela lista de aparelhos. Comando perigoso não passa disfarçado, e se um agente mexer no inbox o arquivo volta sozinho e você é avisado.'],
   ['M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01', 'Ordens com aprovação', 'Deploy, push, merge, apagar e pagar esperam o seu OK, que vale para um comando só.'],
   ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z', 'Tudo em Markdown', 'Os agentes conversam por arquivos .md que você lê e versiona. Nada preso num banco fechado.'],
   ['M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM5 11a7 7 0 0 0 14 0M12 18v3', 'Chamada no painel', 'Debate, ideias, revisão ou Goal: os agentes falam um de cada vez, com voz se você quiser. No menu ⋯ você expulsa quem quiser, e quem fica sem tokens sai sozinho. A ata fica salva.'],
@@ -843,7 +844,7 @@ if (mineOS) { const c = $$('#dl .card')[DL.findIndex(d => d[0] === mineOS)]; if 
 if (PUBLIC_API) fetch(PUBLIC_API).then(r => r.ok ? r.json() : null).then(j => {
   if (j && j.stargazers_count > 0) { const s = $('#stars'); s.textContent = '★ ' + j.stargazers_count; s.hidden = false; }
 }).catch(() => {});
-// A versão já vem escrita na página (v3.0.0); a API do GitHub só troca se saiu uma mais nova.
+// A versão já vem escrita na página (v3.1.0); a API do GitHub só troca se saiu uma mais nova.
 function showVersion(tag, iso) {
   const v = String(tag).replace(/[^\w.\-]/g, ''), num = v.replace(/^v/, '');
   $('#verFoot').innerHTML = ` · versão <span class="ver">${v}</span>`;
@@ -851,7 +852,7 @@ function showVersion(tag, iso) {
   $('#relTag').textContent = 'Versão ' + num; $('#relNotes').href = ghPath('/releases/tag/' + v);
   const d = iso && new Date(iso); if (d && !isNaN(d)) $('#relDate').textContent = d.toLocaleDateString('pt-BR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
-showVersion('v3.0.0', null); $('#verFoot').innerHTML = ' · versão <span class="ver">v3.0.0</span>';
+showVersion('v3.1.0', null); $('#verFoot').innerHTML = ' · versão <span class="ver">v3.1.0</span>';
 if (PUBLIC_API) fetch(PUBLIC_API + '/releases/latest').then(r => r.ok ? r.json() : null).then(j => {
   if (!j || !j.tag_name) return;
   showVersion(j.tag_name, j.published_at);
