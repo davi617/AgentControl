@@ -376,9 +376,11 @@ h1 { margin: 0 0 2px; font: 600 24px/1.2 var(--display); }
 .predio-btn:hover, .predio-floor:hover, .predio-find:hover { border-color: var(--brand); }
 .predio-find { height: 40px; max-width: 140px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
 .predio-tools { flex-wrap: wrap; justify-content: flex-end; }
-@media (max-width: 520px) { .predio-tools { width: 100%; gap: 4px; justify-content: space-between; } .predio-find { max-width: none; flex: 1 0 100%; } .predio-btn { width: 36px; height: 36px; font-size: 15px; } }
+@media (max-width: 520px) { .predio-tools { width: 100%; gap: 4px; justify-content: space-between; } .predio-find { max-width: none; flex: 1 0 100%; } .predio-btn { width: 40px; height: 40px; font-size: 15px; } }
 .predio-stage { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--surface); touch-action: none; }
 .predio-canvas { display: block; cursor: pointer; }
+.predio-canvas:focus-visible { outline-offset: -3px; }
+@media (prefers-reduced-motion: reduce) { .predio-card { backdrop-filter: none; } }
 .predio-card { position: absolute; right: 12px; top: 12px; width: min(320px, calc(100% - 24px)); padding: 14px; border-radius: var(--r); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--line-3); box-shadow: 0 18px 40px rgba(0,0,0,.45); backdrop-filter: blur(8px); }
 .predio-card-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .predio-card-h i { width: 10px; height: 10px; border-radius: 50%; }
