@@ -2,7 +2,7 @@
 // O JARVIS escreve SÓ no próprio arquivo (Goals/<ID>/JARVIS-INBOX.md) e no espelho
 // .ai-team/JARVIS-INBOX.md de cada worktree. Nunca edita arquivo de agente/líder.
 
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { ProjectCfg } from './config.ts';
 import { canonicalStatus } from './parser.ts';
@@ -68,14 +68,54 @@ function entryText(c: Command): string {
   ].join('\n');
 }
 
+/** Espelhos do inbox, um por worktree de agente. */
+export function mirrorPaths(p: ProjectCfg): { agent: string; file: string }[] {
+  return p.agents.filter((a) => a.worktree).map((a) => ({ agent: a.id, file: path.join(a.worktree!, '.ai-team', INBOX_FILE) }));
+}
+
+// Guarda do inbox (2026-10-08): só o JARVIS escreve no JARVIS-INBOX.md, mas o espelho fica na worktree do agente,
+// onde ele PODE escrever. Um "approved: J-xxx" forjado não libera nada no JARVIS (a aprovação vale pelo banco), mas
+// engana os outros agentes que leem o arquivo. Aqui fica o que o JARVIS escreveu por último; diferente disso = mexeram.
+const written = new Map<string, string>();
+const key = (f: string) => path.resolve(f).toLowerCase();
+const readOr = (f: string) => { try { return readFileSync(f, 'utf8'); } catch { return null; } };
+function remember(file: string) { const t = readOr(file); if (t !== null) written.set(key(file), t); }
+
 /** Espelha o inbox para cada worktree (a pasta .ai-team é transporte ignorado pelo Git). */
 export function mirrorInbox(p: ProjectCfg, src: string) {
-  for (const a of p.agents) {
-    if (!a.worktree) continue;
-    const dir = path.join(a.worktree, '.ai-team');
-    if (!existsSync(dir)) continue;
-    try { copyFileSync(src, path.join(dir, INBOX_FILE)); } catch (e) { console.error(`[inbox] espelho ${a.id}:`, (e as Error).message); }
+  remember(src);
+  for (const { agent, file } of mirrorPaths(p)) {
+    if (!existsSync(path.dirname(file))) continue;
+    try { copyFileSync(src, file); } catch (e) { console.error(`[inbox] espelho ${agent}:`, (e as Error).message); }
   }
+}
+
+/** Ao ligar: o que está no disco agora é o ponto de partida (não há como saber o que mudou com o JARVIS desligado). */
+export function trustInbox(p: ProjectCfg) {
+  const src = inboxPath(p);
+  if (src && !written.has(key(src))) remember(src);
+}
+
+/**
+ * Um arquivo de inbox mudou. Se não é o que o JARVIS escreveu, restaura e devolve quem mexeu
+ * (o agente dono da worktree, ou "alguém" no inbox do vault). null = está tudo certo / não é inbox.
+ */
+export function guardInbox(p: ProjectCfg, changed: string): string | null {
+  const src = inboxPath(p);
+  if (!src) return null;
+  const expected = written.get(key(src));
+  if (expected === undefined) return null;
+  if (key(changed) === key(src)) {
+    if (readOr(src) === expected) return null;
+    writeFileSync(src, expected);
+    mirrorInbox(p, src);
+    return 'alguém (no vault)';
+  }
+  const m = mirrorPaths(p).find((x) => key(x.file) === key(changed));
+  if (!m || !existsSync(path.dirname(m.file))) return null;
+  if (readOr(m.file) === expected) return null;
+  copyFileSync(src, m.file);
+  return m.agent;
 }
 
 export function createCommand(store: Store, p: ProjectCfg, rawText: string, target: string): Command {
@@ -97,6 +137,9 @@ export function createCommand(store: Store, p: ProjectCfg, rawText: string, targ
     updated_at: now,
   });
   if (!existsSync(file)) { mkdirSync(path.dirname(file), { recursive: true }); writeFileSync(file, HEADER); }
+  // Mexeram no inbox desde a última escrita? Volta ao certo antes de acrescentar (o append não legitima a mudança).
+  const before = written.get(key(file));
+  if (before !== undefined && readOr(file) !== before) writeFileSync(file, before);
   appendFileSync(file, entryText(cmd));
   mirrorInbox(p, file);
   return cmd;

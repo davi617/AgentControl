@@ -29,7 +29,9 @@ Achou uma falha? **Não abra issue pública.** Use **Security → Report a vulne
   `/api/session` e usar a fila em `127.0.0.1:20129`. Num PC compartilhado com outras contas, não ligue o servidor.
 - **A aprovação de comando protegido é um combinado com o agente, não uma trava.** O JARVIS segura o comando e
   marca `VIOLATION` se o agente andar sem `approved: J-xxx`, mas quem impede o push de verdade é o agente não ter
-  credencial de push na worktree. Não deixe token do GitHub/deploy nas pastas dos agentes.
+  credencial de push na worktree. Não deixe token do GitHub/deploy nas pastas dos agentes. A aprovação vale pelo
+  banco do Agent Control, não pelo arquivo: se alguém escrever no `JARVIS-INBOX.md` (ou no espelho da worktree), o
+  arquivo é restaurado e o dono é avisado na sala.
 - **A detecção de ação protegida é por palavras** (com normalização contra caractere invisível e acento). Frases
   muito indiretas podem passar.
 - **Fora do escopo:** um agente comprometido na própria worktree (ele roda com as permissões do seu usuário).
