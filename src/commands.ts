@@ -181,12 +181,13 @@ export function decideCommand(store: Store, p: ProjectCfg, code: string, decisio
   if (!c.requires_approval) throw new Error('este comando não precisa de aprovação');
   if (c.approval !== 'pending') throw new Error(`comando já ${c.approval === 'approved' ? 'aprovado' : 'recusado'}`);
   const file = inboxPath(p);
-  if (!file || !existsSync(file)) throw new Error('JARVIS-INBOX.md não encontrado');
+  // Mesma regra do createCommand: parte do que o JARVIS escreveu, nunca do que está no disco (forja não vira "certa").
+  const base = file ? written.get(key(file)) ?? readOr(file) : null;
+  if (!file || base === null) throw new Error('JARVIS-INBOX.md não encontrado');
   const now = nowIso();
   const [date, time] = now.split('T');
   const approved = decision === 'approve';
-  // Mesma regra do createCommand: parte do que o JARVIS escreveu, nunca do que está no disco (forja não vira "certa").
-  writeFileSync(file, (written.get(key(file)) ?? readFileSync(file, 'utf8')) + [
+  writeFileSync(file, base + [
     '',
     `## ${date} ${time.slice(0, 5)} — DONO (via JARVIS)`,
     `- jarvis: ${code}`,
