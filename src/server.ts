@@ -77,7 +77,8 @@ export class LoginGuard {
     if (!f || now - f.first > this.windowMs) { this.fails.set(ip, { n: 1, first: now, until: 0 }); return; }
     f.n++;
     if (f.n >= this.max) f.until = now + this.windowMs;
-    if (this.fails.size > 10_000) this.fails.clear(); // não deixa a memória crescer sem fim
+    // Não deixa a memória crescer sem fim: sai o IP mais antigo (antes um clear() soltava todos os bloqueados de uma vez).
+    while (this.fails.size > 10_000) this.fails.delete(this.fails.keys().next().value!);
   }
   ok(ip: string): void { this.fails.delete(ip); }
 }
@@ -160,11 +161,11 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
           res.writeHead(200, { ...json, 'Set-Cookie': `ac_token=${encodeURIComponent(t)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=2592000` }).end('{"ok":true}');
         }).catch(() => res.writeHead(413, SECURITY_HEADERS).end());
         return;
-      } else if ((req.headers.accept ?? '').includes('text/html')) {
-        res.writeHead(302, { ...SECURITY_HEADERS, Location: '/entrar' }).end();
-        return;
       } else {
-        res.writeHead(401, { ...SECURITY_HEADERS, 'WWW-Authenticate': 'Bearer' }).end('token obrigatório');
+        // Cookie com token que não vale mais (pessoa removida, token trocado): apaga, para o navegador parar de mandar.
+        const clear = viaCookie ? { 'Set-Cookie': 'ac_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0' } : {};
+        if ((req.headers.accept ?? '').includes('text/html')) res.writeHead(302, { ...SECURITY_HEADERS, ...clear, Location: '/entrar' }).end();
+        else res.writeHead(401, { ...SECURITY_HEADERS, ...clear, 'WWW-Authenticate': 'Bearer' }).end('token obrigatório');
         return;
       }
     }

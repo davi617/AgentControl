@@ -28,6 +28,8 @@ export class Jarvis extends EventEmitter {
 
   constructor(cfg: Config, store?: Store) {
     super();
+    // Cada /events aberto prende 7 listeners; o teto é por pessoa (MAX_STREAMS em server.ts), não deste emissor.
+    this.setMaxListeners(0);
     this.cfg = cfg;
     this.store = store ?? new Store(cfg.db);
   }
