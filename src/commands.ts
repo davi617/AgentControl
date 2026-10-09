@@ -2,7 +2,7 @@
 // O JARVIS escreve SÓ no próprio arquivo (Goals/<ID>/JARVIS-INBOX.md) e no espelho
 // .ai-team/JARVIS-INBOX.md de cada worktree. Nunca edita arquivo de agente/líder.
 
-import { appendFileSync, copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { ProjectCfg } from './config.ts';
 import { canonicalStatus } from './parser.ts';
@@ -136,11 +136,11 @@ export function createCommand(store: Store, p: ProjectCfg, rawText: string, targ
     created_at: now,
     updated_at: now,
   });
-  if (!existsSync(file)) { mkdirSync(path.dirname(file), { recursive: true }); writeFileSync(file, HEADER); }
-  // Mexeram no inbox desde a última escrita? Volta ao certo antes de acrescentar (o append não legitima a mudança).
-  const before = written.get(key(file));
-  if (before !== undefined && readOr(file) !== before) writeFileSync(file, before);
-  appendFileSync(file, entryText(cmd));
+  // O arquivo novo é sempre "o que o JARVIS escreveu por último + esta entrada", numa escrita só: se alguém mexeu
+  // no inbox, a mudança some aqui, e não há janela entre ler e regravar em que outro processo consiga escrever.
+  const before = written.get(key(file)) ?? readOr(file) ?? HEADER;
+  mkdirSync(path.dirname(file), { recursive: true });
+  writeFileSync(file, before + entryText(cmd));
   mirrorInbox(p, file);
   return cmd;
 }
@@ -185,7 +185,8 @@ export function decideCommand(store: Store, p: ProjectCfg, code: string, decisio
   const now = nowIso();
   const [date, time] = now.split('T');
   const approved = decision === 'approve';
-  appendFileSync(file, [
+  // Mesma regra do createCommand: parte do que o JARVIS escreveu, nunca do que está no disco (forja não vira "certa").
+  writeFileSync(file, (written.get(key(file)) ?? readFileSync(file, 'utf8')) + [
     '',
     `## ${date} ${time.slice(0, 5)} — DONO (via JARVIS)`,
     `- jarvis: ${code}`,
