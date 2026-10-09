@@ -40,9 +40,27 @@ data class Command(
     @SerialName("updated_by") val updatedBy: String? = null,
     @SerialName("created_at") val createdAt: String = "",
     @SerialName("updated_at") val updatedAt: String = "",
+    @SerialName("created_by") val createdBy: String? = null,
+    /** Aprovação em dupla (v4.0): quem já disse sim e quantos "sim" o comando precisa. */
+    val votos: List<String> = emptyList(),
+    val precisa: Int = 1,
 ) {
     val pending: Boolean get() = approval == "pending"
 }
+
+/** Ajustes de segurança do projeto (v4.0). panico != null = pânico ligado. */
+@Serializable
+data class SecuritySettings(
+    val aprovacaoDupla: Boolean = false,
+    val aprovacaoDuplaDisponivel: Boolean = false,
+    val panico: PanicInfo? = null,
+)
+
+@Serializable
+data class PanicInfo(val by: String = "", val at: String = "")
+
+@Serializable
+data class PanicResult(val pausados: List<String> = emptyList(), val aparelhos: Int = 0)
 
 @Serializable
 data class Latest(

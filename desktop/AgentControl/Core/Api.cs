@@ -36,6 +36,9 @@ public sealed record HudSnapshot(
     public IReadOnlyList<(string Speaker, string Text)> CallLog { get; init; } = [];
     /// <summary>Personagens do Modo Prédio salvos no servidor (id → skin, hair, style, top, shirt, pants, shoes, cap, acc).</summary>
     public Dictionary<string, Dictionary<string, string>> Looks { get; init; } = [];
+    /// <summary>Pânico ligado (v4.0): quem acionou. null = tudo normal.</summary>
+    public string? PanicBy { get; init; }
+    public bool Panic => PanicBy is not null;
 }
 
 /// <summary>
@@ -102,7 +105,8 @@ public sealed class HudApi
         var chat = Get("/api/chat");
         var cmds = Get("/api/commands");
         var call = Get("/api/call");
-        await Task.WhenAll(health, usage, chat, cmds, call, limits);
+        var settings = Get("/api/settings");
+        await Task.WhenAll(health, usage, chat, cmds, call, limits, settings);
 
         var s = state.Value;
         // Estado AO VIVO de cada loop (servidor lê o log do loop; este PC confere se o processo está vivo).
@@ -192,7 +196,8 @@ public sealed class HudApi
             foreach (var who in lk.EnumerateObject())
                 if (who.Value.ValueKind == JsonValueKind.Object)
                     looks[who.Name] = who.Value.EnumerateObject().Where(f => f.Value.ValueKind == JsonValueKind.String).ToDictionary(f => f.Name, f => f.Value.GetString() ?? "");
-        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin, Limits = quotas, CallWho = cwho, CallLog = clog, Looks = looks };
+        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin, Limits = quotas, CallWho = cwho, CallLog = clog, Looks = looks,
+            PanicBy = settings.Result is { } st && st.TryGetProperty("panico", out var pn) && pn.ValueKind == JsonValueKind.Object ? Str(pn, "by") : null };
     }
 
     /// <summary>Pede a próxima fala da chamada. Devolve (quem, texto) ou null se ninguém falou (fim, pausa, esperando o dono).</summary>
@@ -274,7 +279,28 @@ public sealed class HudApi
     }
 
     public Task<string?> SendCommand(string text, string to) => Post("/api/commands", new { project = Project, text, to });
-    public Task<string?> Decide(string code, bool approve) => Post("/api/commands/decide", new { project = Project, code, decision = approve ? "approve" : "reject" });
+    /// <summary>
+    /// Aprova/recusa e devolve o que mostrar: a resposta do servidor ("aprovado", "falta mais uma pessoa" na aprovação
+    /// em dupla) ou o erro. Antes a tela dizia "aprovado" sozinha, mesmo quando faltava o segundo voto.
+    /// </summary>
+    public async Task<string> Decide(string code, bool approve)
+    {
+        string? reply = null;
+        var err = await Post("/api/commands/decide", new { project = Project, code, decision = approve ? "approve" : "reject" }, t => { try { reply = Str(JsonDocument.Parse(t).RootElement, "reply"); } catch { } });
+        return err ?? (string.IsNullOrEmpty(reply) ? (approve ? $"{code} aprovado." : $"{code} recusado.") : reply);
+    }
+
+    /// <summary>Botão de pânico (v4.0): para todos os agentes agora e fecha o acesso de quem não é dono. on=false desfaz.</summary>
+    public async Task<string> Panic(bool on)
+    {
+        string? info = null;
+        var err = await Post("/api/panic", new { on }, t =>
+        {
+            try { var j = JsonDocument.Parse(t).RootElement; info = $"{j.GetProperty("pausados").GetArrayLength()} projeto(s) parado(s), {j.GetProperty("aparelhos").GetInt32()} aparelho(s) desligado(s)"; } catch { }
+        });
+        if (err is not null) return $"Não consegui: {err}";
+        return on ? $"Pânico ligado: {info ?? "agentes parados"}. Só o dono entra até desligar." : "Pânico desligado. Os agentes voltam na próxima rodada.";
+    }
 
     /// <summary>Uso dos últimos [dias]: pedidos/tokens por dia e por agente.</summary>
     public async Task<(List<(string Dia, int Req, long Tokens)> Days, List<(string Agent, int Req, long Tokens, int R429, int MsMedio)> Agents)> UsageAsync(int dias = 7)

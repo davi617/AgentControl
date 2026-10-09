@@ -140,7 +140,16 @@ export const ROUTES: Route[] = [
     },
   },
   { method: 'GET', path: '/api/chat', role: 'leitura', run: (c) => c.send(200, c.j.store.chat(c.project().id, 300)) },
-  { method: 'GET', path: '/api/commands', role: 'leitura', run: (c) => c.send(200, c.j.store.commands(c.project().id)) },
+  {
+    // Pendentes levam quem já aprovou e quantos "sim" faltam (aprovação em dupla: "1 de 2").
+    method: 'GET', path: '/api/commands', role: 'leitura',
+    run: (c) => {
+      const p = c.project();
+      const precisa = c.j.dualApproval(p) && planAllowsDual(c.plans.state()) ? 2 : 1;
+      c.send(200, c.j.store.commands(p.id).map((x) => x.approval !== 'pending' ? x
+        : { ...x, precisa, votos: c.j.store.votes(x.code).filter((v) => v.decision === 'approve').map((v) => v.person) }));
+    },
+  },
   { method: 'GET', path: '/api/call/people', role: 'leitura', run: (c) => c.send(200, callPeople(c.project())) },
   { method: 'GET', path: '/api/call', role: 'leitura', run: (c) => c.send(200, callsFor(c.j).get(c.project().id) ?? null) },
   { method: 'GET', path: '/api/health', role: 'leitura', fail: 500, run: async (c) => c.send(200, await health(c.project(), c.j.cfg.summary)) },

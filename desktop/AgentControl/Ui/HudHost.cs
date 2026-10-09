@@ -299,7 +299,8 @@ public sealed class HudHost
         var working = Snap.Agents.Count(a => a.Status == "WORKING");
         var txt = $"AgentC · {working} trabalhando de {Snap.Agents.Count}";
         if (Snap.Pending > 0) txt += $" · {Snap.Pending} aprovação(ões)";
-        if (Snap.Paused) txt += " · pausado";
+        if (Snap.Panic) txt += " · PÂNICO";
+        else if (Snap.Paused) txt += " · pausado";
         if (Snap.CallActive) txt += " · em chamada";
         return txt;
     }
@@ -356,6 +357,13 @@ public sealed class HudHost
         try { svc.Load(); } catch (Exception ex) { Mascot.Say("AgentC", $"Não li os ajustes: {ex.Message}"); return; }
         Mascot.Say("AgentC", svc.StartAgents() ? "Ligando os agentes. Em alguns segundos eles aparecem trabalhando." : "Não consegui ligar os agentes. Veja os logs no Launcher.");
         DispatcherTimer.RunOnce(() => _ = Poll(), TimeSpan.FromSeconds(6));
+    }
+
+    public async void SetPanic(bool on)
+    {
+        var msg = await Api.Panic(on);
+        Mascot.Say("AgentC", msg);
+        await Poll();
     }
 
     public async void SetPause(bool on)

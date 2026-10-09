@@ -425,6 +425,10 @@ function renderApprovals(rows) {
     ok.addEventListener('click', () => decide(c.code, 'approve', [ok, no]));
     no.addEventListener('click', () => decide(c.code, 'reject', [ok, no]));
     acts.append(ok, no);
+    if (c.precisa > 1) {
+      const n = c.votos?.length ?? 0;
+      dl.append(el('dt', null, 'dupla'), el('dd', 'appr-votes', n ? `${n} de ${c.precisa}: ${c.votos.join(', ')} já aprovou; falta outra pessoa` : `precisa de ${c.precisa} pessoas`));
+    }
     a.append(h, el('p', null, c.text), dl, acts, el('span', 'appr-note', 'Um clique vale para este comando, não para os próximos.'));
     box.append(a);
   }
@@ -839,6 +843,7 @@ function connect() {
   es.addEventListener('agents', scheduleState);
   es.addEventListener('tasks', scheduleState);
   es.addEventListener('commands', () => loadCommands().catch(() => {}));
+  es.addEventListener('panic', () => loadSecurity().catch(() => {}));
   es.addEventListener('chat', (m) => appendChat(JSON.parse(m.data).entries));
   // Falas vindas de outro aparelho (ex.: o dono falou pelo celular) entram na transcrição.
   es.addEventListener('call', (m) => { const ev = JSON.parse(m.data); if (ev.turn) logTurn(ev.turn); if (ev.status && call.data) { call.data.status = ev.status; renderCall(); } });
@@ -900,6 +905,54 @@ if (!['127.0.0.1', 'localhost', '[::1]'].includes(location.hostname)) {
   btn.addEventListener('click', () => { $('#devices').showModal(); loadDevices(); });
 }
 
+// v4.0: pânico, aprovação em dupla e auditoria (só o dono vê o botão; o servidor confere de novo).
+const post = (url, body) => fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf }, body: JSON.stringify(body) });
+async function loadSecurity() {
+  let s;
+  try { s = await (await fetch(`/api/settings?project=${encodeURIComponent(state.project)}`)).json(); } catch { return; }
+  $('#panic-banner').hidden = !s.panico;
+  if (s.panico) $('#panic-banner-sub').textContent = `Acionado por ${s.panico.by} em ${fmtTime(s.panico.at)}. Agentes parados e acesso fechado para quem não é dono.`;
+  $('#panic-btn').textContent = s.panico ? 'Pânico ligado' : 'Acionar pânico';
+  $('#panic-btn').disabled = !!s.panico;
+  const t = $('#dual-toggle');
+  t.checked = !!s.aprovacaoDupla;
+  t.disabled = !s.aprovacaoDuplaDisponivel;
+  $('#dual-note').textContent = s.aprovacaoDuplaDisponivel ? 'Convide a outra pessoa em Time com o papel "dono". Um "recusar" de qualquer uma vale na hora.' : 'Faz parte do plano Time.';
+}
+async function loadAudit() {
+  const list = $('#audit-list'), check = $('#audit-check');
+  list.replaceChildren();
+  $('#audit-csv').href = `/api/audit?project=${encodeURIComponent(state.project)}&formato=csv`;
+  let a;
+  try { const r = await fetch(`/api/audit?project=${encodeURIComponent(state.project)}&limit=60`); if (!r.ok) throw 0; a = await r.json(); } catch { check.textContent = 'Não deu para carregar a auditoria.'; return; }
+  check.replaceChildren(a.verificacao.ok
+    ? el('span', 'audit-ok', `Corrente íntegra: ${a.verificacao.total} registro(s), nenhum alterado.`)
+    : el('span', 'audit-bad', `Atenção: o registro #${a.verificacao.brokenAt} não confere. Alguém mexeu no banco.`));
+  if (!a.linhas.length) list.append(el('li', 'muted', 'Nada registrado ainda.'));
+  for (const r of a.linhas) {
+    const li = el('li');
+    li.append(el('span', 'muted', `${fmtTime(r.at)} · `), el('b', null, r.actor), document.createTextNode(` ${r.action}${r.target ? ` ${r.target}` : ''}${r.detail ? ` · ${r.detail}` : ''}`));
+    list.append(li);
+  }
+}
+async function setPanic(on) {
+  if (on && !confirm('Acionar o pânico? Todos os agentes param AGORA e os aparelhos conectados são desligados.')) return;
+  const note = $('#security-note');
+  const r = await post('/api/panic', { on }).catch(() => null);
+  note.textContent = !r?.ok ? 'Não deu: só o dono aciona o pânico.' : '';
+  if (r?.ok) { const d = await r.json(); if (on) note.textContent = `Pânico ligado: ${d.pausados.length} projeto(s) parado(s), ${d.aparelhos} aparelho(s) desligado(s).`; }
+  await loadSecurity();
+  loadAudit();
+}
+$('#panic-btn').addEventListener('click', () => setPanic(true));
+$('#panic-off').addEventListener('click', () => { if (confirm('Desligar o pânico? Os agentes voltam na próxima rodada e o time pode entrar de novo.')) setPanic(false); });
+$('#dual-toggle').addEventListener('change', async (e) => {
+  const r = await post('/api/settings', { project: state.project, aprovacaoDupla: e.target.checked }).catch(() => null);
+  if (!r?.ok) $('#security-note').textContent = (await r?.json().catch(() => null))?.error ?? 'Não deu para mudar agora.';
+  loadSecurity();
+});
+$('#security-btn').addEventListener('click', () => { $('#security').showModal(); loadSecurity(); loadAudit(); });
+
 // App instalado (PWA): service worker só em contexto seguro (127.0.0.1 ou HTTPS).
 if ('serviceWorker' in navigator && isSecureContext) navigator.serviceWorker.register('/sw.js').catch(() => {});
 
@@ -916,4 +969,7 @@ if ('serviceWorker' in navigator && isSecureContext) navigator.serviceWorker.reg
   showTab(TAB_TITLE[fromHash] ? fromHash : fromHash === 'personagem' ? 'predio' : store.get('jarvis.tab', 'chat'));
   await selectProject(first);
   if (fromHash === 'personagem') openPersonagem();
+  const me = (await (await fetch('/api/team')).json().catch(() => ({}))).me;
+  $('#security-btn').hidden = me?.role !== 'dono';
+  loadSecurity();
 })();

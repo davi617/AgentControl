@@ -254,6 +254,10 @@ class JarvisApi(url: String, private val token: String) {
             put("project", project); put("text", text); put("to", to)
         })))
 
+    suspend fun security(project: String): SecuritySettings = json.decodeFromString(get("/api/settings", project))
+    suspend fun panic(on: Boolean): PanicResult =
+        json.decodeFromString(post("/api/panic", json.encodeToString(buildJsonObject { put("on", on) })))
+
     suspend fun decide(project: String, code: String, approve: Boolean): CommandResponse =
         json.decodeFromString(post("/api/commands/decide", json.encodeToString(buildJsonObject {
             put("project", project); put("code", code); put("decision", if (approve) "approve" else "reject")

@@ -170,7 +170,7 @@ fun JarvisApp(vm: MainViewModel) {
                             vm.watchHealth { open }
                             onDispose { open = false }
                         }
-                        HealthScreen(ui.health, pause = { on, agora -> vm.pauseAgents(on, agora) }, latencyMs = ui.healthMs)
+                        HealthScreen(ui.health, pause = { on, agora -> vm.pauseAgents(on, agora) }, latencyMs = ui.healthMs, panic = ui.security?.panico, isOwner = ui.team?.me?.role != "membro" && ui.team?.me?.role != "leitura", onPanic = vm::panic)
                     }
                     Screen.CHAMADA -> {
                         LaunchedEffect(Unit) { vm.callRefresh(); vm.callLoadPeople() }

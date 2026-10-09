@@ -411,8 +411,8 @@ public sealed class FullWindow : Window
                 g.Children.Add(new StackPanel { Children = { K.T($"{c.Code} · {K.Nice(c.Target)}", 12, K.Warn, FontWeight.SemiBold, K.Mono), K.Wrap(c.Text, 13.5, K.Text).Also(t => t.Margin = new Thickness(0, 4, 12, 0)) } });
                 var code = c.Code;
                 var btns = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center };
-                btns.Children.Add(K.Button("Recusar", null, async () => { var e = await host.Api.Decide(code, false); toast = e ?? $"{code} recusado."; host.KickRefresh(); await LoadCommands(); }, primary: false, height: 34));
-                btns.Children.Add(K.Button("Aprovar", K.ICheck, async () => { var e = await host.Api.Decide(code, true); toast = e ?? $"{code} aprovado. Vale só para este comando."; host.KickRefresh(); await LoadCommands(); }, height: 34));
+                btns.Children.Add(K.Button("Recusar", null, async () => { toast = await host.Api.Decide(code, false); host.KickRefresh(); await LoadCommands(); }, primary: false, height: 34));
+                btns.Children.Add(K.Button("Aprovar", K.ICheck, async () => { toast = await host.Api.Decide(code, true); host.KickRefresh(); await LoadCommands(); }, height: 34));
                 Grid.SetColumn(btns, 1); g.Children.Add(btns);
                 v.Children.Add(new Border { Background = new SolidColorBrush(Color.FromArgb(22, 245, 158, 11)), BorderBrush = new SolidColorBrush(Color.FromArgb(70, 245, 158, 11)), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(14), Padding = new Thickness(14, 12, 12, 12), Margin = new Thickness(0, 0, 0, 8), Child = g });
             }
