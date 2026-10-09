@@ -79,7 +79,7 @@ export function topProcesses(limit = 5): Promise<{ nome: string; mb: number }[]>
  */
 export async function writeDiary(store: Store, p: ProjectCfg, summary: SummaryCfg, now = new Date(), fetchImpl: typeof fetch = fetch): Promise<string> {
   const dia = localDay(now);
-  const cmds = store.commands(p.id, 1000).filter((c) => c.created_at.slice(0, 10) === dia);
+  const cmds = store.commandsSince(p.id, dia).filter((c) => c.created_at.slice(0, 10) === dia);
   const notas = store.notes(p.id, 500).filter((n) => n.created_at.slice(0, 10) === dia);
   const calls = listCalls(p, 200).filter((c) => c.id.startsWith(`CALL-${dia}`));
   let uso: { agentes?: { agent: string; req: number; pin: number; pout: number; r429: number }[] } = {};
@@ -106,7 +106,7 @@ export async function writeDiary(store: Store, p: ProjectCfg, summary: SummaryCf
 
 /** Comandos criados por dia (para o gráfico das Estatísticas). */
 export function commandsPerDay(store: Store, p: ProjectCfg, dias: number, now = new Date()) {
-  const cmds = store.commands(p.id, 2000);
+  const cmds = store.commandsSince(p.id, localDay(new Date(now.getTime() - (dias - 1) * 86_400_000)));
   const out: { dia: string; total: number; done: number }[] = [];
   for (let i = dias - 1; i >= 0; i--) {
     const dia = localDay(new Date(now.getTime() - i * 86_400_000));

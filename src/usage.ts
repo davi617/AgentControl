@@ -2,7 +2,7 @@
 // Todos usam a mesma chave; a fila sabe quem é quem pelo endereço: http://127.0.0.1:20129/a/<agente>/v1.
 // Sem prefixo: 'voz' = CHAMADA, 'alta' = JARVIS (chat), resto = OUTRO. Guarda 30 dias em data/gate-usage.json.
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { localDay } from './date.ts';
 
@@ -93,7 +93,13 @@ export class Usage {
     if (!this.file) return;
     const keep = Object.keys(this.days).sort().slice(-30);
     this.days = Object.fromEntries(keep.map((k) => [k, this.days[k]]));
-    mkdirSync(path.dirname(this.file), { recursive: true });
-    writeFileSync(this.file, JSON.stringify({ days: this.days }));
+    // Disco cheio ou arquivo travado não pode derrubar a fila (o flush roda dentro de um timer: erro ali encerra o processo).
+    // Grava num .tmp e troca de uma vez, para queda de energia não deixar o JSON pela metade.
+    try {
+      mkdirSync(path.dirname(this.file), { recursive: true });
+      const tmp = `${this.file}.${process.pid}.tmp`;
+      writeFileSync(tmp, JSON.stringify({ days: this.days }));
+      renameSync(tmp, this.file);
+    } catch (e) { console.error('[uso] não gravei gate-usage.json:', (e as Error).message); }
   }
 }

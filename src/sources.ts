@@ -23,7 +23,7 @@ export function readText(p: string): string {
   return redact(normalize(readFileSync(p, 'utf8')));
 }
 
-function localIso(d: Date): string {
+export function localIso(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }

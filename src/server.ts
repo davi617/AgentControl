@@ -17,6 +17,7 @@ import { about, commandsPerDay, gateUsage, listCalls } from './extras.ts';
 import { OWNER, mentions, teamFor, type Role, type Who } from './team.ts';
 import { PlanStore, publicPlan } from './plans.ts';
 import { lookOwnerOk, sanitizeLook } from './looks.ts';
+import { localIso } from './sources.ts';
 import { SESSION_COOKIE, SESSION_DAYS, sessionsFor } from './sessions.ts';
 
 const TEAM_POSTS = ['/api/team/invite', '/api/team/remove', '/api/team/role', '/api/plan/license', '/api/sessions/revoke'];
@@ -574,7 +575,8 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         return;
       case '/api/stats': {
         const dias = Math.min(Math.max(Number(url.searchParams.get('dias')) || 7, 1), 60);
-        const since = new Date(Date.now() - dias * 86_400_000).toISOString();
+        // Hora local, como os registros (created_at/ts): com toISOString (UTC) o corte errava por algumas horas.
+        const since = localIso(new Date(Date.now() - dias * 86_400_000));
         const cmds = j.store.commandsSince(p.id, since);
         send(200, {
           dias,
