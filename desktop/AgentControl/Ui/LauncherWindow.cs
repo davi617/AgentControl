@@ -335,6 +335,7 @@ public sealed class LauncherWindow : Window
         util.Children.Add(Link("Sala no Obsidian", K.IBook, () => svc.OpenObsidianNote(svc.Settings.SalaNote)));
         util.Children.Add(Link("Chamada no painel", K.IPhone, () => _ = OpenPanel("call")));
         util.Children.Add(Link("Código ao vivo", K.ICode, () => _ = OpenPanel("codigo")));
+        util.Children.Add(Link("Central de Missões", K.IHome, () => Platform.OpenAppWindow($"http://127.0.0.1:{svc.Settings.JarvisPort}/?project={Uri.EscapeDataString(svc.Settings.JarvisProject)}#missoes")));
         left.Children.Add(util);
         body.Children.Add(Scroll(left));
         var right = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = agentCards };

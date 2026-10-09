@@ -10,7 +10,7 @@
   "scripts": {
     "start": "node src/main.ts",
     "gate": "node src/gate.ts",
-    "test": "node --test --test-concurrency=1 test/*.test.ts",
+    "test": "node --test --test-concurrency=1 test/*.test.ts test/*.test.mjs",
     "typecheck": "tsc -p .",
     "cli": "node bin/agentcontrol.mjs"
   },

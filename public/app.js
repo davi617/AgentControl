@@ -1,4 +1,5 @@
 // JARVIS — UI. Todo dado do bus entra via textContent (nunca innerHTML).
+import { createMissions, createProjectSearch } from '/missions.js';
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => {
@@ -15,7 +16,7 @@ const store = {
 // Dentro do app do celular (WebView do Código ao vivo): sem a barra da sala, só a tela pedida.
 if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
 
-const state = { csrf: null, project: null, agent: '', oldest: null, es: null, taskFilter: 'abertas', agentsKnown: [] };
+const state = { csrf: null, project: null, projectEpoch: 0, agent: '', oldest: null, es: null, taskFilter: 'abertas', agentsKnown: [] };
 const KIND = { command: 'comando', status: 'status', inbox: 'ordem', leader: 'líder', events: 'evento', decisions: 'decisão', goal: 'goal', handoff: 'handoff', meta: 'goal ativo' };
 
 // ---------- tema ----------
@@ -34,27 +35,52 @@ $('#theme').addEventListener('click', () => {
 });
 
 // ---------- abas ----------
-const TAB_TITLE = { chat: 'Sala central', chamada: 'Chamada em grupo', codigo: 'Código ao vivo', sala: 'Sala (bus)', comandos: 'Comandos', agentes: 'Agentes', tarefas: 'Tarefas', resumos: 'Resumos' };
+const TAB_TITLE = { missoes: 'Central de Missões', chat: 'Sala central', chamada: 'Chamada em grupo', codigo: 'Código ao vivo', sala: 'Sala (bus)', comandos: 'Comandos', agentes: 'Agentes', tarefas: 'Tarefas', resumos: 'Resumos' };
 function showTab(name) {
   if (!TAB_TITLE[name]) name = 'chat';
   $('#view-title').textContent = TAB_TITLE[name];
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === name));
+  document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-current', b.dataset.tab === name ? 'page' : 'false'));
   store.set('jarvis.tab', name);
   if (location.hash.slice(1) !== name) history.replaceState(null, '', `#${name}`);
   if (name === 'codigo' && state.project) loadCode();
+  missions.show(name === 'missoes');
   if (name === 'resumos' && state.project) loadSummary();
   if (name === 'chat') $('#thread').lastElementChild?.scrollIntoView({ block: 'end' });
 }
 document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 addEventListener('hashchange', () => { const h = location.hash.slice(1); if (TAB_TITLE[h]) showTab(h); });
 
+// Missões preparam a ordem no compositor existente, com o mesmo protocolo de aprovação.
+const missions = createMissions($('#missions-root'), {
+  onNavigate: showTab,
+  onCommand(agent, text) {
+    showTab('comandos');
+    const target = $('#cmd-to');
+    target.value = [...target.options].some((o) => o.value === agent) ? agent : 'LEADER';
+    $('#cmd-text').value = text.slice(0, 4000);
+    $('#cmd-text').focus();
+  },
+});
+const projectSearch = createProjectSearch({ getProject: () => state.project, onNavigate: showTab });
+$('#global-search').addEventListener('click', () => projectSearch.open());
+$('#global-search-mobile').addEventListener('click', () => projectSearch.open());
+addEventListener('keydown', (ev) => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k' && !ev.altKey && !ev.isComposing) { ev.preventDefault(); projectSearch.open(); }
+});
+addEventListener('pagehide', (ev) => { if (!ev.persisted) { missions.dispose(); projectSearch.dispose(); state.es?.close(); } });
+
 // ---------- util ----------
 const api = async (path) => {
+  const project = state.project;
+  const epoch = state.projectEpoch;
   const sep = path.includes('?') ? '&' : '?';
-  const r = await fetch(`${path}${sep}project=${encodeURIComponent(state.project)}`);
+  const r = await fetch(`${path}${sep}project=${encodeURIComponent(project)}`, { signal: AbortSignal.timeout(10_000) });
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
-  return r.json();
+  const data = await r.json();
+  if (epoch !== state.projectEpoch) throw new Error('O projeto selecionado mudou durante a consulta.');
+  return data;
 };
 function fmtTime(ts) {
   if (!ts) return '';
@@ -874,9 +900,10 @@ function connect() {
   setConn('wait', 'conectando');
   const es = new EventSource(`/events?project=${encodeURIComponent(state.project)}`);
   state.es = es;
-  es.onopen = () => setConn('on', 'ao vivo');
-  es.onerror = () => setConn('wait', 'reconectando');
-  es.addEventListener('entries', (m) => {
+  es.onopen = () => { if (state.es === es) setConn('on', 'ao vivo'); };
+  es.onerror = () => { if (state.es === es) setConn('wait', 'reconectando'); };
+  const listen = (event, handler) => es.addEventListener(event, (message) => { if (state.es === es) handler(message); });
+  listen('entries', (m) => {
     const { entries } = JSON.parse(m.data);
     const feed = $('#feed');
     feed.querySelector('.empty')?.remove();
@@ -886,30 +913,46 @@ function connect() {
       store.set(`jarvis.seen.${state.project}`, String(e.id));
     }
   });
-  es.addEventListener('agents', scheduleState);
-  es.addEventListener('tasks', scheduleState);
-  es.addEventListener('commands', () => loadCommands().catch(() => {}));
-  es.addEventListener('panic', () => loadSecurity().catch(() => {}));
+  listen('agents', scheduleState);
+  listen('tasks', scheduleState);
+  listen('commands', () => loadCommands().catch(() => {}));
+  listen('panic', () => { loadSecurity().catch(() => {}); missions.schedule(); });
   // Mudança de código chega já pronta pelo SSE; a lista completa é relida (barata) se a aba estiver aberta.
-  es.addEventListener('code', () => { if ($('#codigo').classList.contains('active')) loadCode(); else $('#code-live-dot').hidden = false; });
-  es.addEventListener('chat', (m) => appendChat(JSON.parse(m.data).entries));
+  listen('code', () => { if ($('#codigo').classList.contains('active')) loadCode(); else $('#code-live-dot').hidden = false; });
+  listen('chat', (m) => appendChat(JSON.parse(m.data).entries));
   // Falas vindas de outro aparelho (ex.: o dono falou pelo celular) entram na transcrição.
-  es.addEventListener('call', (m) => { const ev = JSON.parse(m.data); if (ev.turn) logTurn(ev.turn); if (ev.status && call.data) { call.data.status = ev.status; renderCall(); } });
-  es.addEventListener('summary', () => { loadRailSummary().catch(() => {}); if ($('#resumos').classList.contains('active')) loadSummary().catch(() => {}); });
+  listen('call', (m) => { const ev = JSON.parse(m.data); if (ev.turn) logTurn(ev.turn); if (ev.status && call.data) { call.data.status = ev.status; renderCall(); } });
+  listen('summary', () => { loadRailSummary().catch(() => {}); if ($('#resumos').classList.contains('active')) loadSummary().catch(() => {}); });
+  for (const event of ['entries', 'agents', 'tasks', 'commands', 'chat', 'code']) listen(event, () => missions.schedule());
+  let opened = false;
+  listen('open', () => {
+    missions.schedule();
+    // SSE não reapresenta eventos perdidos: recupera o retrato ao reconectar.
+    if (opened) Promise.allSettled([refreshState(), loadFeed(), loadCommands(), loadChat(), loadCall(), loadRailSummary()]);
+    opened = true;
+  });
 }
 
 async function selectProject(id) {
+  state.es?.close();
+  state.es = null;
+  clearTimeout(stateTimer);
   state.project = id;
+  const epoch = ++state.projectEpoch;
+  missions.setProject(id);
+  projectSearch.reset();
   state.agent = '';
   state.oldest = null;
   state.agentsKnown = [];
   store.set('jarvis.project', id);
   await refreshState();
-  await loadFeed();
-  await loadCommands();
-  await loadChat();
-  await loadRailSummary();
-  await loadCall();
+  if (state.projectEpoch !== epoch) return;
+  const results = await Promise.allSettled([loadFeed(), loadCommands(), loadChat(), loadRailSummary(), loadCall()]);
+  if (state.projectEpoch !== epoch) return;
+  if (results.some((r) => r.status === 'rejected')) {
+    $('#conn').dataset.state = 'wait';
+    $('#conn').lastElementChild.textContent = 'alguns dados indisponíveis';
+  }
   if ($('#resumos').classList.contains('active')) await loadSummary();
   code.data = null; code.open = null; $('#code-diff').hidden = true;
   if ($('#codigo').classList.contains('active')) await loadCode();
@@ -1011,14 +1054,23 @@ if ('serviceWorker' in navigator && isSecureContext) navigator.serviceWorker.reg
   const projects = await (await fetch('/api/projects')).json();
   const sel = $('#project');
   for (const p of projects) { const o = el('option', null, p.name); o.value = p.id; sel.append(o); }
-  sel.addEventListener('change', () => selectProject(sel.value));
-  const saved = store.get('jarvis.project', '');
+  sel.addEventListener('change', () => selectProject(sel.value).catch(reportBootError));
+  const saved = new URLSearchParams(location.search).get('project') ?? store.get('jarvis.project', '');
   const first = projects.find((p) => p.id === saved)?.id ?? projects[0]?.id;
   sel.value = first;
   const fromHash = location.hash.slice(1);
-  showTab(TAB_TITLE[fromHash] ? fromHash : fromHash === 'predio' || fromHash === 'personagem' ? 'codigo' : store.get('jarvis.tab', 'chat'));
+  showTab(TAB_TITLE[fromHash] ? fromHash : fromHash === 'predio' || fromHash === 'personagem' ? 'codigo' : store.get('jarvis.tab', 'missoes'));
+  if (!first) throw new Error('Nenhum projeto configurado no servidor.');
   await selectProject(first);
   const me = (await (await fetch('/api/team')).json().catch(() => ({}))).me;
   $('#security-btn').hidden = me?.role !== 'dono';
-  loadSecurity();
-})();
+  loadSecurity().catch(() => {});
+})().catch(reportBootError);
+
+function reportBootError(e) {
+  $('#conn').dataset.state = 'off';
+  $('#conn').lastElementChild.textContent = 'servidor indisponível';
+  $('#cmd-reply').textContent = `Não foi possível carregar o projeto: ${e.message}. Confira o servidor e recarregue a página.`;
+  $('#cmd-reply').classList.add('err');
+  missions.error($('#cmd-reply').textContent);
+}

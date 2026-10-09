@@ -23,6 +23,7 @@ import type { Sessions } from './sessions.ts';
 import { localIso } from './sources.ts';
 import { liveFor } from './live.ts';
 import { mentions, OWNER, type Role, type Team, type Who } from './team.ts';
+import { overview } from './overview.ts';
 import { readNote, searchNotes } from './vault.ts';
 
 export const SECURITY_HEADERS = {
@@ -132,6 +133,14 @@ export const ROUTES: Route[] = [
   },
   { method: 'GET', path: '/api/projects', role: 'leitura', run: (c) => c.send(200, c.j.cfg.projects.map((p) => ({ id: p.id, name: p.name, goal: c.j.state(p).goal }))) },
   { method: 'GET', path: '/api/state', role: 'leitura', run: (c) => c.send(200, c.j.state(c.project())) },
+  {
+    method: 'GET', path: '/api/overview', role: 'leitura', fail: 503,
+    run: (c) => {
+      const p = c.project();
+      try { c.send(200, overview(c.j, p)); }
+      catch { c.send(503, { error: 'Não foi possível ler o estado do projeto. Tente novamente.' }); }
+    },
+  },
   {
     method: 'GET', path: '/api/feed', role: 'leitura',
     run: (c) => {
