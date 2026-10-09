@@ -1,6 +1,6 @@
 {
   "name": "agent-control",
-  "version": "4.0.0",
+  "version": "4.1.0",
   "private": true,
   "description": "Agent Control: sala onde você vê todos os agentes de IA, recebe resumos, manda comandos e aprova os perigosos.",
   "type": "module",

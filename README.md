@@ -48,7 +48,15 @@ No macOS, na primeira vez: botão direito no app → **Abrir** (o app não é as
 > Os logos dos agentes são marcas dos respectivos donos, usados só para indicar compatibilidade. O Agent Control não é afiliado a eles.
 
 
+## Novo na 4.1
+
+- **Código ao vivo**: veja cada agente, pelo nome, mexendo no seu código, com o diff de cada arquivo.
+- **CLI `agentcontrol`** para acompanhar e mandar no time pelo terminal.
+- O Modo Prédio saiu.
+
 ## Novo na 4.0
+
+- **Central de Missões**: quadro de tarefas, contexto compartilhado, busca e reconexão.
 
 - **Botão de pânico** no PC, no celular e na sala: para todos os agentes na hora, desliga os aparelhos conectados e
   fecha o acesso do time até você desligar.
@@ -56,9 +64,6 @@ No macOS, na primeira vez: botão direito no app → **Abrir** (o app não é as
 - **Auditoria** de tudo (comandos, aprovações, time, aparelhos, pânico), com corrente de hash que denuncia qualquer
   alteração e exportação em CSV.
 - **Digital no Android** antes de aprovar.
-- **Código ao vivo**: veja cada agente, pelo nome, mexendo no seu código, com o diff de cada arquivo.
-- **CLI `agentcontrol`** para acompanhar e mandar no time pelo terminal.
-- O Modo Prédio saiu.
 - Mais de uma dezena de correções. Lista completa no [CHANGELOG](CHANGELOG.md).
 
 ## O que é
@@ -268,7 +273,7 @@ Para compilar o Android: JDK 17, Android SDK (compileSdk 37) e `cd android && ./
 `gradlew.bat`). O APK fica em `android/app/build/outputs/apk/debug/`. A release sai assinada com a chave do
 `ANDROID_KEYSTORE_B64` (segredo do repositório); sem ele, com uma chave de teste que não atualiza por cima.
 
-Validação da 4.0 (09/10/2026): 151 testes do servidor e `tsc` passaram no Linux; o app do PC compilou no Linux; a sala
+Validação da 4.1 (09/10/2026): 157 testes do servidor e `tsc` passaram no Linux; o app do PC compilou no Linux; a sala
 web foi conferida em navegador (desktop e celular, tema claro). O CI compila o app do PC em Windows, Linux e macOS e
 gera o APK a cada push.
 
@@ -287,7 +292,11 @@ runs in its own git worktree inside a loop that only wakes up on new orders and 
   full window, and **AgentC**, an animated mascot that talks, celebrates and sleeps with your team's state.
 - **Android app** (Kotlin/Compose): chat, voice calls with the agents, one-tap approvals.
 
+### New in 4.1
+- **Live code view** and the **`agentcontrol` CLI** (see below); the "Building" mode is gone.
+
 ### New in 4.0
+- **Mission Center**: task board, shared context, project search.
 - **Panic button** (desktop, phone, web): stops every agent now, signs out connected devices and locks out everyone
   but the owner until you turn it off. Survives restarts.
 - **Two-person approval** (Team plan): a protected order only runs after two different owners approve; a single
