@@ -89,6 +89,21 @@ class JarvisApi(url: String, private val token: String) {
         network { client.newCall(request(path).post(payload.toRequestBody(jsonType)).build()).execute().use { it.bodyOrThrow() } }
     }
 
+    /**
+     * Sessão do navegador para a sala dentro do app (WebView). Vai SEM o Bearer: com ele o servidor já trata o pedido
+     * como logado e nem chega no login. Devolve o Set-Cookie inteiro (ac_session=…; HttpOnly; …) para o CookieManager.
+     */
+    suspend fun webSession(): String = withContext(Dispatchers.IO) {
+        network {
+            val req = Request.Builder().url(url("/api/login")).header("Origin", baseUrl)
+                .post(json.encodeToString(buildJsonObject { put("token", token) }).toRequestBody(jsonType)).build()
+            client.newCall(req).execute().use { r ->
+                r.bodyOrThrow()
+                r.headers("Set-Cookie").firstOrNull { it.startsWith("ac_session=") } ?: throw JarvisException("O PC não abriu a sessão da sala.")
+            }
+        }
+    }
+
     suspend fun projects(): List<Project> = json.decodeFromString(get("/api/projects"))
 
     // Modo Time: quem sou eu, quem está online, convidar e remover (só o dono).

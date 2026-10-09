@@ -334,7 +334,7 @@ public sealed class LauncherWindow : Window
         util.Children.Add(Link("Configuração", K.ISettings, () => svc.OpenPath(svc.SettingsPath)));
         util.Children.Add(Link("Sala no Obsidian", K.IBook, () => svc.OpenObsidianNote(svc.Settings.SalaNote)));
         util.Children.Add(Link("Chamada no painel", K.IPhone, () => _ = OpenPanel("call")));
-        util.Children.Add(Link("Prédio dos agentes", K.IBuilding, () => _ = OpenPanel("predio")));
+        util.Children.Add(Link("Código ao vivo", K.ICode, () => _ = OpenPanel("codigo")));
         left.Children.Add(util);
         body.Children.Add(Scroll(left));
         var right = new ScrollViewer { VerticalScrollBarVisibility = ScrollBarVisibility.Auto, Content = agentCards };
@@ -988,7 +988,7 @@ public sealed class LauncherWindow : Window
     {
         var col = new StackPanel { Spacing = 10 };
         col.Children.Add(K.Label("Celular e iPhone").Also(l => l.Margin = new Thickness(0)));
-        col.Children.Add(K.Wrap("Use a sala, o Prédio, os comandos e as aprovações no celular. No Android pelo app; no iPhone pelo Safari, como app na tela de início. Só pelo Tailscale (rede privada entre os seus aparelhos) e sempre com token: nada fica aberto na internet.", 12.5, K.Muted));
+        col.Children.Add(K.Wrap("Use a sala, o código ao vivo, os comandos e as aprovações no celular. No Android pelo app; no iPhone pelo Safari, como app na tela de início. Só pelo Tailscale (rede privada entre os seus aparelhos) e sempre com token: nada fica aberto na internet.", 12.5, K.Muted));
         var state = K.T("", 13, K.Text2, FontWeight.SemiBold);
         var addr = new TextBox { IsReadOnly = true, FontFamily = K.Mono, FontSize = 12.5, Background = K.Raised, BorderThickness = new Thickness(0), Padding = new Thickness(10, 8), MinWidth = 280 };
         var tok = new TextBox { IsReadOnly = true, FontFamily = K.Mono, FontSize = 12, Background = K.Raised, BorderThickness = new Thickness(0), Padding = new Thickness(10, 8), MinWidth = 280, PasswordChar = '•' };

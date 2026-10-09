@@ -34,8 +34,6 @@ public sealed record HudSnapshot(
     /// <summary>Chamada aberta: quem está nela e as últimas falas (mais antiga primeiro).</summary>
     public IReadOnlyList<string> CallWho { get; init; } = [];
     public IReadOnlyList<(string Speaker, string Text)> CallLog { get; init; } = [];
-    /// <summary>Personagens do Modo Prédio salvos no servidor (id → skin, hair, style, top, shirt, pants, shoes, cap, acc).</summary>
-    public Dictionary<string, Dictionary<string, string>> Looks { get; init; } = [];
     /// <summary>Pânico ligado (v4.0): quem acionou. null = tudo normal.</summary>
     public string? PanicBy { get; init; }
     public bool Panic => PanicBy is not null;
@@ -191,12 +189,7 @@ public sealed class HudApi
         if (limits.Result is { } lim && lim.TryGetProperty("agents", out var la) && la.ValueKind == JsonValueKind.Array)
             foreach (var row in la.EnumerateArray())
                 try { var q = JsonSerializer.Deserialize<AgentQuota>(row.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); if (q is not null) quotas[q.Agent] = q; } catch { }
-        var looks = new Dictionary<string, Dictionary<string, string>>();
-        if (s.TryGetProperty("looks", out var lk) && lk.ValueKind == JsonValueKind.Object)
-            foreach (var who in lk.EnumerateObject())
-                if (who.Value.ValueKind == JsonValueKind.Object)
-                    looks[who.Name] = who.Value.EnumerateObject().Where(f => f.Value.ValueKind == JsonValueKind.String).ToDictionary(f => f.Name, f => f.Value.GetString() ?? "");
-        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin, Limits = quotas, CallWho = cwho, CallLog = clog, Looks = looks,
+        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin, Limits = quotas, CallWho = cwho, CallLog = clog,
             PanicBy = settings.Result is { } st && st.TryGetProperty("panico", out var pn) && pn.ValueKind == JsonValueKind.Object ? Str(pn, "by") : null };
     }
 
@@ -383,4 +376,40 @@ public sealed class HudApi
         return r;
     }
     public Task<string?> Pause(bool on) => Post("/api/agents/pause", new { project = Project, on, agora = false });
+
+    // ---------- Código ao vivo (v4.0): o que cada agente está mexendo no código ----------
+    public sealed record CodeFile(string Path, string Status, int Adds, int Dels, bool Binary);
+    public sealed record CodeAgent(string Agent, string Name, string? Branch, string? Head, string? HeadMsg, List<CodeFile> Files, int Adds, int Dels, DateTime? ChangedAt, string? Error)
+    {
+        /// <summary>Mudou nos últimos 45 s: o agente está mexendo agora.</summary>
+        public bool Live => ChangedAt is { } t && DateTime.Now - t < TimeSpan.FromSeconds(45);
+    }
+    public sealed record CodeEvent(string At, string Agent, string Name, string Kind, string? Path, int Adds, int Dels, string? Status, string? Msg, string? Hash);
+
+    static string? OptStr(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
+    static int OptInt(JsonElement e, string k) => e.TryGetProperty(k, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt32() : 0;
+
+    /// <summary>Agentes com pasta de código e a linha do tempo (mais novo primeiro). Servidor antigo: listas vazias.</summary>
+    public async Task<(List<CodeAgent> Agents, List<CodeEvent> Feed)> CodeAsync()
+    {
+        var agents = new List<CodeAgent>();
+        var feed = new List<CodeEvent>();
+        if (await Get("/api/code") is not { } d) return (agents, feed);
+        if (d.TryGetProperty("agents", out var ag) && ag.ValueKind == JsonValueKind.Array)
+            foreach (var x in ag.EnumerateArray())
+            {
+                var files = x.TryGetProperty("files", out var fs) && fs.ValueKind == JsonValueKind.Array
+                    ? fs.EnumerateArray().Select(f => new CodeFile(Str(f, "path"), Str(f, "status"), OptInt(f, "adds"), OptInt(f, "dels"), f.TryGetProperty("binary", out var b) && b.ValueKind == JsonValueKind.True)).ToList() : [];
+                DateTime? changed = DateTime.TryParse(OptStr(x, "changedAt"), out var t) ? t : null;
+                agents.Add(new CodeAgent(Str(x, "agent"), Str(x, "name"), OptStr(x, "branch"), OptStr(x, "head"), OptStr(x, "headMsg"), files, OptInt(x, "adds"), OptInt(x, "dels"), changed, OptStr(x, "error")));
+            }
+        if (d.TryGetProperty("feed", out var fd) && fd.ValueKind == JsonValueKind.Array)
+            foreach (var e in fd.EnumerateArray())
+                feed.Add(new CodeEvent(Str(e, "at"), Str(e, "agent"), Str(e, "name"), Str(e, "kind"), OptStr(e, "path"), OptInt(e, "adds"), OptInt(e, "dels"), OptStr(e, "status"), OptStr(e, "msg"), OptStr(e, "hash")));
+        return (agents, feed);
+    }
+
+    /// <summary>Diff de um arquivo que o agente mudou (já filtrado de segredos no servidor). null = não tem mais mudança.</summary>
+    public async Task<string?> DiffAsync(string agent, string path) =>
+        await Get($"/api/code/diff?agent={Uri.EscapeDataString(agent)}&path={Uri.EscapeDataString(path)}") is { } d ? Str(d, "diff") : null;
 }

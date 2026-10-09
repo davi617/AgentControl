@@ -426,7 +426,7 @@ public sealed class HudWindow : Window
         v.Children.Add(Gap(8));
         v.Children.Add(new Cols(3).Add(Quick(K.ITerminal, "Comandos", () => Select(5), badge: s.Pending > 0 ? $"{s.Pending}" : null))
             .Add(Quick(K.IApps, "Tela completa", () => { Collapse(); host.OpenFull(); }))
-            .Add(Quick(K.IBuilding, "Prédio", () => { Collapse(); host.OpenPredio(); })).Panel);
+            .Add(Quick(K.ICode, "Código", () => { Collapse(); host.OpenCode(); })).Panel);
 
         v.Children.Add(Gap(16));
         var head = new DockPanel { Margin = new Thickness(0, 0, 0, 4) };
