@@ -184,7 +184,7 @@ async function loadFeed(append = false) {
     feed.append(renderEntry(e, false));
   }
   if (!append && !rows.length) feed.append(el('li', 'empty', 'Nenhuma mensagem ainda.'));
-  if (rows.length) state.oldest = Math.min(...rows.map((r) => r.id));
+  if (rows.length) state.oldest = rows[rows.length - 1].id; // a lista vem por data; o servidor continua dali (id menor não é a mais antiga)
   $('#more').hidden = rows.length < 60;
   if (!append && rows.length) store.set(`jarvis.seen.${state.project}`, String(Math.max(...rows.map((r) => r.id))));
 }
@@ -310,6 +310,9 @@ function appendChat(entries) {
   const th = $('#thread');
   th.querySelector('.empty')?.remove();
   for (const e of entries) { chatCache.push(e); th.append(renderBubble(e, true)); }
+  // Sessão longa: não deixa a conversa crescer sem fim na memória e na tela.
+  while (th.childElementCount > 600) th.firstElementChild.remove();
+  if (chatCache.length > 600) chatCache.splice(0, chatCache.length - 600);
   predio.chat(entries);
   th.lastElementChild?.scrollIntoView({ block: 'end', behavior: 'smooth' });
 }
@@ -338,8 +341,8 @@ $('#chat-form').addEventListener('submit', async (ev) => {
       headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
       body: JSON.stringify({ project: state.project, text, to: $('#chat-to').value, as: $('#chat-as').value, assunto: $('#chat-subject').value }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error ?? r.status);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
     $('#chat-text').value = '';
     $('#chat-subject').value = '';
     $('#chat-as').value = 'DONO';
@@ -390,8 +393,8 @@ async function decide(code, decision, btns) {
       headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
       body: JSON.stringify({ project: state.project, code, decision }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error ?? r.status);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
     $('#cmd-reply').classList.remove('err');
     $('#cmd-reply').textContent = data.reply;
   } catch (e) {
@@ -475,8 +478,8 @@ $('#composer').addEventListener('submit', async (ev) => {
       headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
       body: JSON.stringify({ project: state.project, text, to: $('#cmd-to').value }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error ?? r.status);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
     reply.textContent = data.reply;
     $('#cmd-text').value = '';
     loadCommands();
@@ -549,6 +552,7 @@ async function loadSummary() {
 // ---------- chamada em grupo (voz) ----------
 // O servidor decide quem fala e gera o texto; aqui o navegador dá a voz (speechSynthesis) e ouve o dono (SpeechRecognition).
 const call = { data: null, paused: false, pumping: false, listening: false, rec: null, heard: '', voices: [], since: 0, clock: null, logged: 0 };
+const stopSpeaking = () => { try { speechSynthesis.cancel(); } catch { /* sem voz */ } };
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const PITCH = [1, 0.8, 1.22, 0.92, 1.1, 0.74, 1.3, 0.86];
 
@@ -703,7 +707,7 @@ async function dono(text) {
 function listen() {
   if (!SR) { callNote('Este navegador não escuta voz. Use o Edge ou o Chrome, ou digite a sua fala.', true); $('#call-text').focus(); return; }
   if (call.listening) { call.listening = false; call.rec?.stop(); return; }
-  speechSynthesis.cancel(); // interromper quem está falando, como numa call
+  stopSpeaking(); // interromper quem está falando, como numa call
   call.listening = true;
   call.heard = '';
   $('#call-mic').setAttribute('aria-pressed', 'true');
@@ -755,20 +759,21 @@ $('#call-start').addEventListener('submit', async (ev) => {
   } catch (e) { callNote(`Não liguei: ${e.message}`, true); } finally { btn.disabled = false; }
 });
 $('#call-mic').addEventListener('click', listen);
-$('#call-type').addEventListener('submit', (ev) => { ev.preventDefault(); const t = $('#call-text'); speechSynthesis.cancel(); dono(t.value); t.value = ''; });
+$('#call-type').addEventListener('submit', (ev) => { ev.preventDefault(); const t = $('#call-text'); stopSpeaking(); dono(t.value); t.value = ''; });
 $('#call-pause').addEventListener('click', () => {
   call.paused = !call.paused;
-  if (call.paused) { speechSynthesis.cancel(); caption('', 'Debate pausado.', true); }
+  if (call.paused) { stopSpeaking(); caption('', 'Debate pausado.', true); }
   callNote('');
   renderCall();
   if (!call.paused) pump();
 });
 $('#call-end').addEventListener('click', async () => {
-  speechSynthesis.cancel();
+  stopSpeaking();
   call.rec?.abort();
   call.listening = false;
   try { call.data = await callPost('/api/call/end'); } catch { /* já encerrada */ }
   clearInterval(call.clock);
+  call.clock = null;
   caption('', `Chamada encerrada · ${call.data?.turns.length ?? 0} falas. A ata ficou no vault.`, true);
   renderCall();
 });
@@ -810,7 +815,7 @@ async function refreshState() {
     fillChatTargets(s.agents);
   }
 }
-function scheduleState() { clearTimeout(stateTimer); stateTimer = setTimeout(refreshState, 200); }
+function scheduleState() { clearTimeout(stateTimer); stateTimer = setTimeout(() => refreshState().catch(() => {}), 200); }
 
 function connect() {
   state.es?.close();
@@ -833,11 +838,11 @@ function connect() {
   });
   es.addEventListener('agents', scheduleState);
   es.addEventListener('tasks', scheduleState);
-  es.addEventListener('commands', loadCommands);
+  es.addEventListener('commands', () => loadCommands().catch(() => {}));
   es.addEventListener('chat', (m) => appendChat(JSON.parse(m.data).entries));
   // Falas vindas de outro aparelho (ex.: o dono falou pelo celular) entram na transcrição.
   es.addEventListener('call', (m) => { const ev = JSON.parse(m.data); if (ev.turn) logTurn(ev.turn); if (ev.status && call.data) { call.data.status = ev.status; renderCall(); } });
-  es.addEventListener('summary', () => { loadRailSummary(); if ($('#resumos').classList.contains('active')) loadSummary(); });
+  es.addEventListener('summary', () => { loadRailSummary().catch(() => {}); if ($('#resumos').classList.contains('active')) loadSummary().catch(() => {}); });
 }
 
 async function selectProject(id) {

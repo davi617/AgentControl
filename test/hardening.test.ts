@@ -14,3 +14,14 @@ test('commandsSince devolve só comandos do período', () => {
   mk('J-001', '2026-01-01T00:00:00'); mk('J-002', '2026-02-01T00:00:00');
   assert.deepEqual(s.commandsSince('p', '2026-01-15T00:00:00').map((c) => c.code), ['J-002']);
 });
+
+test('feed: continuar de uma página segue a ordem por data, sem pular nem repetir', () => {
+  const s = new Store(':memory:');
+  const add = (n: string, ts: string) => s.insert({ project: 'p', source: 's', kind: 'chat', agent: 'A', heading: n, body: n, hash: n, task: null, status: null, model: null, ts, seen_at: ts, initial: 0 });
+  // id 1 é o mais antigo em id mas o mais novo em data
+  add('x1', '2026-03-01T00:00:00'); add('x2', '2026-01-01T00:00:00'); add('x3', '2026-02-01T00:00:00'); add('x4', '2025-12-01T00:00:00');
+  const p1 = s.feed('p', { limit: 2 });
+  assert.deepEqual(p1.map((e) => e.heading), ['x1', 'x3']);
+  const p2 = s.feed('p', { limit: 2, before: p1.at(-1)!.id });
+  assert.deepEqual(p2.map((e) => e.heading), ['x2', 'x4']);
+});

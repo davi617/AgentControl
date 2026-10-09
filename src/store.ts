@@ -134,7 +134,12 @@ export class Store {
     const where = ['project = ?'];
     const args: Array<string | number> = [project];
     if (opts.agent) { where.push('agent = ?'); args.push(opts.agent); }
-    if (opts.before) { where.push('id < ?'); args.push(opts.before); }
+    if (opts.before) {
+      // A lista é ordenada por data (ts), não por id: continuar do `id <` pulava ou repetia mensagens quando as duas ordens diferem.
+      const ref = this.db.prepare('SELECT ts FROM entries WHERE id = ? AND project = ?').get(opts.before, project) as { ts: string } | undefined;
+      if (ref) { where.push('(ts < ? OR (ts = ? AND id < ?))'); args.push(ref.ts, ref.ts, opts.before); }
+      else { where.push('id < ?'); args.push(opts.before); }
+    }
     return this.db.prepare(`SELECT * FROM entries WHERE ${where.join(' AND ')} ORDER BY ts DESC, id DESC LIMIT ${limit}`)
       .all(...args) as unknown as Entry[];
   }
