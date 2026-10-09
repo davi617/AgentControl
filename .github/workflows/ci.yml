@@ -25,6 +25,8 @@ jobs:
           node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci
+      - name: Tipos (o Node roda .ts sem conferir tipos)
+        run: npm run typecheck
       - run: npm test
       - name: Sintaxe da sala web e do site
         run: |
