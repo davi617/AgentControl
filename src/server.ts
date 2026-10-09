@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { readFileSync, statSync } from 'node:fs';
+import { closeSync, fstatSync, openSync, readFileSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -35,12 +35,16 @@ const OPEN_STATIC = new Set(['/entrar', '/entrar.js', '/icon.svg', '/apple-touch
 const staticCache = new Map<string, { mtime: number; data: Buffer }>();
 function staticFile(name: string): Buffer {
   const file = path.join(PUBLIC, name);
-  const mtime = statSync(file).mtimeMs;
-  const hit = staticCache.get(file);
-  if (hit && hit.mtime === mtime) return hit.data;
-  const data = readFileSync(file);
-  staticCache.set(file, { mtime, data });
-  return data;
+  // Um descritor só para conferir e ler: sem janela entre o stat e a leitura (CodeQL js/file-system-race).
+  const fd = openSync(file, 'r');
+  try {
+    const mtime = fstatSync(fd).mtimeMs;
+    const hit = staticCache.get(file);
+    if (hit && hit.mtime === mtime) return hit.data;
+    const data = readFileSync(fd);
+    staticCache.set(file, { mtime, data });
+    return data;
+  } finally { closeSync(fd); }
 }
 
 /**
