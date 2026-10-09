@@ -49,9 +49,12 @@ export class Usage {
   private bucket(agent: string, now = new Date()): Bucket {
     // Nome que é chave especial de objeto (__proto__…) nunca vira chave: os contadores iriam parar no Object.prototype.
     const who = agent === '__proto__' || agent === 'constructor' || agent === 'prototype' ? 'OUTRO' : agent;
-    const d = (this.days[dayKey(now)] ??= {});
-    if (!Object.hasOwn(d, who)) d[who] = empty();
-    return d[who];
+    const day = dayKey(now);
+    const d = new Map(Object.entries(this.days[day] ?? {}));
+    let b = d.get(who);
+    // Map + fromEntries: o nome vira chave própria do objeto, nunca uma escrita direta por nome vindo do pedido.
+    if (!b) { b = empty(); d.set(who, b); this.days[day] = Object.fromEntries(d); }
+    return b;
   }
 
   record(agent: string, model: string, r: { status: number; ms: number; pin: number; pout: number }, now = new Date()) {
