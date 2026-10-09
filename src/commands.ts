@@ -14,10 +14,29 @@ export const INBOX_FILE = 'JARVIS-INBOX.md';
 export const MAX_COMMAND_CHARS = 4000;
 
 // Ações que o protocolo proíbe sem autorização explícita: ficam paradas até você aprovar.
-const NEEDS_APPROVAL = /\b(deploy|push|merge|rebase|release|publicar|publica|produ[cç][aã]o|prod\b|force|apagar|apaga|deletar|delete|remover|drop|billing|pagar|pagamento|compra|comprar|cr[eé]dito|plano pago)\w*/i;
+// Na dúvida, segura: um comando parado à toa custa um toque; um push não aprovado custa caro.
+const NEEDS_APPROVAL = [
+  /\b(deploy|push|merge|rebase|release|publicar|publica|publish|producao|prod\b|force|apagar|apaga|deletar|delete|remover|excluir|exclui|destroy|wipe|drop|truncate|billing|pagar|pagamento|compra|comprar|credito|plano pago)\w*/,
+  // git e shell que reescrevem ou somem com coisa
+  /\brm\s+-[a-z]*[rf]|\breset\s+--hard|\bclean\s+-[a-z]*f|\bgit\s+tag\b|\bchmod\s+(-r\s+)?777|\b(curl|wget)\b[^|\n]*\|\s*(ba|z)?sh\b/,
+  // "manda/sobe/envia pro main" sem dizer push
+  /\b(pro|pra|para|para o|no|na|into|to|on)\s+(a\s+|o\s+)?(main|master)\b/,
+  // infraestrutura e pacotes publicados
+  /\b(terraform|pulumi)\s+(apply|destroy)|\bkubectl\s+(apply|delete|rollout|scale)|\b(npm|pnpm|yarn|cargo|twine|gem)\s+publish|\bgh\s+(release|pr\s+merge|repo\s+delete)/,
+];
+
+/** Texto para a checagem: sem acento, sem caractere invisível (git p\u200Bush), letras de largura total viram normais. */
+export function normalizeForCheck(text: string): string {
+  return text
+    .normalize('NFKC')
+    .replace(/[\u00AD\u180E\u200B-\u200F\u202A-\u202E\u2060-\u2064\uFEFF]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
 
 export function requiresApproval(text: string): boolean {
-  return NEEDS_APPROVAL.test(text);
+  const t = normalizeForCheck(text);
+  return NEEDS_APPROVAL.some((re) => re.test(t));
 }
 
 const HEADER = `# JARVIS INBOX
