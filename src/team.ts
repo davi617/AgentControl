@@ -3,6 +3,7 @@
 // guardado aqui só como hash. Papel: dono (tudo, inclusive aprovar) · membro (manda ordem e fala) · leitura (só vê).
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { EventEmitter } from 'node:events';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
@@ -18,11 +19,12 @@ export const ONLINE_MS = 90_000;
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
 
-export class Team {
+/** Emite 'removed' (id) quando alguém sai do time: o servidor fecha o que essa pessoa ainda tinha aberto (SSE). */
+export class Team extends EventEmitter {
   private people: Person[] = [];
   private seen = new Map<string, { at: number; via: string }>();
   private file: string;
-  constructor(file: string) { this.file = file; this.load(); }
+  constructor(file: string) { super(); this.setMaxListeners(0); this.file = file; this.load(); }
 
   private load() {
     if (!this.file) return; // sem arquivo: time só em memória (testes)
@@ -55,6 +57,7 @@ export class Team {
     this.seen.delete(id);
     if (this.people.length === before) return false;
     this.save();
+    this.emit('removed', id);
     return true;
   }
 

@@ -67,7 +67,7 @@ const again = new Set<string>();
  * Responde a última mensagem do dono. Mensagens que chegam enquanto ele pensa
  * são respondidas juntas numa segunda rodada (uma resposta por vez por projeto).
  */
-export function replyToDono(j: Jarvis, p: ProjectCfg, text: string, fetchImpl: Fetch = j.fetchImpl): Promise<void> {
+export function replyToDono(j: Jarvis, p: ProjectCfg, text: string, fetchImpl: Fetch = j.fetchImpl, by?: string): Promise<void> {
   if (inflight.has(p.id)) { again.add(p.id); return inflight.get(p.id)!; }
   const run = (async () => {
     let msg = text;
@@ -80,7 +80,8 @@ export function replyToDono(j: Jarvis, p: ProjectCfg, text: string, fetchImpl: F
         answer = `Recebi sua mensagem, mas não consegui pensar agora (${(e as Error).message}). Ela ficou na sala; tento de novo na próxima.`;
       }
       // Só a 1ª rodada responde ao texto original do dono; o comando leva as palavras DELE, nunca as do modelo.
-      if (msg === text) answer = routeCommand(j, p, text, answer);
+      // Pedido de alguém do time leva o nome junto (igual a /api/commands): o histórico sabe quem pediu.
+      if (msg === text) answer = routeCommand(j, p, by ? `[${by}] ${text}` : text, answer);
       postChat(p, 'JARVIS', 'DONO', '', answer);
       if (!again.has(p.id)) break;
       msg = 'Responda às mensagens mais novas do dono na conversa.';

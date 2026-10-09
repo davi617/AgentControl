@@ -399,12 +399,30 @@ test('time: dono convida, pessoa entra com token próprio, fala com o nome dela,
     assert.equal((await post(inv.token, '/api/commands/decide', { project: 'test', code: cmd.command.code, decision: 'approve' })).status, 403);
     assert.equal((await post(inv.token, '/api/team/invite', { name: 'Intruso', role: 'dono' })).status, 403);
 
+    // atalho rodado pela membro também leva o nome dela (antes saía como se fosse do dono)
+    const sc = await (await post(inv.token, '/api/shortcuts', { project: 'test', label: 'testes', text: 'rode a suíte', target: 'CODEX' })).json();
+    const viaAtalho = await (await post(inv.token, '/api/shortcuts/run', { project: 'test', id: sc.id })).json();
+    assert.match(viaAtalho.command.text, /^\[Ana Júlia\] rode a suíte/);
+    const doDono = await (await post(token, '/api/shortcuts/run', { project: 'test', id: sc.id })).json();
+    assert.equal(doDono.command.text, 'rode a suíte', 'do dono sai sem prefixo');
+
     // só leitura não escreve nada
     assert.equal((await post(ro.token, '/api/chat', { project: 'test', text: 'oi' })).status, 403);
     assert.equal((await fetch(`${rb}/api/projects`, { headers: { Authorization: `Bearer ${ro.token}` } })).status, 200, 'mas lê');
 
-    // dono remove: o token para de valer
+    // dono remove: o token para de valer E o /events que a pessoa já tinha aberto é fechado
+    const ctrl = new AbortController();
+    const live = await fetch(`${rb}/events?project=test`, { headers: { Authorization: `Bearer ${ro.token}` }, signal: ctrl.signal });
+    assert.equal(live.status, 200);
+    const reader = live.body!.getReader();
+    await reader.read(); // "retry: 2000"
     assert.equal((await post(token, '/api/team/remove', { id: 'BETO' })).status, 200);
+    const fim = await Promise.race([
+      (async () => { for (;;) { const r = await reader.read(); if (r.done) return 'fechou'; } })(),
+      new Promise((r) => setTimeout(() => r('continua aberto'), 2000)),
+    ]);
+    ctrl.abort();
+    assert.equal(fim, 'fechou');
     assert.equal((await fetch(`${rb}/api/projects`, { headers: { Authorization: `Bearer ${ro.token}` } })).status, 401);
 
     // freemium: o Grátis cabe 3 pessoas contando o dono (dono + Ana + Carla); a 4ª é recusada com 402

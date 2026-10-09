@@ -27,6 +27,9 @@ const WRITE_POSTS = [
   '/api/alerts/prefs', '/api/looks',
 ];
 
+/** Conexões /events abertas ao mesmo tempo por pessoa: cada uma prende listeners no JARVIS. */
+export const MAX_STREAMS = 12;
+
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const STATIC: Record<string, [string, string]> = {
   '/': ['index.html', 'text/html; charset=utf-8'],
@@ -113,6 +116,10 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
   const team = teamFor(j.cfg.db === ':memory:' ? null : path.dirname(j.cfg.db));
   const guard = new LoginGuard();
   const plans = new PlanStore(j.cfg.db === ':memory:' ? null : path.dirname(j.cfg.db));
+  // Streams /events abertos, por pessoa: quem sai do time perde na hora o que já estava recebendo.
+  const streams = new Map<string, Set<http.ServerResponse>>();
+  const onRemoved = (id: string) => { for (const r of streams.get(id) ?? []) r.end(); streams.delete(id); };
+  team.on('removed', onRemoved);
   const handle = (req: http.IncomingMessage, res: http.ServerResponse) => {
     // Quem está pedindo: no PC é o dono; no remoto, o token principal é o dono e um token de convite é a pessoa do time.
     // Sem token válido no remoto não responde nada (nem a página).
@@ -296,7 +303,8 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
               if (!sc) { send(404, { error: 'atalho não encontrado' }); return; }
               const known = new Set(['LEADER', ...p.agents.map((a) => a.id)]);
               if (!known.has(sc.target)) { send(400, { error: 'destino do atalho não existe mais' }); return; }
-              const cmd = j.command(p, sc.text, sc.target);
+              // Atalho rodado por alguém do time também leva o nome (antes saía como se fosse do dono).
+              const cmd = j.command(p, who.owner ? sc.text : `[${who.name}] ${sc.text}`, sc.target);
               send(201, { command: cmd, reply: `Comando ${cmd.code} registrado para ${sc.target} (atalho "${sc.label}").` });
               return;
             }
@@ -384,7 +392,7 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
           const tagged = mentions(text, [...team.ids(), ...p.agents.map((a) => a.id)]);
           send(201, { ok: true, mentions: tagged });
           // O JARVIS responde o dono na sala (os agentes não leem o chat).
-          if (as !== 'CHATGPT') void replyToDono(j, p, text).catch((e) => console.error('[resposta]', (e as Error).message));
+          if (as !== 'CHATGPT') void replyToDono(j, p, text, j.fetchImpl, who.owner ? undefined : who.name).catch((e) => console.error('[resposta]', (e as Error).message));
         } catch (e) { send(409, { error: (e as Error).message }); }
       }).catch(() => send(413, { error: 'mensagem grande demais' }));
       return;
@@ -535,6 +543,10 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         send(200, { deterministic: j.deterministicSummary(p), llm: j.store.summaries(p.id, 10).filter((s) => s.kind === 'llm') });
         return;
       case '/events': {
+        const mine = streams.get(who.id) ?? new Set<http.ServerResponse>();
+        if (mine.size >= MAX_STREAMS) { send(429, { error: 'conexões demais abertas; feche outra aba' }); return; }
+        mine.add(res);
+        streams.set(who.id, mine);
         res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': 'text/event-stream', Connection: 'keep-alive' });
         res.write('retry: 2000\n\n');
         const push = (type: string) => (ev: { project: string }) => {
@@ -545,6 +557,8 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         for (const [k, h] of Object.entries(handlers)) j.on(k, h);
         const ping = setInterval(() => res.write(': ping\n\n'), 15_000);
         req.on('close', () => {
+          mine.delete(res);
+          if (!mine.size && streams.get(who.id) === mine) streams.delete(who.id);
           clearInterval(ping);
           for (const [k, h] of Object.entries(handlers)) j.off(k, h);
         });
@@ -554,11 +568,13 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     send(404, { error: 'não encontrado' });
   };
   // Um erro numa requisição (ex.: OneDrive travando um arquivo, EBUSY) responde 500 em vez de derrubar o servidor.
-  return http.createServer((req, res) => {
+  const server = http.createServer((req, res) => {
     try { handle(req, res); } catch (e) {
       console.error('[req]', req.url, (e as Error).message);
       if (!res.headersSent) res.writeHead(500, { ...SECURITY_HEADERS, 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: 'erro interno, tente de novo' }));
     }
   });
+  server.on('close', () => team.off('removed', onRemoved));
+  return server;
 }
