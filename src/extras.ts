@@ -11,6 +11,8 @@ import type { Store } from './store.ts';
 import { localDay } from './date.ts';
 
 const STARTED = Date.now();
+/** Versão do Agent Control (version.json, fonte única). */
+const VERSION: string = (() => { try { return JSON.parse(readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'version.json'), 'utf8')).version; } catch { return '?'; } })();
 /** Commit do código que ESTE processo carregou (lido ao ligar). Antes lia o HEAD na hora e mostrava commit novo com código velho rodando. */
 const RUNNING_COMMIT = (() => {
   try { return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: path.join(path.dirname(fileURLToPath(import.meta.url)), '..'), encoding: 'utf8', timeout: 3000, windowsHide: true }).trim(); } catch { return ''; }
@@ -49,7 +51,7 @@ export function about(dbFile: string) {
   let app: unknown = null;
   try { app = JSON.parse(readFileSync(path.join(path.dirname(dbFile), 'app', 'version.json'), 'utf8')); } catch { /* nenhum app publicado */ }
   return {
-    jarvis: { commit, node: process.version, ligadoHaMin: Math.round((Date.now() - STARTED) / 60_000) },
+    jarvis: { versao: VERSION, commit, node: process.version, ligadoHaMin: Math.round((Date.now() - STARTED) / 60_000) },
     pc: { nome: "Computador", ligadoHaMin: Math.round(os.uptime() / 60), nucleos: os.cpus().length },
     app,
   };
@@ -79,7 +81,7 @@ export function topProcesses(limit = 5): Promise<{ nome: string; mb: number }[]>
  */
 export async function writeDiary(store: Store, p: ProjectCfg, summary: SummaryCfg, now = new Date(), fetchImpl: typeof fetch = fetch): Promise<string> {
   const dia = localDay(now);
-  const cmds = store.commands(p.id, 1000).filter((c) => c.created_at.slice(0, 10) === dia);
+  const cmds = store.commandsSince(p.id, dia).filter((c) => c.created_at.slice(0, 10) === dia);
   const notas = store.notes(p.id, 500).filter((n) => n.created_at.slice(0, 10) === dia);
   const calls = listCalls(p, 200).filter((c) => c.id.startsWith(`CALL-${dia}`));
   let uso: { agentes?: { agent: string; req: number; pin: number; pout: number; r429: number }[] } = {};
@@ -106,7 +108,7 @@ export async function writeDiary(store: Store, p: ProjectCfg, summary: SummaryCf
 
 /** Comandos criados por dia (para o gráfico das Estatísticas). */
 export function commandsPerDay(store: Store, p: ProjectCfg, dias: number, now = new Date()) {
-  const cmds = store.commands(p.id, 2000);
+  const cmds = store.commandsSince(p.id, localDay(new Date(now.getTime() - (dias - 1) * 86_400_000)));
   const out: { dia: string; total: number; done: number }[] = [];
   for (let i = dias - 1; i >= 0; i--) {
     const dia = localDay(new Date(now.getTime() - i * 86_400_000));

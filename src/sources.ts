@@ -7,6 +7,7 @@ import type { ProjectCfg } from './config.ts';
 import { normalize } from './normalize.ts';
 import { canonicalStatus, parseTasks, statusInText, readKey, sha, splitSections, type TaskRow } from './parser.ts';
 import { redact } from './redact.ts';
+import { localIso } from './date.ts';
 import type { Entry, Store } from './store.ts';
 
 export type Kind = 'chat' | 'command' | 'status' | 'leader' | 'events' | 'decisions' | 'inbox' | 'goal' | 'handoff' | 'tasks' | 'meta';
@@ -23,11 +24,7 @@ export function readText(p: string): string {
   return redact(normalize(readFileSync(p, 'utf8')));
 }
 
-function localIso(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
-
+export { localIso };
 export function nowIso(): string { return localIso(new Date()); }
 
 /** Pasta do Goal ativo, lida de ACTIVE_GOAL.md (nunca hardcoded). */

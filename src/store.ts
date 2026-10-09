@@ -1,6 +1,8 @@
+import { createHash } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
+import { localIso } from './date.ts';
 
 export interface Entry {
   id: number;
@@ -38,6 +40,8 @@ export interface Command {
   approval: 'pending' | 'approved' | 'rejected' | null; // separado de status: um ACK não apaga a pendência
   status: string; // NEW | ACK | WORKING | BLOCKED | REVIEW | DONE | FAILED | AWAITING_APPROVAL
   updated_by: string | null;
+  /** Quem pediu: DONO ou o id da pessoa do time (null em comandos antigos de outra pessoa). */
+  created_by?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -101,12 +105,61 @@ export class Store {
         project TEXT NOT NULL, id TEXT NOT NULL, look TEXT NOT NULL, PRIMARY KEY (project, id)
       );
     `);
-    // Migração: bancos da Fase 2 não têm a coluna approval.
-    const cols = this.db.prepare('PRAGMA table_info(commands)').all() as Array<{ name: string }>;
-    if (!cols.some((c) => c.name === 'approval')) {
-      this.db.exec('ALTER TABLE commands ADD COLUMN approval TEXT');
-      this.db.exec("UPDATE commands SET approval = 'pending' WHERE requires_approval = 1");
+    this.migrate();
+  }
+
+  /**
+   * Migrações numeradas (PRAGMA user_version). Cada passo roda uma vez, em ordem, dentro de uma transação:
+   * banco antigo sobe até a versão atual; banco novo passa por todas. Nunca editar um passo já publicado, só somar.
+   */
+  private migrate() {
+    const steps: Array<() => void> = [
+      // 1 (Fase 3): aprovação numa coluna própria, para um ACK não apagar a pendência.
+      () => {
+        const cols = this.db.prepare('PRAGMA table_info(commands)').all() as Array<{ name: string }>;
+        if (!cols.some((c) => c.name === 'approval')) {
+          this.db.exec('ALTER TABLE commands ADD COLUMN approval TEXT');
+          this.db.exec("UPDATE commands SET approval = 'pending' WHERE requires_approval = 1");
+        }
+      },
+      // 2 (v4.0): quem criou o comando, votos de aprovação (dupla), auditoria encadeada e ajustes por projeto.
+      () => {
+        this.db.exec(`
+          ALTER TABLE commands ADD COLUMN created_by TEXT;
+          CREATE TABLE IF NOT EXISTS approvals (
+            code TEXT NOT NULL, person TEXT NOT NULL, decision TEXT NOT NULL, at TEXT NOT NULL,
+            PRIMARY KEY (code, person)
+          );
+          CREATE TABLE IF NOT EXISTS audit (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            at TEXT NOT NULL, project TEXT NOT NULL, actor TEXT NOT NULL, action TEXT NOT NULL,
+            target TEXT NOT NULL, detail TEXT NOT NULL, prev TEXT NOT NULL, hash TEXT NOT NULL
+          );
+          -- Só acréscimo: o banco recusa editar ou apagar uma linha da auditoria.
+          CREATE TRIGGER IF NOT EXISTS audit_no_update BEFORE UPDATE ON audit BEGIN SELECT RAISE(ABORT, 'auditoria só aceita acréscimo'); END;
+          CREATE TRIGGER IF NOT EXISTS audit_no_delete BEFORE DELETE ON audit BEGIN SELECT RAISE(ABORT, 'auditoria só aceita acréscimo'); END;
+          CREATE TABLE IF NOT EXISTS settings (
+            project TEXT NOT NULL, key TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY (project, key)
+          );
+        `);
+        // Comandos antigos: o nome de quem pediu ia no texto ("[Ana] ...").
+        this.db.exec("UPDATE commands SET created_by = 'DONO' WHERE created_by IS NULL AND text NOT LIKE '[%'");
+      },
+    ];
+    const at = Number((this.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version);
+    for (let v = at; v < steps.length; v++) {
+      this.db.exec('BEGIN');
+      try {
+        steps[v]();
+        this.db.exec(`PRAGMA user_version = ${v + 1}`);
+        this.db.exec('COMMIT');
+      } catch (e) { this.db.exec('ROLLBACK'); throw e; }
     }
+  }
+
+  /** Versão do esquema (quantas migrações já rodaram). */
+  get schemaVersion(): number {
+    return Number((this.db.prepare('PRAGMA user_version').get() as { user_version: number }).user_version);
   }
 
   fileHash(p: string): string | undefined {
@@ -167,9 +220,9 @@ export class Store {
   }
 
   addCommand(c: Omit<Command, 'id'>): Command {
-    const r = this.db.prepare(`INSERT INTO commands(project, code, target, text, requires_approval, approval, status, updated_by, created_at, updated_at)
-      VALUES (?,?,?,?,?,?,?,?,?,?)`).run(c.project, c.code, c.target, c.text, c.requires_approval, c.approval, c.status, c.updated_by, c.created_at, c.updated_at);
-    return { ...c, id: Number(r.lastInsertRowid) };
+    const r = this.db.prepare(`INSERT INTO commands(project, code, target, text, requires_approval, approval, status, updated_by, created_by, created_at, updated_at)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(c.project, c.code, c.target, c.text, c.requires_approval, c.approval, c.status, c.updated_by, c.created_by ?? null, c.created_at, c.updated_at);
+    return { ...c, created_by: c.created_by ?? null, id: Number(r.lastInsertRowid) };
   }
 
   command(code: string): Command | undefined {
@@ -211,8 +264,9 @@ export class Store {
 
   // ---------- notas rápidas ----------
   addNote(project: string, text: string): Note {
-    const r = this.db.prepare('INSERT INTO notes(project, text, created_at, done) VALUES (?,?,?,0)').run(project, text, nowIso());
-    return { id: Number(r.lastInsertRowid), project, text, created_at: nowIso(), done: 0 };
+    const at = nowIso();
+    const r = this.db.prepare('INSERT INTO notes(project, text, created_at, done) VALUES (?,?,?,0)').run(project, text, at);
+    return { id: Number(r.lastInsertRowid), project, text, created_at: at, done: 0 };
   }
   notes(project: string, limit = 200): Note[] {
     return this.db.prepare('SELECT * FROM notes WHERE project = ? ORDER BY done ASC, id DESC LIMIT ?').all(project, limit) as unknown as Note[];
@@ -241,9 +295,10 @@ export class Store {
 
   // ---------- atalhos de comando ----------
   addShortcut(project: string, label: string, text: string, target: string): Shortcut {
+    const at = nowIso();
     const r = this.db.prepare('INSERT INTO shortcuts(project, label, text, target, created_at) VALUES (?,?,?,?,?)')
-      .run(project, label, text, target, nowIso());
-    return { id: Number(r.lastInsertRowid), project, label, text, target, created_at: nowIso() };
+      .run(project, label, text, target, at);
+    return { id: Number(r.lastInsertRowid), project, label, text, target, created_at: at };
   }
   shortcuts(project: string): Shortcut[] {
     return this.db.prepare('SELECT * FROM shortcuts WHERE project = ? ORDER BY id ASC').all(project) as unknown as Shortcut[];
@@ -284,11 +339,62 @@ export class Store {
     `).all(project, sinceIso) as unknown as AgentStat[];
   }
 
+  // ---------- votos de aprovação (aprovação em dupla) ----------
+  /** Registra o voto de uma pessoa; false se ela já tinha votado neste comando. */
+  addVote(code: string, person: string, decision: 'approve' | 'reject', at: string): boolean {
+    return this.db.prepare('INSERT OR IGNORE INTO approvals(code, person, decision, at) VALUES (?,?,?,?)').run(code, person, decision, at).changes > 0;
+  }
+  votes(code: string): { person: string; decision: string; at: string }[] {
+    return this.db.prepare('SELECT person, decision, at FROM approvals WHERE code = ? ORDER BY at, person').all(code) as never;
+  }
+
+  // ---------- ajustes por projeto ----------
+  setting(project: string, key: string): string | undefined {
+    return (this.db.prepare('SELECT value FROM settings WHERE project = ? AND key = ?').get(project, key) as { value: string } | undefined)?.value;
+  }
+  setSetting(project: string, key: string, value: string) {
+    this.db.prepare('INSERT INTO settings(project, key, value) VALUES (?,?,?) ON CONFLICT(project, key) DO UPDATE SET value=excluded.value').run(project, key, value);
+  }
+
+  // ---------- auditoria (só acréscimo, hash encadeado) ----------
+  /** Cada linha guarda o hash da anterior: mexer numa linha antiga quebra a corrente dali em diante. */
+  audit(a: { project: string; actor: string; action: string; target?: string; detail?: string; at?: string }): AuditRow {
+    const prev = (this.db.prepare('SELECT hash FROM audit ORDER BY id DESC LIMIT 1').get() as { hash: string } | undefined)?.hash ?? GENESIS;
+    const row = { at: a.at ?? nowIso(), project: a.project, actor: a.actor, action: a.action, target: a.target ?? '', detail: (a.detail ?? '').slice(0, 2000) };
+    const hash = auditHash(prev, row);
+    const r = this.db.prepare('INSERT INTO audit(at, project, actor, action, target, detail, prev, hash) VALUES (?,?,?,?,?,?,?,?)')
+      .run(row.at, row.project, row.actor, row.action, row.target, row.detail, prev, hash);
+    return { id: Number(r.lastInsertRowid), ...row, prev, hash };
+  }
+  auditLog(project: string | null, limit = 200): AuditRow[] {
+    const lim = Math.min(Math.max(limit, 1), 100_000);
+    return (project === null
+      ? this.db.prepare('SELECT * FROM audit ORDER BY id DESC LIMIT ?').all(lim)
+      : this.db.prepare("SELECT * FROM audit WHERE project = ? OR project = '' ORDER BY id DESC LIMIT ?").all(project, lim)) as unknown as AuditRow[];
+  }
+  /** Confere a corrente inteira. ok=false aponta a primeira linha que não bate. */
+  verifyAudit(): { ok: boolean; total: number; brokenAt: number | null } {
+    let prev = GENESIS, total = 0;
+    for (const r of this.db.prepare('SELECT * FROM audit ORDER BY id').iterate() as Iterable<AuditRow>) {
+      total++;
+      if (r.prev !== prev || r.hash !== auditHash(prev, r)) return { ok: false, total, brokenAt: r.id };
+      prev = r.hash;
+    }
+    return { ok: true, total, brokenAt: null };
+  }
+
   close() { this.db.close(); }
 }
 
 export interface Note { id: number; project: string; text: string; created_at: string; done: number }
 export interface Shortcut { id: number; project: string; label: string; text: string; target: string; created_at: string }
+export interface AuditRow { id: number; at: string; project: string; actor: string; action: string; target: string; detail: string; prev: string; hash: string }
 export interface AgentStat { agent: string; registros: number; done: number; travado: number }
 
-function nowIso(): string { return new Date().toISOString(); }
+// Hora local, como o resto dos registros: em UTC, uma nota feita depois das 21h (Brasil) caía no diário do dia seguinte.
+const nowIso = () => localIso();
+
+const GENESIS = '0'.repeat(64);
+function auditHash(prev: string, r: Pick<AuditRow, 'at' | 'project' | 'actor' | 'action' | 'target' | 'detail'>): string {
+  return createHash('sha256').update(prev).update(JSON.stringify([r.at, r.project, r.actor, r.action, r.target, r.detail])).digest('hex');
+}

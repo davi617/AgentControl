@@ -571,3 +571,22 @@ h1 { margin: 0 0 2px; font: 600 24px/1.2 var(--display); }
 .device { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--r-s); background: var(--raised); }
 .device strong { display: block; font-size: 14px; }
 .device span { font-size: 12px; overflow-wrap: anywhere; }
+
+/* v4.0: segurança (pânico, aprovação em dupla, auditoria) */
+.sec-block { margin: 14px 0; padding-top: 12px; border-top: 1px solid var(--line-2); }
+.sec-block h3 { margin: 0 0 6px; font-size: 14px; }
+.sec-toggle { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; cursor: pointer; }
+.sec-toggle input { margin-top: 3px; }
+.panic-btn { min-height: 44px; padding: 0 18px; border-radius: var(--r-s); border: 0; background: var(--err); color: #fff; font-weight: 700; font-size: 14px; cursor: pointer; }
+.panic-btn:hover { filter: brightness(1.1); }
+.panic-btn:disabled { opacity: .5; cursor: wait; }
+.panic-banner { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; margin: 12px 16px 0; padding: 12px 16px; border-radius: var(--r-s); background: var(--err); color: #fff; }
+.panic-banner span { flex: 1 1 220px; font-size: 13px; }
+.panic-banner .ghost-btn { border-color: rgba(255,255,255,.6); color: #fff; min-height: 36px; }
+.panic-banner[hidden] { display: none; }
+.audit-list { max-height: 240px; overflow: auto; margin: 6px 0 10px; padding-left: 0; list-style: none; font-size: 12px; }
+.audit-list li { padding: 5px 0; border-bottom: 1px solid var(--line-2); overflow-wrap: anywhere; }
+.audit-list b { font-weight: 600; }
+.audit-ok { color: var(--ok-text); }
+.audit-bad { color: var(--err-text); font-weight: 700; }
+.appr-votes { font-size: 12px; color: var(--warn-text); }

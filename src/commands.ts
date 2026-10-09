@@ -120,7 +120,7 @@ export function guardInbox(p: ProjectCfg, changed: string): string | null {
   return m.agent;
 }
 
-export function createCommand(store: Store, p: ProjectCfg, rawText: string, target: string): Command {
+export function createCommand(store: Store, p: ProjectCfg, rawText: string, target: string, createdBy = 'DONO'): Command {
   const file = inboxPath(p);
   if (!file) throw new Error('sem Goal ativo para receber o comando');
   const text = redact(rawText.trim()).slice(0, MAX_COMMAND_CHARS);
@@ -135,6 +135,7 @@ export function createCommand(store: Store, p: ProjectCfg, rawText: string, targ
     approval: approval ? 'pending' : null,
     status: approval ? 'AWAITING_APPROVAL' : 'NEW',
     updated_by: 'JARVIS',
+    created_by: createdBy,
     created_at: now,
     updated_at: now,
   });
@@ -176,8 +177,12 @@ export function trackCommands(store: Store, entries: Entry[]): Command[] {
 /**
  * Fase 3: você aprova ou recusa UM comando protegido. Vale só para esse código.
  * Registra "approved: J-xxx" / "rejected: J-xxx" no JARVIS-INBOX.md (regra do GOAL_MODE_PROTOCOL).
+ *
+ * Aprovação em dupla (v4.0, plano Time): com `needed` = 2, o comando só é liberado quando duas pessoas DIFERENTES
+ * com papel de dono aprovam. Um "recusar" de qualquer uma vale na hora. O inbox só recebe a decisão final, então
+ * os agentes nunca veem um "meio aprovado".
  */
-export function decideCommand(store: Store, p: ProjectCfg, code: string, decision: 'approve' | 'reject'): Command {
+export function decideCommand(store: Store, p: ProjectCfg, code: string, decision: 'approve' | 'reject', by = 'DONO', needed = 1): Command {
   const c = store.command(code);
   if (!c || c.project !== p.id) throw new Error('comando desconhecido');
   if (!c.requires_approval) throw new Error('este comando não precisa de aprovação');
@@ -187,8 +192,13 @@ export function decideCommand(store: Store, p: ProjectCfg, code: string, decisio
   const base = file ? written.get(key(file)) ?? readOr(file) : null;
   if (!file || base === null) throw new Error('JARVIS-INBOX.md não encontrado');
   const now = nowIso();
-  const [date, time] = now.split('T');
+  if (!store.addVote(code, by, decision, now)) throw new Error('você já decidiu este comando; falta outra pessoa');
+  const approvers = store.votes(code).filter((v) => v.decision === 'approve').map((v) => v.person);
   const approved = decision === 'approve';
+  // Dupla: primeiro "sim" fica registrado, mas o comando continua parado.
+  if (approved && approvers.length < needed) return store.command(code)!;
+  const [date, time] = now.split('T');
+  const quem = approvers.length > 1 ? `por ${approvers.join(' e ')}` : 'por você';
   writeFileSync(file, base + [
     '',
     `## ${date} ${time.slice(0, 5)} — DONO (via JARVIS)`,
@@ -196,11 +206,11 @@ export function decideCommand(store: Store, p: ProjectCfg, code: string, decisio
     `- ${approved ? 'approved' : 'rejected'}: ${code}`,
     `- status: ${approved ? 'APPROVED' : 'REJECTED'}`,
     '',
-    approved ? `> Aprovado por você no Agent Control. Vale só para ${code}.` : `> Recusado por você no Agent Control. Não executar ${code}.`,
+    approved ? `> Aprovado ${quem} no Agent Control. Vale só para ${code}.` : `> Recusado no Agent Control. Não executar ${code}.`,
     '',
   ].join('\n'));
   mirrorInbox(p, file);
   store.setApproval(code, approved ? 'approved' : 'rejected', now);
-  if (c.status !== 'VIOLATION') store.setCommandStatus(code, approved ? 'APPROVED' : 'REJECTED', 'DONO', now);
+  if (c.status !== 'VIOLATION') store.setCommandStatus(code, approved ? 'APPROVED' : 'REJECTED', by, now);
   return store.command(code)!;
 }

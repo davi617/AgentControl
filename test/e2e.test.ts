@@ -399,8 +399,12 @@ test('time: dono convida, pessoa entra com token próprio, fala com o nome dela,
     assert.equal((await post(inv.token, '/api/commands/decide', { project: 'test', code: cmd.command.code, decision: 'approve' })).status, 403);
     assert.equal((await post(inv.token, '/api/team/invite', { name: 'Intruso', role: 'dono' })).status, 403);
 
+    // atalho: só o dono cria (um atalho de membro rodado pelo dono sairia sem o nome de quem escreveu)
+    assert.equal((await post(inv.token, '/api/shortcuts', { project: 'test', label: 'x', text: 'deploy', target: 'CODEX' })).status, 403);
+    assert.equal((await post(inv.token, '/api/shortcuts/delete', { project: 'test', id: 1 })).status, 403);
+    assert.equal((await post(inv.token, '/api/alerts/prefs', { project: 'test', prefs: {} })).status, 403);
     // atalho rodado pela membro também leva o nome dela (antes saía como se fosse do dono)
-    const sc = await (await post(inv.token, '/api/shortcuts', { project: 'test', label: 'testes', text: 'rode a suíte', target: 'CODEX' })).json();
+    const sc = await (await post(token, '/api/shortcuts', { project: 'test', label: 'testes', text: 'rode a suíte', target: 'CODEX' })).json();
     const viaAtalho = await (await post(inv.token, '/api/shortcuts/run', { project: 'test', id: sc.id })).json();
     assert.match(viaAtalho.command.text, /^\[Ana Júlia\] rode a suíte/);
     const doDono = await (await post(token, '/api/shortcuts/run', { project: 'test', id: sc.id })).json();

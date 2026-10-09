@@ -1,4 +1,4 @@
-# Central de Missões · 3.2 em desenvolvimento
+# Central de Missões · 4.0 em desenvolvimento
 
 A Central reúne o Goal ativo, as tarefas registradas em TASKS.md, os últimos STATUS dos agentes, as aprovações e a
 atividade recente. Ela permite planejar o próximo trabalho e levar o contexto do projeto para outra sessão de agente.

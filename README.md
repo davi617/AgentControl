@@ -50,7 +50,7 @@ No macOS, na primeira vez: botão direito no app → **Abrir** (o app não é as
 
 ## O que é
 
-### Em desenvolvimento · 3.2 · Central de Missões
+### Em desenvolvimento · 4.0 · Central de Missões e novo núcleo
 
 - **Visão geral do projeto:** Goal, progresso das tarefas, time configurado, aprovações e comandos concluídos no dia.
 - **Kanban e lista:** tarefas na fila, em andamento, bloqueadas, em revisão e concluídas; filtro por responsável ou texto.
@@ -62,6 +62,9 @@ No macOS, na primeira vez: botão direito no app → **Abrir** (o app não é as
   quando há muitas mensagens na sala.
 - **PC e navegador do celular:** abra Missões na sala, no Launcher, na bandeja do PC ou pela Visão geral do HUD.
   No navegador do celular, a barra de abas pode ser rolada para alcançar todas as seções.
+
+- **Núcleo v4:** rotas com papéis explícitos, migrações SQLite, auditoria encadeada, aprovação em dupla e pânico.
+  A versão é sincronizada a partir de `version.json`.
 
 Veja [o escopo da atualização](docs/CENTRAL-DE-MISSOES.md) e [a revisão preparada para o Claude Code](docs/COORDENACAO-CLAUDE.md).
 

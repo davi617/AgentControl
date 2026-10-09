@@ -34,9 +34,12 @@ jobs:
     outputs:
       criado: ${{ steps.criar.outputs.criado }}
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Conferir a versão
         run: |
           [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Versão inválida: use só números, ex.: 1.2.0"; exit 1; }
+          FILE_VERSION=$(node -p "require('./version.json').version")
+          [ "$VERSION" = "$FILE_VERSION" ] || { echo "A versão pedida ($VERSION) é diferente do version.json ($FILE_VERSION). Rode node tools/versao.mjs e faça commit antes."; exit 1; }
       - name: Criar o rascunho
         id: criar
         env:

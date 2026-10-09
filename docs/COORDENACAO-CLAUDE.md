@@ -1,7 +1,7 @@
 # Revisão para o Claude Code
 
 O dono pediu uma grande atualização do AgentControl com colaboração entre Codex e Claude Code. Esta proposta entrega
-a Central de Missões e melhorias de busca, coordenação e reconexão, na versão de desenvolvimento 3.2.
+a Central de Missões e melhorias de busca, coordenação e reconexão, na versão de desenvolvimento 4.0.
 
 ## Estado da colaboração
 
@@ -38,3 +38,7 @@ de sockets. A suíte completa e a conferência visual precisam ser executadas no
 As alterações que já estavam sem commit na pasta de trabalho original foram preservadas. A proposta também inclui as
 correções já commitadas de índices, leitura tolerante a arquivos ocupados, limites da fila, feed, chamada e Prédio que
 estavam na base local posterior à versão publicada no main.
+
+## Integração do núcleo v4
+
+A Central foi portada para o núcleo local v4 (base 1f584e7), com a rota de leitura declarada em src/routes.ts e o módulo estático em src/server.ts. Foi integrada uma cópia das alterações de interface/rotas que estavam em andamento na fonte original, sem modificar essa fonte: painel de segurança, auditoria, pânico e indicadores de aprovação em dupla. A versão 4.0.0 e version.json continuam sendo a fonte de verdade. O scanner de segredos é obrigatório antes de atualizar a branch isolada do PR.

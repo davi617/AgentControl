@@ -37,6 +37,7 @@
       <button id="theme" class="link-btn" type="button">Tema: sistema</button>
       <button id="global-search" class="link-btn" type="button">Buscar no projeto · Ctrl K</button>
       <button id="devices-btn" class="link-btn" type="button" hidden>Aparelhos conectados</button>
+      <button id="security-btn" class="link-btn" type="button" hidden>Segurança e auditoria</button>
       <button class="link-btn logout" type="button" hidden>Sair deste aparelho</button>
     </div>
   </aside>
@@ -49,6 +50,28 @@
     <form method="dialog"><button class="link-btn" type="submit">Fechar</button></form>
   </dialog>
 
+  <dialog id="security" class="devices" aria-labelledby="security-h">
+    <h2 id="security-h" class="sub">Segurança e auditoria</h2>
+    <section class="sec-block">
+      <h3>Botão de pânico</h3>
+      <p class="muted">Para todos os agentes agora (corta a rodada em andamento), desliga os aparelhos conectados e fecha o acesso de quem não é dono até você desligar.</p>
+      <button id="panic-btn" class="panic-btn" type="button">Acionar pânico</button>
+    </section>
+    <section class="sec-block">
+      <h3>Aprovação em dupla</h3>
+      <label class="sec-toggle"><input id="dual-toggle" type="checkbox"> Comando protegido só anda com o "sim" de duas pessoas com papel de dono</label>
+      <p id="dual-note" class="muted"></p>
+    </section>
+    <section class="sec-block">
+      <h3>Auditoria</h3>
+      <p id="audit-check" class="muted"></p>
+      <ol id="audit-list" class="audit-list"></ol>
+      <a id="audit-csv" class="link-btn" href="#" download>Baixar tudo em CSV</a>
+    </section>
+    <p id="security-note" class="muted"></p>
+    <form method="dialog"><button class="link-btn" type="submit">Fechar</button></form>
+  </dialog>
+
   <header class="top">
     <span class="brand small"><img class="mark" src="/icon.svg" alt="" aria-hidden="true">Agent Control</span>
     <span id="view-title" class="view-title">Sala central</span>
@@ -57,6 +80,12 @@
     <code id="goal" class="goal" title="Goal ativo"></code>
     <button class="link-btn logout" type="button" hidden>Sair</button>
   </header>
+
+  <div id="panic-banner" class="panic-banner" role="alert" hidden>
+    <strong>Modo pânico ligado</strong>
+    <span id="panic-banner-sub">Agentes parados e acesso fechado para quem não é dono.</span>
+    <button id="panic-off" class="ghost-btn" type="button">Desligar pânico</button>
+  </div>
 
   <main>
     <section id="missoes" class="view" aria-label="Central de Missões">

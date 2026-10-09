@@ -7,7 +7,7 @@ import test from 'node:test';
 import { replyToDono, routeCommand } from '../src/reply.ts';
 import { readNote, searchNotes } from '../src/vault.ts';
 
-function setup(content: (n: number) => string | Promise<never>) {
+function setup(content: (n: number) => string | Promise<string>) {
   const root = mkdtempSync(path.join(tmpdir(), 'jarvis-reply-'));
   const vault = path.join(root, 'vault');
   mkdirSync(path.join(vault, 'CHAT'), { recursive: true });
