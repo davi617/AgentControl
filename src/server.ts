@@ -281,7 +281,8 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
               return;
             case '/api/vault/favorite': {
               const fp = String(body.path ?? '');
-              if (!fp) { send(400, { error: 'caminho vazio' }); return; }
+              // Só nota que existe no vault (mesma checagem da leitura): nada de caminho inventado na lista.
+              if (!fp || !readNote(p.vault, fp)) { send(400, { error: 'nota não encontrada no vault' }); return; }
               if (j.store.isFavorite(p.id, fp)) j.store.removeFavorite(p.id, fp);
               else j.store.addFavorite(p.id, fp, String(body.title ?? fp));
               send(200, { favorito: j.store.isFavorite(p.id, fp) });

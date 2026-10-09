@@ -519,3 +519,13 @@ test('app do celular: versão e APK publicados em data/app', async () => {
     j.cfg.db = saved;
   }
 });
+
+test('vault: favorito só aceita nota que existe no vault', async () => {
+  const h = { Origin: base, 'X-JARVIS-CSRF': await csrfOf(), 'Content-Type': 'application/json' };
+  const fav = (p: string) => fetch(`${base}/api/vault/favorite`, { method: 'POST', headers: h, body: JSON.stringify({ project: 'test', path: p }) });
+  for (const bad of ['../../etc/passwd', '.obsidian/app.json', 'nao-existe.md', '']) assert.equal((await fav(bad)).status, 400, bad);
+  writeFileSync(path.join(vault, 'Ideias.md'), '# Ideias\n');
+  const ok = await fav('Ideias.md');
+  assert.equal(ok.status, 200);
+  assert.equal((await ok.json()).favorito, true);
+});

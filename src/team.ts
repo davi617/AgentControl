@@ -4,8 +4,9 @@
 
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { writePrivate } from './fsutil.ts';
 
 export type Role = 'dono' | 'membro' | 'leitura';
 export interface Person { id: string; name: string; role: Role; color: string; tokenHash?: string; created: string }
@@ -32,8 +33,7 @@ export class Team extends EventEmitter {
   }
   private save() {
     if (!this.file) return;
-    mkdirSync(path.dirname(this.file), { recursive: true });
-    writeFileSync(this.file, JSON.stringify({ people: this.people }, null, 2));
+    writePrivate(this.file, JSON.stringify({ people: this.people }, null, 2));
   }
 
   /** Cria uma pessoa e devolve o token UMA vez (só o hash fica salvo). */

@@ -144,6 +144,17 @@ test('chamada: anexos — texto entra direto, imagem vira descrição, tudo vai 
   assert.match(ata, /\*\*DONO\*\* anexou \[\[CALL-.+-anexos\/tela\.png\]\] \(imagem\): _Print com erro 500/);
   await assert.rejects(m.attach(p, 'virus.exe', 'application/octet-stream', Buffer.from('MZ')), /tipo não suportado/);
   await assert.rejects(m.attach(p, 'grande.txt', 'text/plain', Buffer.alloc(MAX_ATTACH_BYTES + 1)), /maior que 5 MB/);
+
+  // o log gravado no vault já sai sem o segredo; imagem falsa é recusada; ".." e nome repetido não estragam nada
+  const calls = path.join(vault, '20-Operations', 'Calls');
+  const dir = path.join(calls, readdirSync(calls).find((f) => f.endsWith('-anexos'))!);
+  assert.doesNotMatch(readFileSync(path.join(dir, 'erro.log'), 'utf8'), /abcdefghijklmnop123456/, 'segredo não fica no vault');
+  await assert.rejects(m.attach(p, 'x.png', 'image/png', Buffer.from('<svg onload=1>')), /não é png/);
+  const dots = await m.attach(p, '..', 'text/plain', Buffer.from('oi'));
+  assert.equal(dots.attachments!.at(-1)!.name, 'anexo');
+  const again = await m.attach(p, 'erro.log', 'text/plain', Buffer.from('outro'));
+  assert.equal(again.attachments!.at(-1)!.name, '2-erro.log');
+  assert.match(readFileSync(path.join(dir, 'erro.log'), 'utf8'), /TypeError/, 'o primeiro erro.log continua lá');
 });
 test('chamada: escolher quem entra e o modo; tocar no agente passa a vez; fim gera resumo com tarefas', async () => {
   const { m, p, vault } = setup();

@@ -45,6 +45,15 @@ export const CALL_TRIES: [string | undefined, number][] = [[undefined, 40_000], 
 const TEXT_EXT = /\.(txt|md|markdown|json|csv|log|ts|tsx|js|jsx|mjs|kt|java|py|cs|cpp|c|h|go|rs|sql|yaml|yml|toml|xml|html|css|ps1|sh|ini|env\.example)$/i;
 const IMAGE_MIME = /^image\/(png|jpe?g|webp|gif)$/i;
 
+/** O MIME vem do cliente; a imagem tem que ter a assinatura do formato nos primeiros bytes. */
+export function looksLikeImage(data: Buffer): boolean {
+  const h = data.subarray(0, 12);
+  return h.subarray(0, 4).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47])) // PNG
+    || h.subarray(0, 3).equals(Buffer.from([0xff, 0xd8, 0xff])) // JPEG
+    || h.subarray(0, 4).toString('latin1') === 'GIF8'
+    || (h.subarray(0, 4).toString('latin1') === 'RIFF' && h.subarray(8, 12).toString('latin1') === 'WEBP');
+}
+
 /** Sem o dono falar, o debate para depois de tantas falas (não queima a cota da NVIDIA sozinho). */
 export const MAX_AUTO_TURNS = 10;
 /** Modo GOAL (pedido do dono, 2026-09-28: "trabalham sem parar"): não espera o dono, só um teto de segurança bem alto. */
@@ -202,16 +211,22 @@ export class CallManager {
     const c = this.calls.get(p.id);
     if (!c || c.status === 'ENCERRADA') throw new Error('nenhuma chamada ativa');
     if (!data.length || data.length > MAX_ATTACH_BYTES) throw new Error('anexo vazio ou maior que 5 MB');
-    const name = path.basename(rawName).replace(/[^\w.\- ]+/g, '_').slice(0, 80) || 'anexo';
+    // Sem ponto no começo: nada de ".." (a pasta de cima) nem arquivo oculto no vault.
+    let name = path.basename(rawName).replace(/[^\w.\- ]+/g, '_').replace(/^[.\s]+/, '').slice(0, 80) || 'anexo';
     const isImage = IMAGE_MIME.test(mime);
+    if (isImage && !looksLikeImage(data)) throw new Error('a imagem não é png/jpg/webp/gif de verdade');
     if (!isImage && !TEXT_EXT.test(name) && !/^text\//.test(mime)) throw new Error('tipo não suportado: mande imagem (png/jpg/webp) ou arquivo de texto/código');
     const dir = path.join(path.dirname(c.file), `${c.id}-anexos`);
     mkdirSync(dir, { recursive: true });
+    // Mesmo nome duas vezes não apaga o anexo anterior.
+    for (let n = 2; existsSync(path.join(dir, name)); n++) name = name.replace(/^(\d+-)?/, `${n}-`);
     const file = path.join(dir, name);
-    writeFileSync(file, data);
+    // Texto passa pelo filtro de segredos ANTES de ir para o vault (antes ia cru: um log com token ficava gravado).
+    const clean = isImage ? '' : redact(data.toString('utf8'));
+    writeFileSync(file, isImage ? data : clean);
     const text = isImage
       ? await this.describe(this.j.cfg.summary, `data:${mime};base64,${data.toString('base64')}`)
-      : redact(data.toString('utf8')).slice(0, 12_000);
+      : clean.slice(0, 12_000);
     (c.attachments ??= []).push({ name, kind: isImage ? 'imagem' : 'arquivo', text, file });
     c.status = 'ATIVA';
     c.auto = 0;
