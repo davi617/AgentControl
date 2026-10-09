@@ -59,6 +59,9 @@ export class Store {
         UNIQUE(project, source, hash)
       );
       CREATE INDEX IF NOT EXISTS entries_feed ON entries(project, ts DESC, id DESC);
+      -- chat(), latestByAgent() e o feed filtrado por agente filtravam por kind/agent sem índice.
+      CREATE INDEX IF NOT EXISTS entries_kind ON entries(project, kind, ts DESC, id DESC);
+      CREATE INDEX IF NOT EXISTS entries_agent ON entries(project, agent, kind, ts DESC, id DESC);
       CREATE TABLE IF NOT EXISTS files (
         path TEXT PRIMARY KEY, hash TEXT NOT NULL, mtime TEXT NOT NULL
       );
@@ -68,6 +71,7 @@ export class Store {
         requires_approval INTEGER NOT NULL, status TEXT NOT NULL, updated_by TEXT,
         created_at TEXT NOT NULL, updated_at TEXT NOT NULL
       );
+      CREATE INDEX IF NOT EXISTS commands_project ON commands(project, id DESC);
       CREATE TABLE IF NOT EXISTS summaries (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         project TEXT NOT NULL, created_at TEXT NOT NULL, kind TEXT NOT NULL,
@@ -130,7 +134,12 @@ export class Store {
     const where = ['project = ?'];
     const args: Array<string | number> = [project];
     if (opts.agent) { where.push('agent = ?'); args.push(opts.agent); }
-    if (opts.before) { where.push('id < ?'); args.push(opts.before); }
+    if (opts.before) {
+      // A lista é ordenada por data (ts), não por id: continuar do `id <` pulava ou repetia mensagens quando as duas ordens diferem.
+      const ref = this.db.prepare('SELECT ts FROM entries WHERE id = ? AND project = ?').get(opts.before, project) as { ts: string } | undefined;
+      if (ref) { where.push('(ts < ? OR (ts = ? AND id < ?))'); args.push(ref.ts, ref.ts, opts.before); }
+      else { where.push('id < ?'); args.push(opts.before); }
+    }
     return this.db.prepare(`SELECT * FROM entries WHERE ${where.join(' AND ')} ORDER BY ts DESC, id DESC LIMIT ${limit}`)
       .all(...args) as unknown as Entry[];
   }
@@ -177,6 +186,11 @@ export class Store {
 
   commands(project: string, limit = 50): Command[] {
     return this.db.prepare('SELECT * FROM commands WHERE project = ? ORDER BY id DESC LIMIT ?').all(project, limit) as unknown as Command[];
+  }
+
+  /** Comandos criados a partir de um instante (filtra no SQLite em vez de trazer 1000 linhas para filtrar em JS). */
+  commandsSince(project: string, sinceIso: string): Command[] {
+    return this.db.prepare('SELECT * FROM commands WHERE project = ? AND created_at >= ? ORDER BY id DESC').all(project, sinceIso) as unknown as Command[];
   }
 
   addSummary(s: Omit<Summary, 'id'>): Summary {

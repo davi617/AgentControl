@@ -1,5 +1,6 @@
 // JARVIS — UI. Todo dado do bus entra via textContent (nunca innerHTML).
 import { createPredio } from '/predio.js';
+import { createMissions, createProjectSearch } from '/missions.js';
 
 const $ = (s) => document.querySelector(s);
 const el = (tag, cls, text) => {
@@ -16,7 +17,7 @@ const store = {
 // Dentro do app do celular (WebView do Prédio): sem a barra da sala, só a tela pedida.
 if (new URLSearchParams(location.search).has('embed')) document.documentElement.classList.add('embed');
 
-const state = { csrf: null, project: null, agent: '', oldest: null, es: null, taskFilter: 'abertas', agentsKnown: [] };
+const state = { csrf: null, project: null, projectEpoch: 0, agent: '', oldest: null, es: null, taskFilter: 'abertas', agentsKnown: [] };
 const KIND = { command: 'comando', status: 'status', inbox: 'ordem', leader: 'líder', events: 'evento', decisions: 'decisão', goal: 'goal', handoff: 'handoff', meta: 'goal ativo' };
 
 // ---------- tema ----------
@@ -35,15 +36,17 @@ $('#theme').addEventListener('click', () => {
 });
 
 // ---------- abas ----------
-const TAB_TITLE = { chat: 'Sala central', chamada: 'Chamada em grupo', predio: 'Prédio', sala: 'Sala (bus)', comandos: 'Comandos', agentes: 'Agentes', tarefas: 'Tarefas', resumos: 'Resumos' };
+const TAB_TITLE = { missoes: 'Central de Missões', chat: 'Sala central', chamada: 'Chamada em grupo', predio: 'Prédio', sala: 'Sala (bus)', comandos: 'Comandos', agentes: 'Agentes', tarefas: 'Tarefas', resumos: 'Resumos' };
 function showTab(name) {
   if (!TAB_TITLE[name]) name = 'chat';
   $('#view-title').textContent = TAB_TITLE[name];
   document.querySelectorAll('.tabs button').forEach((b) => b.classList.toggle('active', b.dataset.tab === name));
   document.querySelectorAll('.view').forEach((v) => v.classList.toggle('active', v.id === name));
+  document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-current', b.dataset.tab === name ? 'page' : 'false'));
   store.set('jarvis.tab', name);
   if (location.hash.slice(1) !== name) history.replaceState(null, '', `#${name}`);
   if (name === 'predio') predio.show(); else predio.hide();
+  missions.show(name === 'missoes');
   if (name === 'resumos' && state.project) loadSummary();
   if (name === 'chat') $('#thread').lastElementChild?.scrollIntoView({ block: 'end' });
 }
@@ -79,12 +82,35 @@ const predio = createPredio($('#predio-root'), {
   },
 });
 
+// Missões preparam a ordem no compositor existente, com o mesmo protocolo de aprovação.
+const missions = createMissions($('#missions-root'), {
+  onNavigate: showTab,
+  onCommand(agent, text) {
+    showTab('comandos');
+    const target = $('#cmd-to');
+    target.value = [...target.options].some((o) => o.value === agent) ? agent : 'LEADER';
+    $('#cmd-text').value = text.slice(0, 4000);
+    $('#cmd-text').focus();
+  },
+});
+const projectSearch = createProjectSearch({ getProject: () => state.project, onNavigate: showTab });
+$('#global-search').addEventListener('click', () => projectSearch.open());
+$('#global-search-mobile').addEventListener('click', () => projectSearch.open());
+addEventListener('keydown', (ev) => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'k' && !ev.altKey && !ev.isComposing) { ev.preventDefault(); projectSearch.open(); }
+});
+addEventListener('pagehide', (ev) => { if (!ev.persisted) { missions.dispose(); projectSearch.dispose(); state.es?.close(); } });
+
 // ---------- util ----------
 const api = async (path) => {
+  const project = state.project;
+  const epoch = state.projectEpoch;
   const sep = path.includes('?') ? '&' : '?';
-  const r = await fetch(`${path}${sep}project=${encodeURIComponent(state.project)}`);
+  const r = await fetch(`${path}${sep}project=${encodeURIComponent(project)}`, { signal: AbortSignal.timeout(10_000) });
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
-  return r.json();
+  const data = await r.json();
+  if (epoch !== state.projectEpoch) throw new Error('O projeto selecionado mudou durante a consulta.');
+  return data;
 };
 function fmtTime(ts) {
   if (!ts) return '';
@@ -184,7 +210,7 @@ async function loadFeed(append = false) {
     feed.append(renderEntry(e, false));
   }
   if (!append && !rows.length) feed.append(el('li', 'empty', 'Nenhuma mensagem ainda.'));
-  if (rows.length) state.oldest = Math.min(...rows.map((r) => r.id));
+  if (rows.length) state.oldest = rows[rows.length - 1].id; // a lista vem por data; o servidor continua dali (id menor não é a mais antiga)
   $('#more').hidden = rows.length < 60;
   if (!append && rows.length) store.set(`jarvis.seen.${state.project}`, String(Math.max(...rows.map((r) => r.id))));
 }
@@ -310,6 +336,9 @@ function appendChat(entries) {
   const th = $('#thread');
   th.querySelector('.empty')?.remove();
   for (const e of entries) { chatCache.push(e); th.append(renderBubble(e, true)); }
+  // Sessão longa: não deixa a conversa crescer sem fim na memória e na tela.
+  while (th.childElementCount > 600) th.firstElementChild.remove();
+  if (chatCache.length > 600) chatCache.splice(0, chatCache.length - 600);
   predio.chat(entries);
   th.lastElementChild?.scrollIntoView({ block: 'end', behavior: 'smooth' });
 }
@@ -338,8 +367,8 @@ $('#chat-form').addEventListener('submit', async (ev) => {
       headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
       body: JSON.stringify({ project: state.project, text, to: $('#chat-to').value, as: $('#chat-as').value, assunto: $('#chat-subject').value }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error ?? r.status);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
     $('#chat-text').value = '';
     $('#chat-subject').value = '';
     $('#chat-as').value = 'DONO';
@@ -390,8 +419,8 @@ async function decide(code, decision, btns) {
       headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
       body: JSON.stringify({ project: state.project, code, decision }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error ?? r.status);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
     $('#cmd-reply').classList.remove('err');
     $('#cmd-reply').textContent = data.reply;
   } catch (e) {
@@ -475,8 +504,8 @@ $('#composer').addEventListener('submit', async (ev) => {
       headers: { 'Content-Type': 'application/json', 'X-JARVIS-CSRF': state.csrf },
       body: JSON.stringify({ project: state.project, text, to: $('#cmd-to').value }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error ?? r.status);
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error ?? `HTTP ${r.status}`);
     reply.textContent = data.reply;
     $('#cmd-text').value = '';
     loadCommands();
@@ -549,6 +578,7 @@ async function loadSummary() {
 // ---------- chamada em grupo (voz) ----------
 // O servidor decide quem fala e gera o texto; aqui o navegador dá a voz (speechSynthesis) e ouve o dono (SpeechRecognition).
 const call = { data: null, paused: false, pumping: false, listening: false, rec: null, heard: '', voices: [], since: 0, clock: null, logged: 0 };
+const stopSpeaking = () => { try { speechSynthesis.cancel(); } catch { /* sem voz */ } };
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const PITCH = [1, 0.8, 1.22, 0.92, 1.1, 0.74, 1.3, 0.86];
 
@@ -703,7 +733,7 @@ async function dono(text) {
 function listen() {
   if (!SR) { callNote('Este navegador não escuta voz. Use o Edge ou o Chrome, ou digite a sua fala.', true); $('#call-text').focus(); return; }
   if (call.listening) { call.listening = false; call.rec?.stop(); return; }
-  speechSynthesis.cancel(); // interromper quem está falando, como numa call
+  stopSpeaking(); // interromper quem está falando, como numa call
   call.listening = true;
   call.heard = '';
   $('#call-mic').setAttribute('aria-pressed', 'true');
@@ -755,20 +785,21 @@ $('#call-start').addEventListener('submit', async (ev) => {
   } catch (e) { callNote(`Não liguei: ${e.message}`, true); } finally { btn.disabled = false; }
 });
 $('#call-mic').addEventListener('click', listen);
-$('#call-type').addEventListener('submit', (ev) => { ev.preventDefault(); const t = $('#call-text'); speechSynthesis.cancel(); dono(t.value); t.value = ''; });
+$('#call-type').addEventListener('submit', (ev) => { ev.preventDefault(); const t = $('#call-text'); stopSpeaking(); dono(t.value); t.value = ''; });
 $('#call-pause').addEventListener('click', () => {
   call.paused = !call.paused;
-  if (call.paused) { speechSynthesis.cancel(); caption('', 'Debate pausado.', true); }
+  if (call.paused) { stopSpeaking(); caption('', 'Debate pausado.', true); }
   callNote('');
   renderCall();
   if (!call.paused) pump();
 });
 $('#call-end').addEventListener('click', async () => {
-  speechSynthesis.cancel();
+  stopSpeaking();
   call.rec?.abort();
   call.listening = false;
   try { call.data = await callPost('/api/call/end'); } catch { /* já encerrada */ }
   clearInterval(call.clock);
+  call.clock = null;
   caption('', `Chamada encerrada · ${call.data?.turns.length ?? 0} falas. A ata ficou no vault.`, true);
   renderCall();
 });
@@ -810,7 +841,7 @@ async function refreshState() {
     fillChatTargets(s.agents);
   }
 }
-function scheduleState() { clearTimeout(stateTimer); stateTimer = setTimeout(refreshState, 200); }
+function scheduleState() { clearTimeout(stateTimer); stateTimer = setTimeout(() => refreshState().catch(() => {}), 200); }
 
 function connect() {
   state.es?.close();
@@ -819,9 +850,10 @@ function connect() {
   setConn('wait', 'conectando');
   const es = new EventSource(`/events?project=${encodeURIComponent(state.project)}`);
   state.es = es;
-  es.onopen = () => setConn('on', 'ao vivo');
-  es.onerror = () => setConn('wait', 'reconectando');
-  es.addEventListener('entries', (m) => {
+  es.onopen = () => { if (state.es === es) setConn('on', 'ao vivo'); };
+  es.onerror = () => { if (state.es === es) setConn('wait', 'reconectando'); };
+  const listen = (event, handler) => es.addEventListener(event, (message) => { if (state.es === es) handler(message); });
+  listen('entries', (m) => {
     const { entries } = JSON.parse(m.data);
     const feed = $('#feed');
     feed.querySelector('.empty')?.remove();
@@ -831,27 +863,43 @@ function connect() {
       store.set(`jarvis.seen.${state.project}`, String(e.id));
     }
   });
-  es.addEventListener('agents', scheduleState);
-  es.addEventListener('tasks', scheduleState);
-  es.addEventListener('commands', loadCommands);
-  es.addEventListener('chat', (m) => appendChat(JSON.parse(m.data).entries));
+  listen('agents', scheduleState);
+  listen('tasks', scheduleState);
+  listen('commands', () => loadCommands().catch(() => {}));
+  listen('chat', (m) => appendChat(JSON.parse(m.data).entries));
   // Falas vindas de outro aparelho (ex.: o dono falou pelo celular) entram na transcrição.
-  es.addEventListener('call', (m) => { const ev = JSON.parse(m.data); if (ev.turn) logTurn(ev.turn); if (ev.status && call.data) { call.data.status = ev.status; renderCall(); } });
-  es.addEventListener('summary', () => { loadRailSummary(); if ($('#resumos').classList.contains('active')) loadSummary(); });
+  listen('call', (m) => { const ev = JSON.parse(m.data); if (ev.turn) logTurn(ev.turn); if (ev.status && call.data) { call.data.status = ev.status; renderCall(); } });
+  listen('summary', () => { loadRailSummary().catch(() => {}); if ($('#resumos').classList.contains('active')) loadSummary().catch(() => {}); });
+  for (const event of ['entries', 'agents', 'tasks', 'commands', 'chat']) listen(event, () => missions.schedule());
+  let opened = false;
+  listen('open', () => {
+    missions.schedule();
+    // SSE não reapresenta eventos perdidos: recupera o retrato ao reconectar.
+    if (opened) Promise.allSettled([refreshState(), loadFeed(), loadCommands(), loadChat(), loadCall(), loadRailSummary()]);
+    opened = true;
+  });
 }
 
 async function selectProject(id) {
+  state.es?.close();
+  state.es = null;
+  clearTimeout(stateTimer);
   state.project = id;
+  const epoch = ++state.projectEpoch;
+  missions.setProject(id);
+  projectSearch.reset();
   state.agent = '';
   state.oldest = null;
   state.agentsKnown = [];
   store.set('jarvis.project', id);
   await refreshState();
-  await loadFeed();
-  await loadCommands();
-  await loadChat();
-  await loadRailSummary();
-  await loadCall();
+  if (state.projectEpoch !== epoch) return;
+  const results = await Promise.allSettled([loadFeed(), loadCommands(), loadChat(), loadRailSummary(), loadCall()]);
+  if (state.projectEpoch !== epoch) return;
+  if (results.some((r) => r.status === 'rejected')) {
+    $('#conn').dataset.state = 'wait';
+    $('#conn').lastElementChild.textContent = 'alguns dados indisponíveis';
+  }
   if ($('#resumos').classList.contains('active')) await loadSummary();
   connect();
 }
@@ -903,12 +951,21 @@ if ('serviceWorker' in navigator && isSecureContext) navigator.serviceWorker.reg
   const projects = await (await fetch('/api/projects')).json();
   const sel = $('#project');
   for (const p of projects) { const o = el('option', null, p.name); o.value = p.id; sel.append(o); }
-  sel.addEventListener('change', () => selectProject(sel.value));
-  const saved = store.get('jarvis.project', '');
+  sel.addEventListener('change', () => selectProject(sel.value).catch(reportBootError));
+  const saved = new URLSearchParams(location.search).get('project') ?? store.get('jarvis.project', '');
   const first = projects.find((p) => p.id === saved)?.id ?? projects[0]?.id;
   sel.value = first;
   const fromHash = location.hash.slice(1);
-  showTab(TAB_TITLE[fromHash] ? fromHash : fromHash === 'personagem' ? 'predio' : store.get('jarvis.tab', 'chat'));
+  showTab(TAB_TITLE[fromHash] ? fromHash : fromHash === 'personagem' ? 'predio' : store.get('jarvis.tab', 'missoes'));
+  if (!first) throw new Error('Nenhum projeto configurado no servidor.');
   await selectProject(first);
   if (fromHash === 'personagem') openPersonagem();
-})();
+})().catch(reportBootError);
+
+function reportBootError(e) {
+  $('#conn').dataset.state = 'off';
+  $('#conn').lastElementChild.textContent = 'servidor indisponível';
+  $('#cmd-reply').textContent = `Não foi possível carregar o projeto: ${e.message}. Confira o servidor e recarregue a página.`;
+  $('#cmd-reply').classList.add('err');
+  missions.error($('#cmd-reply').textContent);
+}

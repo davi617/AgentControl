@@ -314,6 +314,7 @@ public sealed class HudHost
             Item("Esconder", HideAll);
             Item("Tela completa", OpenFull);
             Item("Prédio dos agentes", OpenPredio);
+            Item("Central de Missões", OpenMissions);
             Item("Abrir o Launcher", OpenLauncher);
             Item("Pausar / retomar os agentes", () => SetPause(!Snap.Paused));
             Item("Silenciar o AgentC por 1 h", ToggleQuiet);
@@ -328,6 +329,7 @@ public sealed class HudHost
 
     // ---------- ações ----------
     public void OpenWeb() => Platform.OpenAppWindow(HudApi.Base + "/");
+    public void OpenMissions() => Platform.OpenAppWindow(HudApi.Base + "/?project=" + Uri.EscapeDataString(Api.Project) + "#missoes");
 
     public void OpenLauncher()
     {

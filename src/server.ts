@@ -1,5 +1,5 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, statSync } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +18,7 @@ import { OWNER, mentions, teamFor, type Role, type Who } from './team.ts';
 import { PlanStore, publicPlan } from './plans.ts';
 import { lookOwnerOk, sanitizeLook } from './looks.ts';
 import { SESSION_COOKIE, SESSION_DAYS, sessionsFor } from './sessions.ts';
+import { overview } from './overview.ts';
 
 const TEAM_POSTS = ['/api/team/invite', '/api/team/remove', '/api/team/role', '/api/plan/license', '/api/sessions/revoke'];
 const CALL_POSTS = ['/api/call/start', '/api/call/say', '/api/call/next', '/api/call/end', '/api/call/turn', '/api/call/round', '/api/call/kick'];
@@ -35,6 +36,7 @@ const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'pu
 const STATIC: Record<string, [string, string]> = {
   '/': ['index.html', 'text/html; charset=utf-8'],
   '/app.js': ['app.js', 'text/javascript; charset=utf-8'],
+  '/missions.js': ['missions.js', 'text/javascript; charset=utf-8'],
   '/predio.js': ['predio.js', 'text/javascript; charset=utf-8'],
   '/style.css': ['style.css', 'text/css; charset=utf-8'],
   '/icon.svg': ['icon.svg', 'image/svg+xml'],
@@ -50,6 +52,18 @@ const STATIC: Record<string, [string, string]> = {
 };
 /** Abrem sem token no remoto: só a tela de entrar e o que ela precisa (nada com dado do time). */
 const OPEN_STATIC = new Set(['/entrar', '/entrar.js', '/icon.svg', '/apple-touch-icon.png', '/manifest.webmanifest', '/style.css', '/icon-192.png', '/icon-512.png', '/icon-maskable-512.png']);
+
+/** Arquivos da pasta public em memória; relê só quando o mtime muda (antes era um readFileSync por requisição). */
+const staticCache = new Map<string, { mtime: number; data: Buffer }>();
+function staticFile(name: string): Buffer {
+  const file = path.join(PUBLIC, name);
+  const mtime = statSync(file).mtimeMs;
+  const hit = staticCache.get(file);
+  if (hit && hit.mtime === mtime) return hit.data;
+  const data = readFileSync(file);
+  staticCache.set(file, { mtime, data });
+  return data;
+}
 
 const SECURITY_HEADERS = {
   'Content-Security-Policy': "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'",
@@ -458,7 +472,7 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     const st = STATIC[url.pathname];
     if (st) {
       res.writeHead(200, { ...SECURITY_HEADERS, 'Content-Type': st[1] });
-      res.end(readFileSync(path.join(PUBLIC, st[0])));
+      res.end(staticFile(st[0]));
       return;
     }
 
@@ -498,6 +512,10 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
     if (!p) { send(404, { error: 'projeto desconhecido' }); return; }
 
     switch (url.pathname) {
+      case '/api/overview':
+        try { send(200, overview(j, p)); }
+        catch { send(503, { error: 'Não foi possível ler o estado do projeto. Tente novamente.' }); }
+        return;
       case '/api/state':
         send(200, j.state(p));
         return;
@@ -532,7 +550,8 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
         send(200, searchNotes(p.vault, (url.searchParams.get('q') ?? '').slice(0, 200)));
         return;
       case '/api/search':
-        send(200, searchAll(j, p, (url.searchParams.get('q') ?? '').slice(0, 200)));
+        try { send(200, searchAll(j, p, (url.searchParams.get('q') ?? '').slice(0, 200))); }
+        catch { send(503, { error: 'A busca está indisponível. Tente novamente.' }); }
         return;
       case '/api/notes':
         send(200, j.store.notes(p.id));
@@ -563,7 +582,7 @@ export function createServer(j: Jarvis, remote?: RemoteOpts): http.Server {
       case '/api/stats': {
         const dias = Math.min(Math.max(Number(url.searchParams.get('dias')) || 7, 1), 60);
         const since = new Date(Date.now() - dias * 86_400_000).toISOString();
-        const cmds = j.store.commands(p.id, 1000).filter((c) => c.created_at >= since);
+        const cmds = j.store.commandsSince(p.id, since);
         send(200, {
           dias,
           agentes: j.store.agentStats(p.id, since),

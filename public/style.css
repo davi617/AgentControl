@@ -41,6 +41,113 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 
+/* ---------- Central de Missões ---------- */
+.mission-eyebrow { margin: 0 0 8px; color: var(--brand-text); font: 600 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; }
+.mission-head { align-items: center; flex-wrap: wrap; }
+.mission-head h1 { font-size: 30px; margin-bottom: 8px; }
+.mission-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.mission-tools .btn { font-size: 12px; padding-inline: 12px; }
+.mission-notice { margin: -6px 0 20px; min-height: 20px; color: var(--muted); font-size: 12px; }
+.mission-notice.err { color: var(--err-text); }
+.mission-hero { display: flex; justify-content: space-between; align-items: center; gap: 28px; padding: 28px; margin-bottom: 16px; border: 1px solid var(--brand-line); border-radius: 18px; background: linear-gradient(115deg, var(--brand-soft), var(--surface) 65%); }
+.mission-hero > div { min-width: 0; }
+.mission-hero h2 { margin: 0 0 8px; font: 600 26px/1.25 var(--display); overflow-wrap: anywhere; }
+.mission-progress { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.mission-progress strong { font: 600 36px var(--display); color: var(--brand-text); }
+.mission-progress progress { width: 220px; height: 7px; border: 0; border-radius: 8px; overflow: hidden; background: var(--line-2); accent-color: var(--brand); }
+.mission-progress progress::-webkit-progress-bar { background: var(--line-2); }
+.mission-progress progress::-webkit-progress-value { background: var(--brand); }
+.mission-progress progress::-moz-progress-bar { background: var(--brand); }
+.mission-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
+.mission-stat { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding: 18px; border: 1px solid var(--line); border-radius: var(--r); text-align: left; background: var(--surface); cursor: pointer; }
+.mission-stat:hover { border-color: var(--brand-line); background: var(--raised); }
+.mission-stat strong { font: 600 30px var(--display); }
+.mission-stat small { font-size: 11px; color: var(--muted); }
+.mission-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 16px; margin-bottom: 22px; }
+.mission-title { margin: 0 0 14px; font: 600 17px var(--display); }
+.mission-agent { display: flex; gap: 12px; align-items: flex-start; padding: 16px 0; border-top: 1px solid var(--line); }
+.mission-agent .avatar { width: 38px; height: 38px; flex-shrink: 0; color: var(--brand-text); background: var(--brand-soft); }
+.mission-agent-info { flex: 1; min-width: 0; }
+.mission-agent-info p { margin: 3px 0 5px; font-size: 13px; overflow-wrap: anywhere; }
+.mission-agent-info small { display: block; font-size: 11px; }
+.mission-agent-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.mission-agent-actions .btn { height: 32px; font-size: 11px; padding-inline: 10px; }
+.mission-status { display: inline-block; padding: 3px 7px; font: 10px var(--mono); color: var(--muted); background: var(--raised); border: 1px solid var(--line); border-radius: 5px; overflow-wrap: anywhere; max-width: 180px; }
+.mission-status.lane-working { color: var(--brand-text); border-color: var(--brand-line); }
+.mission-status.lane-blocked, .mission-warning { color: var(--warn-text); }
+.mission-status.lane-done { color: var(--ok-text); }
+.mission-status.lane-review { color: var(--brand-text); }
+.mission-decision { display: flex; flex-direction: column; gap: 5px; width: 100%; margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-s); text-align: left; background: var(--raised); cursor: pointer; }
+.mission-decision:hover { border-color: var(--brand-line); }
+.mission-decision strong { font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.mission-decision small { font: 10px var(--mono); }
+.mission-decision .muted { font-size: 11px; }
+.mission-planner { margin-bottom: 28px; padding: 22px; }
+.mission-presets { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 0; }
+.mission-form { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 14px; align-items: start; }
+.mission-form > button { grid-column: 2; justify-self: end; }
+.mission-field { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 11px; }
+.mission-field input, .mission-field select, .mission-field textarea { width: 100%; min-width: 0; padding: 10px 12px; border: 1px solid var(--line-2); border-radius: var(--r-s); background: var(--bg); color: var(--text); font-size: 13px; }
+.mission-field textarea { resize: vertical; min-height: 100px; }
+.mission-section-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.mission-section-head .mission-title { margin-bottom: 0; }
+.mission-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin: 16px 0; }
+.mission-filters .mission-field:first-child { flex: 1; min-width: 200px; }
+.mission-filters select { min-width: 150px; }
+.mission-board { display: grid; grid-template-columns: repeat(5, minmax(180px, 1fr)); align-items: start; gap: 12px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 16px; }
+.mission-board > .empty { grid-column: 1 / -1; }
+.mission-column { background: var(--surface); border: 1px solid var(--line); border-top: 3px solid var(--line-3); border-radius: 10px; padding: 12px; min-height: 130px; }
+.mission-column.lane-working { border-top-color: var(--brand); }
+.mission-column.lane-blocked { border-top-color: var(--warn); }
+.mission-column.lane-review { border-top-color: var(--brand-text); }
+.mission-column.lane-done { border-top-color: var(--ok); }
+.mission-column h3 { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 0 0 14px; font-size: 12px; }
+.mission-count { color: var(--muted); background: var(--raised); border-radius: 5px; padding: 1px 6px; font: 11px var(--mono); }
+.mission-task { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 12px; margin-bottom: 10px; background: var(--raised); border: 1px solid var(--line-2); border-radius: var(--r-s); }
+.mission-task:last-child { margin-bottom: 0; }
+.mission-task h4 { margin: 0; font-size: 13px; font-weight: 500; overflow-wrap: anywhere; }
+.mission-task-meta { display: flex; flex-wrap: wrap; gap: 5px 10px; }
+.mission-task-meta code { color: var(--brand-text); font-size: 10px; }
+.mission-task-meta .muted { font-size: 10px; }
+.mission-task .link-btn { font-size: 11px; text-align: left; padding: 4px 0; }
+.mission-board.as-list { display: flex; flex-direction: column; }
+.mission-board.as-list .mission-column { width: 100%; min-height: auto; }
+.mission-board.as-list .mission-task { display: grid; grid-template-columns: 180px minmax(0, 1fr) auto; align-items: start; }
+.mission-board.as-list .mission-task .link-btn { grid-column: 2; }
+.mission-timeline { list-style: none; padding: 0; margin: 0; }
+.mission-timeline li { display: grid; grid-template-columns: 95px 90px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); font-size: 12px; }
+.mission-timeline li span, .mission-timeline li strong { overflow-wrap: anywhere; }
+.mission-timeline time { font-size: 11px; }
+.project-search { width: min(700px, calc(100vw - 24px)); max-height: min(700px, calc(100dvh - 40px)); padding: 24px; border: 1px solid var(--line-3); border-radius: 18px; color: var(--text); background: var(--surface); }
+.project-search::backdrop { background: rgba(0,0,0,.65); }
+.project-search .mission-field { margin: 18px 0 12px; }
+.project-search-results { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.project-search-hit { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 12px; border: 1px solid var(--line-2); border-radius: 8px; text-align: left; background: var(--raised); cursor: pointer; }
+.project-search-hit .mission-eyebrow { margin: 0; }
+.project-search-hit strong, .project-search-hit span { overflow-wrap: anywhere; }
+.project-search-preview { white-space: pre-wrap; overflow-wrap: anywhere; padding: 16px; border: 1px solid var(--line); border-radius: 8px; font: 13px/1.6 var(--mono); }
+@media (max-width: 1180px) { .mission-head { align-items: flex-start; } .mission-head > div { flex-basis: 100%; } }
+@media (max-width: 860px) {
+  .mission-head h1 { font-size: 25px; }
+  .mission-hero { padding: 20px; flex-direction: column; align-items: stretch; gap: 18px; }
+  .mission-hero h2 { font-size: 22px; }
+  .mission-progress { align-items: flex-start; }
+  .mission-progress progress { width: 100%; }
+  .mission-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .mission-stat { padding: 14px; }
+  .mission-grid { grid-template-columns: minmax(0, 1fr); }
+  .mission-form { grid-template-columns: minmax(0, 1fr); }
+  .mission-form > button { grid-column: 1; }
+  .mission-board.as-list .mission-task { display: flex; }
+  .mission-agent-actions .btn { min-height: 44px; }
+  .mission-task .link-btn { min-height: 44px; }
+  .mission-timeline li { grid-template-columns: 82px minmax(0, 1fr); gap: 6px 12px; }
+  .mission-timeline li span { grid-column: 2; }
+  .mission-filters .mission-field { flex: 1; }
+  .mission-filters select { min-width: 0; }
+  #global-search-mobile { height: 36px; padding-inline: 10px; font-size: 11px; }
+}
+
 /* ---------- barra lateral (desktop) ---------- */
 .side {
   position: fixed; inset: 0 auto 0 0; width: var(--side-w); z-index: 10; display: flex; flex-direction: column; gap: 4px;
@@ -316,8 +423,8 @@ h1 { margin: 0 0 2px; font: 600 24px/1.2 var(--display); }
   body { padding-bottom: calc(var(--tabs-h) + env(safe-area-inset-bottom)); }
   .side { inset: auto 0 0 0; width: auto; height: calc(var(--tabs-h) + env(safe-area-inset-bottom)); padding: 0 0 env(safe-area-inset-bottom); border: 0; border-top: 1px solid var(--line); background: var(--surface); }
   .side > .brand, .side > .proj, .side > .live { display: none; }
-  .tabs { flex-direction: row; height: var(--tabs-h); gap: 0; }
-  .tabs button { flex: 1; flex-direction: column; justify-content: center; gap: 3px; height: 100%; padding: 0 2px; border-radius: 0; font-size: 11px; color: var(--muted); }
+  .tabs { flex-direction: row; height: var(--tabs-h); gap: 0; overflow-x: auto; }
+  .tabs button { flex: 1 0 70px; flex-direction: column; justify-content: center; gap: 3px; height: 100%; padding: 0 2px; border-radius: 0; font-size: 11px; color: var(--muted); }
   .tabs button:hover { background: none; }
   .tabs button.active { background: none; color: var(--brand-hi); }
   .tabs svg { width: 20px; height: 20px; }
@@ -376,9 +483,11 @@ h1 { margin: 0 0 2px; font: 600 24px/1.2 var(--display); }
 .predio-btn:hover, .predio-floor:hover, .predio-find:hover { border-color: var(--brand); }
 .predio-find { height: 40px; max-width: 140px; padding: 0 10px; border-radius: 12px; border: 1px solid var(--line-2); background: var(--surface); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
 .predio-tools { flex-wrap: wrap; justify-content: flex-end; }
-@media (max-width: 520px) { .predio-tools { width: 100%; gap: 4px; justify-content: space-between; } .predio-find { max-width: none; flex: 1 0 100%; } .predio-btn { width: 36px; height: 36px; font-size: 15px; } }
+@media (max-width: 520px) { .predio-tools { width: 100%; gap: 4px; justify-content: space-between; } .predio-find { max-width: none; flex: 1 0 100%; } .predio-btn { width: 40px; height: 40px; font-size: 15px; } }
 .predio-stage { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); background: var(--surface); touch-action: none; }
 .predio-canvas { display: block; cursor: pointer; }
+.predio-canvas:focus-visible { outline-offset: -3px; }
+@media (prefers-reduced-motion: reduce) { .predio-card { backdrop-filter: none; } }
 .predio-card { position: absolute; right: 12px; top: 12px; width: min(320px, calc(100% - 24px)); padding: 14px; border-radius: var(--r); background: color-mix(in srgb, var(--surface) 96%, transparent); border: 1px solid var(--line-3); box-shadow: 0 18px 40px rgba(0,0,0,.45); backdrop-filter: blur(8px); }
 .predio-card-h { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 .predio-card-h i { width: 10px; height: 10px; border-radius: 50%; }

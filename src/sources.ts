@@ -95,9 +95,9 @@ function authorFor(src: SourceFile, headingAgent: string | undefined, known: Set
  * para a UI não tratar o histórico inteiro como novidade.
  */
 export function ingest(store: Store, p: ProjectCfg, src: SourceFile, initial: boolean): Entry[] {
-  if (!existsSync(src.path)) return [];
-  const st = statSync(src.path);
-  const text = readText(src.path);
+  // Sem existsSync antes: o arquivo pode sumir ou o OneDrive travá-lo (EBUSY) entre a checagem e a leitura.
+  let st: ReturnType<typeof statSync>, text: string;
+  try { st = statSync(src.path); text = readText(src.path); } catch { return []; }
   const fileHash = sha(text);
   const relativeSource = redact(path.relative(p.vault, src.path));
   const cacheKey = `${p.id}::${src.kind}::${src.agent}::${relativeSource}`;
@@ -149,14 +149,15 @@ export function locks(p: ProjectCfg): LockInfo[] {
   return readdirSync(p.orchestratorDir)
     .filter((n) => n.endsWith('.lock'))
     .map((n) => {
-      const pid = Number.parseInt(readFileSync(path.join(p.orchestratorDir!, n), 'utf8').trim(), 10);
+      const pid = Number.parseInt((readSafe(path.join(p.orchestratorDir!, n)) ?? '').trim(), 10);
       return { name: n.replace(/^\.supreme-|\.lock$/g, ''), pid: Number.isNaN(pid) ? null : pid, alive: pidAlive(pid) };
     });
 }
 
 function tail(file: string, n: number): string[] {
-  if (!existsSync(file)) return [];
-  const lines = readText(file).split('\n').filter((l) => l.trim());
+  let text: string;
+  try { text = readText(file); } catch { return []; }
+  const lines = text.split('\n').filter((l) => l.trim());
   return lines.slice(-n).map((l) => l.replace(/\x1b\[[0-9;]*m/g, '').slice(0, 300));
 }
 
@@ -176,6 +177,10 @@ function readSafe(f: string): string | null {
   try { return readFileSync(f, 'utf8'); } catch { return null; }
 }
 
+function mtimeOf(f: string): string | null {
+  try { return localIso(statSync(f).mtime); } catch { return null; }
+}
+
 export function agents(store: Store, p: ProjectCfg): AgentView[] {
   const gd = goalDir(p);
   return p.agents.map((a) => {
@@ -193,8 +198,8 @@ export function agents(store: Store, p: ProjectCfg): AgentView[] {
     return {
       id: a.id,
       worktree: a.worktree ?? null,
-      model: modelFile && existsSync(modelFile) ? (readSafe(modelFile)?.trim() ? redact(readSafe(modelFile)!.trim()).slice(0, 120) : null) : null,
-      statusFileMtime: hasStatus ? localIso(statSync(statusFile!).mtime) : null,
+      model: modelFile ? (model => model ? redact(model).slice(0, 120) : null)(readSafe(modelFile)?.trim()) : null,
+      statusFileMtime: hasStatus ? mtimeOf(statusFile!) : null,
       vaultCopyStale: stale,
       done: !!p.orchestratorDir && existsSync(path.join(p.orchestratorDir, `supreme-${a.id}.done`)),
       lastLog: p.orchestratorDir ? tail(path.join(p.orchestratorDir, `SUPREME-${a.id}.log`), 3) : [],

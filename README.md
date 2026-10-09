@@ -50,6 +50,21 @@ No macOS, na primeira vez: botão direito no app → **Abrir** (o app não é as
 
 ## O que é
 
+### Em desenvolvimento · 3.2 · Central de Missões
+
+- **Visão geral do projeto:** Goal, progresso das tarefas, time configurado, aprovações e comandos concluídos no dia.
+- **Kanban e lista:** tarefas na fila, em andamento, bloqueadas, em revisão e concluídas; filtro por responsável ou texto.
+- **Coordenação:** modelos de ordens para planejar, trabalhar em dupla, revisar e investigar bloqueios. A ordem é
+  preparada no compositor e segue o protocolo de aprovação existente.
+- **Contexto compartilhado:** copie ou baixe um relatório Markdown para levar à sessão do Claude Code, Codex ou
+  outro agente. Isso compartilha o contexto; a execução depende da sessão do agente e dos lançadores configurados.
+- **Busca:** botão Buscar ou Ctrl/Cmd+K para encontrar sala, comandos, tarefas e notas. Cada fonte aparece mesmo
+  quando há muitas mensagens na sala.
+- **PC e navegador do celular:** abra Missões na sala, no Launcher, na bandeja do PC ou pela Visão geral do HUD.
+  No navegador do celular, a barra de abas pode ser rolada para alcançar todas as seções.
+
+Veja [o escopo da atualização](docs/CENTRAL-DE-MISSOES.md) e [a revisão preparada para o Claude Code](docs/COORDENACAO-CLAUDE.md).
+
 Você escolhe quais agentes de código quer usar (um só, ou vários). Cada um trabalha na própria pasta (worktree git),
 num **loop** que acorda quando chega ordem nova, faz o trabalho e escreve o resultado em Markdown (`.ai-team/STATUS.md`).
 O Agent Control junta tudo:
