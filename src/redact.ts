@@ -20,6 +20,16 @@ const RULES: Array<[RegExp, string]> = [
   [/\bgithub_pat_[A-Za-z0-9_]{20,}/g, R],
   [/\bxox[abposr]-[A-Za-z0-9-]{10,}/g, R],
   [/\bAKIA[A-Z0-9]{16}\b/g, R],
+  [/\b[spr]k_(?:live|test)_[A-Za-z0-9]{16,}/g, R], // Stripe
+  [/\bglpat-[A-Za-z0-9_-]{20,}/g, R], // GitLab
+  [/\bhf_[A-Za-z0-9]{30,}/g, R], // HuggingFace
+  [/\bnpm_[A-Za-z0-9]{36}\b/g, R],
+  [/\b\d{8,10}:AA[A-Za-z0-9_-]{30,}/g, R], // bot do Telegram
+  // Webhooks: a URL inteira é a credencial
+  [/https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]+/g, R],
+  [/https:\/\/(?:ptb\.|canary\.)?discord(?:app)?\.com\/api\/webhooks\/\d+\/[A-Za-z0-9_-]+/g, R],
+  // .npmrc: //registry.npmjs.org/:_authToken=...
+  [/(_authToken\s*=\s*)[^\s"']+/gi, `$1${R}`],
   [/\bya29\.[A-Za-z0-9_-]{20,}/g, R],
   // Chave privada PEM
   [/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, R],
