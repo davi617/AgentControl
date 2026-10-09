@@ -57,7 +57,10 @@ export class Usage {
     if (r.status >= 200 && r.status < 300) b.ok++; else b.err++;
     b.ms += r.ms; b.pin += r.pin; b.pout += r.pout;
     // O nome do modelo vem no pedido: "__proto__" & cia. não viram chave (poluiria o protótipo do objeto).
-    if (model && model !== '__proto__' && model !== 'constructor' && model !== 'prototype') b.models[model] = (b.models[model] ?? 0) + 1;
+    if (model) {
+      const key = model === '__proto__' || model === 'constructor' || model === 'prototype' ? `_${model}` : model;
+      b.models[key] = (Object.hasOwn(b.models, key) ? b.models[key] : 0) + 1;
+    }
     this.save();
   }
 
