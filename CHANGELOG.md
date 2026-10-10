@@ -2,6 +2,21 @@
 
 Formato: a versão mais nova primeiro. A versão mora em `version.json` (fonte única: servidor, app do PC e Android).
 
+## 4.2.0 — 2026-10-10
+
+### Novo
+- **Caixinha de aprovação na HUD**: quando um agente pede algo protegido, ela desce da faixa do topo com Aprovar,
+  Recusar e Depois, sem abrir a aba Comandos.
+- **Movimentos do AgentC**: olá com a mãozinha, sim com a cabeça (aprovou), não (recusou ou travou), giro (tarefa
+  pronta), pulo alto e dancinha (Goal concluído).
+- **Minimizar o app** (Launcher ou tela completa): a HUD abre, o AgentC dá um olá e ela recolhe para a faixa. A tela
+  completa ganhou o botão de minimizar.
+
+### Corrigido
+- **HUD com o estado real.** Loop que roda e sai sem resposta (sem chave do 9Router, CLI faltando, sem login) agora
+  aparece como **falhando**, com o motivo, na HUD, na tela Saúde e no Android. Antes a HUD dizia "tudo no ar".
+- Alerta quando falta a chave do 9Router, e o AgentC do chat diz o que falta em vez de "modelo não configurado".
+
 ## 4.1.1 — 2026-10-09
 
 ### Corrigido
