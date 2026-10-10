@@ -186,7 +186,7 @@ data class GateInfo(
 )
 
 @Serializable
-data class LoopInfo(val agent: String, val rodadas: Int, val timeouts: Int, val ultima: String? = null, val estado: String, val minutos: Int? = null)
+data class LoopInfo(val agent: String, val rodadas: Int, val timeouts: Int, val ultima: String? = null, val estado: String, val minutos: Int? = null, val motivo: String? = null)
 
 @Serializable
 data class RamInfo(val livreMb: Int, val totalMb: Int)

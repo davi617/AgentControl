@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync, statfsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { pauseState, type PauseState } from './control.ts';
+import { redact } from './redact.ts';
 import type { ProjectCfg, SummaryCfg } from './config.ts';
 import { topProcesses } from './extras.ts';
 
@@ -32,8 +33,10 @@ export interface LoopInfo {
   rodadas: number;
   timeouts: number;
   ultima: string | null; // início da última rodada (hora local do PC)
-  estado: 'rodando' | 'esperando RAM' | 'terminou' | 'estourou o tempo' | 'esperando ordem' | 'pausado' | 'parado';
+  estado: 'rodando' | 'esperando RAM' | 'terminou' | 'estourou o tempo' | 'esperando ordem' | 'pausado' | 'parado' | 'falhando';
   minutos: number | null; // há quanto tempo a rodada atual/última começou
+  falhas?: number; // rodadas seguidas sem saída (o modelo/CLI não respondeu)
+  motivo?: string; // última linha de erro da rodada que falhou (sem segredos)
 }
 
 export interface Health {
@@ -50,13 +53,16 @@ export interface Health {
 
 /** Lê o log de um loop (night-agent-loop.ps1): linhas "[AAAA-MM-DDTHH:MM:SS] RUN|EXIT|TIMEOUT|WAIT_RAM|IDLE|START|STOP …". */
 export function parseLoopLog(agent: string, text: string, now = new Date()): LoopInfo {
-  let rodadas = 0, timeouts = 0, ultima: string | null = null, estado: LoopInfo['estado'] = 'parado';
+  let base = 0, rodadas = 0, timeouts = 0, falhas = 0, ultima: string | null = null, estado: LoopInfo['estado'] = 'parado';
   for (const line of text.split(/\r?\n/)) {
-    const m = /^\[([^\]]+)\] (RUN|EXIT|TIMEOUT|WAIT_RAM|IDLE|PAUSED|STOPPED|START|STOP)/.exec(line.trim());
+    const m = /^\[([^\]]+)\] (RUN|EXIT|TIMEOUT|WAIT_RAM|IDLE|PAUSED|STOPPED|START|STOP|VAZIA)/.exec(line.trim());
     if (!m) continue;
     const [, ts, ev] = m;
-    if (ev === 'RUN') { rodadas++; ultima = ts; estado = 'rodando'; }
-    else if (ev === 'EXIT') estado = 'terminou';
+    // VAZIA vem logo depois do EXIT de uma rodada sem saída; uma rodada com saída zera a contagem.
+    if (ev === 'VAZIA') { falhas = base + 1; estado = 'falhando'; continue; }
+    if (ev === 'IDLE' || ev === 'START') falhas = 0;
+    if (ev === 'RUN') { base = falhas; rodadas++; ultima = ts; estado = 'rodando'; }
+    else if (ev === 'EXIT') { falhas = 0; estado = 'terminou'; }
     else if (ev === 'TIMEOUT') { timeouts++; estado = 'estourou o tempo'; }
     else if (ev === 'WAIT_RAM') estado = 'esperando RAM';
     else if (ev === 'IDLE') estado = 'esperando ordem';
@@ -64,7 +70,19 @@ export function parseLoopLog(agent: string, text: string, now = new Date()): Loo
     else if (ev === 'STOP') estado = 'parado';
   }
   const minutos = ultima ? Math.max(0, Math.round((now.getTime() - new Date(ultima).getTime()) / 60_000)) : null;
-  return { agent, rodadas, timeouts, ultima, estado, minutos };
+  return { agent, rodadas, timeouts, ultima, estado, minutos, ...(falhas ? { falhas } : {}) };
+}
+
+/** Última linha útil do .err.log mais novo do agente (ex.: "Missing API key"), sem cores e sem segredos. */
+export function lastError(dir: string, agent: string): string | undefined {
+  try {
+    const pre = `${agent.toLowerCase()}-`;
+    const f = readdirSync(dir).filter((n) => n.startsWith(pre) && n.endsWith('.err.log')).sort().pop();
+    if (!f) return undefined;
+    const lines = readFileSync(path.join(dir, f), 'utf8').replace(/\x1b\[[0-9;]*m/g, '').split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    const line = lines.reverse().find((l) => /erro|error|precisa|aguardando|missing|não encontrad|not found|denied|unauthori|chave|key/i.test(l)) ?? lines[0];
+    return line ? redact(line).slice(0, 200) : undefined;
+  } catch { return undefined; }
 }
 
 export async function health(p: ProjectCfg, summary: SummaryCfg, fetchImpl: typeof fetch = fetch): Promise<Health> {
@@ -96,7 +114,11 @@ export async function health(p: ProjectCfg, summary: SummaryCfg, fetchImpl: type
   const dir = p.modelsDir ? path.join(p.modelsDir, 'night-logs') : '';
   if (dir && existsSync(dir)) {
     for (const f of readdirSync(dir).filter((n) => /^[a-z]+\.log$/.test(n))) {
-      try { loops.push(parseLoopLog(f.replace('.log', '').toUpperCase(), readFileSync(path.join(dir, f), 'utf8'))); }
+      try {
+        const l = parseLoopLog(f.replace('.log', '').toUpperCase(), readFileSync(path.join(dir, f), 'utf8'));
+        if (l.estado === 'falhando') { const why = lastError(dir, l.agent); if (why) l.motivo = why; }
+        loops.push(l);
+      }
       catch { alertas.push(`Não consegui ler o estado de ${f.replace('.log', '').toUpperCase()}; tente atualizar.`); }
     }
   }
@@ -104,6 +126,10 @@ export async function health(p: ProjectCfg, summary: SummaryCfg, fetchImpl: type
     if (l.estado === 'rodando' && (l.minutos ?? 0) > 50) alertas.push(`${l.agent} está numa rodada há ${l.minutos} min (o loop corta em 45).`);
     if (l.estado === 'esperando RAM') alertas.push(`${l.agent} está esperando RAM livre no PC.`);
   }
+  const falhando = loops.filter((l) => l.estado === 'falhando');
+  if (falhando.length) alertas.unshift(`${falhando.length === 1 ? `${falhando[0].agent} não consegue rodar` : `${falhando.length} agentes não conseguem rodar`}: ${falhando[0].motivo ?? 'a rodada sai sem resposta do modelo'}`);
+  // Sem a chave do 9Router nem o AgentC responde no chat nem os agentes têm modelo.
+  if (summary.enabled && summary.keyFile && !existsSync(summary.keyFile)) alertas.unshift('Falta a chave do 9Router (~/.config/agent-control/9router.key): agentes e o AgentC ficam sem modelo. Crie uma chave no painel do 9Router e salve nesse arquivo.');
 
   const ram = { livreMb: Math.round(os.freemem() / 1048576), totalMb: Math.round(os.totalmem() / 1048576) };
   if (ram.livreMb < 700) alertas.push(`PC com pouca RAM: ${ram.livreMb} MB livres.`);

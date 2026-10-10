@@ -227,6 +227,7 @@ public static class K
         var s = (status ?? "").ToUpperInvariant();
         if (s is "IDLE") return Ok;          // loop vivo, pronto para a próxima ordem
         if (s is "OFF") return Faint;        // loop desligado
+        if (s is "FAILING") return Err;      // roda e sai sem resposta (sem chave, CLI faltando…)
         if (s is "PAUSED" or "WAIT_RAM") return Warn;
         if (s.StartsWith("DONE") || s.StartsWith("APPROVED")) return Ok;
         if (s.StartsWith("WORKING") || s.StartsWith("ACK")) return Brand;
@@ -244,6 +245,7 @@ public static class K
         "PAUSED" => "pausado",
         "WAIT_RAM" => "esperando memória livre",
         "OFF" => "loop desligado",
+        "FAILING" => "falhando: não consegue rodar",
         var x => x.ToLowerInvariant().Replace('_', ' '),
     };
 

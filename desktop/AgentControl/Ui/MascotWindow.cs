@@ -62,6 +62,12 @@ public sealed class MascotWindow : Window
     readonly double[] sparkSeed = new double[6];
     DateTime lastTouch = DateTime.Now, sparkUntil, yawnUntil, nextYawn = DateTime.Now.AddMinutes(2), nextWave = DateTime.Now.AddSeconds(25);
     bool hover;
+    // Movimentos (2026-10-10): olá com a mãozinha, sim com a cabeça, não (balança), giro, pulo alto e dancinha.
+    readonly TranslateTransform bob = new();
+    readonly RotateTransform spin = new();
+    readonly RotateTransform handRot = new();
+    readonly Border hand;
+    DateTime helloUntil, nodUntil, shakeUntil, spinUntil, jumpUntil, danceUntil;
 
     public event Action? Clicked;
     public event Action<string>? MenuChosen;
@@ -74,7 +80,7 @@ public sealed class MascotWindow : Window
         Width = Box; Height = Box; Title = "AgentC";
 
         var root = new Grid { Width = Box, Height = Box, Background = Brushes.Transparent };
-        var face = new Grid { Width = S, Height = S, RenderTransformOrigin = RelativePoint.Center, RenderTransform = new TransformGroup { Children = { body, breath, tilt } } };
+        var face = new Grid { Width = S, Height = S, RenderTransformOrigin = RelativePoint.Center, RenderTransform = new TransformGroup { Children = { body, breath, tilt, spin, bob } } };
         face.Children.Add(K.Hex(S, K.Surface, stroke, 3.4));
         eyes = new Canvas { Width = S, Height = S, RenderTransformOrigin = RelativePoint.Center, RenderTransform = new TransformGroup { Children = { eyeGrow, blink, look } } };
         eyes.Children.Add(Eye(S / 2 - 12)); eyes.Children.Add(Eye(S / 2 + 4));
@@ -109,6 +115,14 @@ public sealed class MascotWindow : Window
             sparkLayer.Children.Add(sparks[i]);
         }
         root.Children.Add(sparkLayer);
+        // mãozinha do "olá": aparece do lado direito e abana
+        hand = new Border
+        {
+            Width = 14, Height = 20, CornerRadius = new CornerRadius(7), Background = K.Surface, BorderBrush = stroke, BorderThickness = new Thickness(2.4), Opacity = 0, IsHitTestVisible = false,
+            HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 5, 18),
+            RenderTransformOrigin = new RelativePoint(.5, 1, RelativeUnit.Relative), RenderTransform = handRot,
+        };
+        root.Children.Add(hand);
         zzz.Opacity = 0; zzz.HorizontalAlignment = HorizontalAlignment.Right; zzz.VerticalAlignment = VerticalAlignment.Top; zzz.Margin = new Thickness(0, 18, 18, 0); zzz.RenderTransform = new TranslateTransform();
         root.Children.Add(zzz);
 
@@ -201,6 +215,55 @@ public sealed class MascotWindow : Window
         Wiggle();
     }
 
+    // ---------- movimentos ----------
+    /// <summary>"Olá!": sobe a mãozinha e abana, com um pulinho e olhos felizes.</summary>
+    public void Hello(string? text = null)
+    {
+        if (!IsVisible) return;
+        helloUntil = DateTime.Now.AddSeconds(2.2);
+        happyUntil = DateTime.Now.AddSeconds(1.6);
+        Hop();
+        if (text is not null) Say("AgentC!", text);
+    }
+
+    /// <summary>Sim com a cabeça (aprovou).</summary>
+    public void Nod() => nodUntil = DateTime.Now.AddSeconds(.8);
+    /// <summary>Não com a cabeça (recusou, travou).</summary>
+    public void Shake() => shakeUntil = DateTime.Now.AddSeconds(.7);
+    /// <summary>Dá uma volta inteira.</summary>
+    public void Spin() => spinUntil = DateTime.Now.AddSeconds(.8);
+    /// <summary>Pulo alto (Goal concluído).</summary>
+    public void Jump() => jumpUntil = DateTime.Now.AddSeconds(.9);
+    /// <summary>Dancinha de 2,5 s (muitas cócegas, Goal pronto).</summary>
+    public void Dance() { danceUntil = DateTime.Now.AddSeconds(2.5); sparkUntil = DateTime.Now.AddSeconds(2.5); happyUntil = danceUntil; }
+
+    /// <summary>Movimentos por tempo: cada um calcula a posição pelo quanto falta; sem nenhum ativo, tudo volta ao zero.</summary>
+    void Moves(DateTime now)
+    {
+        static double Left(DateTime until, DateTime now, double total) => Math.Clamp((until - now).TotalSeconds / total, 0, 1);
+        double x = 0, y = 0, angle = 0;
+        var n = Left(nodUntil, now, .8);
+        if (n > 0) y += 5 * Math.Sin((1 - n) * Math.PI * 4) * n;
+        var sh = Left(shakeUntil, now, .7);
+        if (sh > 0) x += 6 * Math.Sin((1 - sh) * Math.PI * 6) * sh;
+        var j = Left(jumpUntil, now, .9);
+        if (j > 0) y -= 22 * Math.Sin((1 - j) * Math.PI) * (j > .5 ? 1 : .9);
+        var d = Left(danceUntil, now, 2.5);
+        if (d > 0)
+        {
+            var t = (1 - d) * 2.5;
+            x += 6 * Math.Sin(t * Math.PI * 3);
+            y -= Math.Abs(7 * Math.Sin(t * Math.PI * 6));
+        }
+        var sp = Left(spinUntil, now, .8);
+        if (sp > 0) { var p = 1 - sp; angle = 360 * (p < .5 ? 2 * p * p : 1 - Math.Pow(-2 * p + 2, 2) / 2); }
+        bob.X = x; bob.Y = y; spin.Angle = angle % 360;
+        var h = Left(helloUntil, now, 2.2);
+        hand.Opacity = h > 0 ? Math.Min(1, Math.Min(h * 6, (1 - h) * 8)) : 0;
+        handRot.Angle = h > 0 ? 28 * Math.Sin((1 - h) * 2.2 * 12) : 0;
+        if (h > 0) tilt.Angle = -6;
+    }
+
     /// <summary>Quadro a quadro das expressões (só roda com animações ligadas).</summary>
     void Effects()
     {
@@ -273,6 +336,7 @@ public sealed class MascotWindow : Window
             zzz.FontSize = 10 + 5 * z;
         }
         else zzz.Opacity = 0;
+        Moves(now);
     }
 
     void HideBubble()
@@ -309,6 +373,7 @@ public sealed class MascotWindow : Window
         if (taps.Count < 4) return false;
         taps.Clear();
         Celebrate();
+        if (rnd.NextDouble() < .5) Dance(); else Spin();
         Say("AgentC!", TickleLines[rnd.Next(TickleLines.Length)]);
         return true;
     }

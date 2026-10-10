@@ -184,6 +184,7 @@ private fun LoopRow(l: LoopInfo) {
         Column(Modifier.weight(1f)) {
             Text(l.agent, color = k.text, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Text("${l.rodadas} rodadas · ${l.timeouts} estouros de tempo", color = k.muted, fontSize = 12.sp)
+            l.motivo?.let { Text(it, color = k.err, fontSize = 12.sp, maxLines = 2) }
         }
         Column(horizontalAlignment = Alignment.End) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {

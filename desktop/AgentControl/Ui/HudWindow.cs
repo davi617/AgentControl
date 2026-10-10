@@ -268,7 +268,7 @@ public sealed class HudWindow : Window
             agents.AddRange(new LauncherSettings().LoopAgents.Select(id => (id.ToUpperInvariant(), "OFFLINE", (string?)null)));
         var goal = s.CallActive && s.CallModo == "goal";
         var share = UsageOf(s);
-        var newSig = $"{s.Online}|{s.Pending}|{goal}|{s.CallActive}|{s.Paused}|{string.Join(",", agents.Select(a => a.Id + a.Status + (s.Limits.GetValueOrDefault(a.Id)?.Badge ?? "—") + (s.Limits.GetValueOrDefault(a.Id)?.CheckedAt ?? "")))}";
+        var newSig = $"{s.Online}|{s.Pending}|{string.Join(",", s.LoopWhy.Values)}|{goal}|{s.CallActive}|{s.Paused}|{string.Join(",", agents.Select(a => a.Id + a.Status + (s.Limits.GetValueOrDefault(a.Id)?.Badge ?? "—") + (s.Limits.GetValueOrDefault(a.Id)?.CheckedAt ?? "")))}";
         if (newSig == islandSig) return;
         islandSig = newSig;
         K.AnimColor(islandStroke, !s.Online ? K.C("#52525B") : s.Pending > 0 ? K.C("#F59E0B") : K.C("#F97316"), 400);
@@ -283,7 +283,7 @@ public sealed class HudWindow : Window
             var pct = quota is { Fresh: true, RemainingPercent: { } remaining } ? remaining : 0;
             var req = s.Usage.FirstOrDefault(u => u.Agent == a.Id).Req;
             var item = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, Margin = new Thickness(0, 0, 12, 0), Background = Brushes.Transparent };
-            item.Tip($"{K.Nice(a.Id)} · {K.StatusText(a.Status)} · {req} pedidos hoje\n" + (quota?.Description ?? "Saldo de cota não informado."));
+            item.Tip($"{K.Nice(a.Id)} · {K.StatusText(a.Status)} · {req} pedidos hoje\n" + (s.LoopWhy.TryGetValue(a.Id, out var why) ? $"Erro: {why}\n" : "") + (quota?.Description ?? "Saldo de cota não informado."));
             item.Children.Add(K.UsageRing(a.Id, 32, pct / 100.0, K.StatusBrush(a.Status), marks[a.Id]));
             item.Children.Add(K.T(quota?.Badge ?? "—", 11.5, quota?.Status == "limited" ? K.Warn : quota?.Fresh == true ? K.Text2 : K.Faint, FontWeight.SemiBold, K.Mono));
             islandAgents.Children.Add(item);
@@ -391,7 +391,10 @@ public sealed class HudWindow : Window
         var top = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*") };
         top.Children.Add(K.Face(62, s.Pending > 0 ? K.Warn : K.Brand));
         var col = new StackPanel { Margin = new Thickness(14, 0, 0, 0), VerticalAlignment = VerticalAlignment.Center };
-        col.Children.Add(K.T(s.Paused ? $"{Greeting()} · agentes pausados" : !host.QueueUp ? $"{Greeting()} · fila anti-429 desligada" : $"{Greeting()} · tudo no ar", 11.5, s.Paused || !host.QueueUp ? K.Warn : K.Muted, FontWeight.SemiBold));
+        // Estado de verdade: antes dizia "tudo no ar" com todos os loops saindo sem resposta (sem chave do 9Router).
+        var failing = s.Agents.Count(a => a.Status == "FAILING");
+        var line = s.Paused ? "agentes pausados" : !host.QueueUp ? "fila anti-429 desligada" : failing > 0 ? (failing == 1 ? "1 agente falhando" : $"{failing} agentes falhando") : "tudo no ar";
+        col.Children.Add(K.T($"{Greeting()} · {line}", 11.5, failing > 0 ? K.Err : s.Paused || !host.QueueUp ? K.Warn : K.Muted, FontWeight.SemiBold));
         var working = s.Agents.Count(a => K.StatusBrush(a.Status) == K.Brand);
         col.Children.Add(K.T($"{s.Agents.Count} agentes · {working} trabalhando", 15.5, K.Text, FontWeight.SemiBold, K.Display).Also(t => t.Margin = new Thickness(0, 2, 0, 9)));
         col.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.Button(s.CallActive ? "Na chamada" : "Chamada", K.IPhone, () => Select(2), height: 34), K.Button("Escrever", K.IChat, host.OpenMini, primary: false, height: 34) } });
@@ -404,6 +407,20 @@ public sealed class HudWindow : Window
         // O que você pediu para o AgentC lembrar aparece no Início.
         if (AgentControl.Core.Memory.Reminder() is { } memo)
             v.Children.Add(new StackPanel { Orientation = Orientation.Horizontal, Spacing = 7, Margin = new Thickness(2, 12, 0, 0), Children = { K.Icon(K.IBook, 13, K.BrandText), K.Wrap($"Lembrete: {memo}", 12, K.Text2, 2).Also(t => t.MaxWidth = 360) } });
+
+        // Alertas do servidor (fila parada, falta de chave, agente falhando): o primeiro aparece no Início, o resto em Saúde.
+        if (s.Alerts.FirstOrDefault(a => !a.StartsWith("Agentes PAUSADOS")) is { } alert)
+        {
+            v.Children.Add(Gap(12));
+            var more = s.Alerts.Count(a => !a.StartsWith("Agentes PAUSADOS")) - 1;
+            var warn = new Border
+            {
+                Background = new SolidColorBrush(Color.FromArgb(24, 239, 68, 68)), BorderBrush = new SolidColorBrush(Color.FromArgb(70, 239, 68, 68)), BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(10), Padding = new Thickness(12, 9),
+                Child = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, Children = { K.Icon(K.IWarn, 14, K.Err).Also(i => i.VerticalAlignment = VerticalAlignment.Top), K.Wrap(alert + (more > 0 ? $" (+{more} em Saúde)" : ""), 12.5, K.Text, 4).Also(t => t.MaxWidth = 340) } },
+            };
+            K.Pressable(warn, () => Select(4));
+            v.Children.Add(warn);
+        }
 
         if (s.Pending > 0)
         {
@@ -444,7 +461,9 @@ public sealed class HudWindow : Window
             var name = K.T(K.Nice(id), 12.5, status is null ? K.Muted : K.Text, FontWeight.SemiBold); Grid.SetColumn(name, 1); row.Children.Add(name);
             var bar = K.Bar(p / 100.0, fill: status is null ? K.Faint : K.Brand, animate: animate); Grid.SetColumn(bar, 2); row.Children.Add(bar);
             var pct = K.T($"{p}%", 12, p > 0 ? K.BrandText : K.Faint, FontWeight.SemiBold, K.Mono); pct.HorizontalAlignment = HorizontalAlignment.Right; Grid.SetColumn(pct, 3); row.Children.Add(pct);
-            row.Tip($"{K.Nice(id)} · {s.Usage.FirstOrDefault(u => u.Agent == id).Req} pedidos hoje" + (status is null ? "" : $" · {K.StatusText(status)}"));
+            row.Tip($"{K.Nice(id)} · {s.Usage.FirstOrDefault(u => u.Agent == id).Req} pedidos hoje" + (status is null ? "" : $" · {K.StatusText(status)}") + (s.LoopWhy.TryGetValue(id, out var why) ? $"\nErro: {why}" : ""));
+            if (status == "FAILING") pct.Text = "erro";
+            if (status == "FAILING") pct.Foreground = K.Err;
             v.Children.Add(row);
         }
     }
@@ -768,6 +787,8 @@ public sealed class HudWindow : Window
             var st = K.T((string.IsNullOrEmpty(code) ? "" : code + " · ") + K.StatusText(a.Status), 11, K.Muted, f: K.Mono);
             st.HorizontalAlignment = HorizontalAlignment.Right; st.Tip(a.Task); Grid.SetColumn(st, 2); row.Children.Add(st);
             v.Children.Add(row);
+            if (s.LoopWhy.TryGetValue(a.Id, out var why))
+                v.Children.Add(K.Wrap(why, 11, K.Err, 2).Also(t => t.Margin = new Thickness(18, 0, 0, 4)));
         }
         foreach (var al in s.Alerts.Take(3))
         {
@@ -902,7 +923,7 @@ public sealed class HudWindow : Window
 
     string Sig(HudSnapshot s) => tab switch
     {
-        0 => $"{string.Join(",", host.People.Where(p => p.Online).Select(p => p.Id))}{s.Online}{s.Pending}{s.Working}{s.Paused}{s.CallStatus}{s.CallModo}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Usage.Select(u => u.Agent + u.Req))}",
+        0 => $"{string.Join(",", host.People.Where(p => p.Online).Select(p => p.Id))}{s.Online}{s.Pending}{s.Working}{s.Paused}{s.CallStatus}{s.CallModo}{string.Join(",", s.Agents.Select(a => a.Id + a.Status))}{string.Join(",", s.Usage.Select(u => u.Agent + u.Req))}{string.Join(",", s.Alerts)}",
         1 => replyTo + toast + string.Join("|", s.Chat.Take(5).Select(c => c.Ts + c.Agent)),
         2 => $"{s.CallStatus}{s.CallModo}{s.CallTurns}{string.Join(",", s.CallWho)}{host.Thinking}{host.VoiceOn}{host.Settings.CallAutoAdvance}|{toast}|{people.Count}{loadingPeople}{modo}{string.Join(",", pick ?? [])}",
         3 => $"{s.Goal}{s.TasksDone}/{s.TasksTotal}{s.CallStatus}{s.CallModo}",

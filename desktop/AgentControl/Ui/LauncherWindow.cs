@@ -95,6 +95,8 @@ public sealed class LauncherWindow : Window
             else if (e.Key == Key.F5) { e.Handled = true; await Refresh(); }
             else if (e.Key == Key.Escape && overlay.IsVisible) { e.Handled = true; K.Fade(overlay, 0, 140, K.InQuad, done: () => overlay.IsVisible = false); }
         };
+        // Minimizou o Launcher: a HUD (outro processo) abre e o AgentC dá um olá.
+        PropertyChanged += (_, e) => { if (e.Property == WindowStateProperty && WindowState == WindowState.Minimized && Program.Current == Program.Mode.Launcher) _ = Task.Run(() => Signal.Send("ola")); };
         Opened += async (_, _) =>
         {
             // Cabe na tela (notebook com escala 125% tem ~830 de altura útil).

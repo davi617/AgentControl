@@ -32,6 +32,14 @@ public static class Shots
             host.Hud.ShowStrip();
             await Task.Delay(1500);
             Save(host.Hud, Path.Combine(dir, "faixa.png"));
+            // Caixinha de aprovação (exemplo, não vai para o servidor) e o AgentC no meio do "olá".
+            host.Approval.Update([("J-000", "CLAUDE", "Exemplo de pedido protegido: rodar git push na branch do agente.")]);
+            await Task.Delay(1200);
+            Save(host.Approval, Path.Combine(dir, "aprovacao.png"));
+            host.Approval.Hide();
+            host.Mascot.Hello();
+            await Task.Delay(700);
+            Save(host.Mascot, Path.Combine(dir, "mascote-ola.png"));
             for (var t = 0; t < 6; t++)
             {
                 if (t == 0) host.Hud.Expand(0); else host.Hud.Select(t);
