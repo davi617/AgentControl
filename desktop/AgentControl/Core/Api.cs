@@ -34,6 +34,10 @@ public sealed record HudSnapshot(
     /// <summary>Chamada aberta: quem está nela e as últimas falas (mais antiga primeiro).</summary>
     public IReadOnlyList<string> CallWho { get; init; } = [];
     public IReadOnlyList<(string Speaker, string Text)> CallLog { get; init; } = [];
+    /// <summary>Loop que roda e sai sem resposta: o motivo (ex.: "Missing API key"). Só de quem está falhando.</summary>
+    public Dictionary<string, string> LoopWhy { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+    /// <summary>Comandos esperando a sua aprovação (mais antigo primeiro), para a caixinha da HUD.</summary>
+    public IReadOnlyList<(string Code, string Target, string Text)> PendingCmds { get; init; } = [];
     /// <summary>Pânico ligado (v4.0): quem acionou. null = tudo normal.</summary>
     public string? PanicBy { get; init; }
     public bool Panic => PanicBy is not null;
@@ -110,10 +114,14 @@ public sealed class HudApi
         // Estado AO VIVO de cada loop (servidor lê o log do loop; este PC confere se o processo está vivo).
         // O STATUS.md pode ter dias: ele vira só o "último relatório" (Reports).
         var loops = new Dictionary<string, (string Estado, int Min)>();
+        var why = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var paused0 = health.Result is { } h0 && h0.TryGetProperty("pausa", out var pz0) && pz0.TryGetProperty("paused", out var pp0) && pp0.GetBoolean();
         if (health.Result is { } hl && hl.TryGetProperty("loops", out var ls) && ls.ValueKind == JsonValueKind.Array)
             foreach (var l in ls.EnumerateArray())
+            {
                 loops[Str(l, "agent").ToUpperInvariant()] = (Str(l, "estado"), l.TryGetProperty("minutos", out var mi) && mi.ValueKind == JsonValueKind.Number ? mi.GetInt32() : 0);
+                if (Str(l, "estado") == "falhando") why[Str(l, "agent")] = Str(l, "motivo") is { Length: > 0 } m ? m : "a rodada sai sem resposta do modelo";
+            }
         var agents = new List<(string, string, string?)>();
         var reports = new Dictionary<string, (string, string)>();
         var loopMin = new Dictionary<string, int>();
@@ -130,6 +138,7 @@ public sealed class HudApi
                     loopMin[id] = lp.Min;
                     status = !Platform.LoopAlive(id.ToLowerInvariant()) ? "OFF"
                         : lp.Estado == "rodando" ? "WORKING"
+                        : lp.Estado == "falhando" ? "FAILING"
                         : lp.Estado is "pausado" || paused0 ? "PAUSED"
                         : lp.Estado == "esperando RAM" ? "WAIT_RAM" : "IDLE";
                 }
@@ -159,8 +168,10 @@ public sealed class HudApi
             }
 
         var pending = 0;
+        var pendingCmds = new List<(string, string, string)>();
         if (cmds.Result is { ValueKind: JsonValueKind.Array } cm)
-            pending = cm.EnumerateArray().Count(c => Str(c, "approval") == "pending");
+            foreach (var c in cm.EnumerateArray().Where(c => Str(c, "approval") == "pending"))
+            { pending++; pendingCmds.Add((Str(c, "code"), Str(c, "target"), Str(c, "text"))); }
 
         int ram = 0; int? cpu = null; var paused = false; var alerts = new List<string>();
         if (health.Result is { } h)
@@ -189,7 +200,7 @@ public sealed class HudApi
         if (limits.Result is { } lim && lim.TryGetProperty("agents", out var la) && la.ValueKind == JsonValueKind.Array)
             foreach (var row in la.EnumerateArray())
                 try { var q = JsonSerializer.Deserialize<AgentQuota>(row.GetRawText(), new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); if (q is not null) quotas[q.Agent] = q; } catch { }
-        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin, Limits = quotas, CallWho = cwho, CallLog = clog,
+        return new HudSnapshot(true, goal, done, total, agents, use, msgs, pending, ram, cpu, paused, alerts, cst, cmodo, ctopic, cturns) { Reports = reports, LoopMinutes = loopMin, Limits = quotas, CallWho = cwho, CallLog = clog, LoopWhy = why, PendingCmds = pendingCmds,
             PanicBy = settings.Result is { } st && st.TryGetProperty("panico", out var pn) && pn.ValueKind == JsonValueKind.Object ? Str(pn, "by") : null };
     }
 

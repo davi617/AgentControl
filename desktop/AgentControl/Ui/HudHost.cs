@@ -37,11 +37,14 @@ public sealed class HudHost
     internal readonly HudWindow Hud;
     internal readonly MiniWindow Mini;
     internal readonly FullWindow Full;
+    internal readonly ApprovalWindow Approval;
     readonly DispatcherTimer timer = new() { Interval = TimeSpan.FromSeconds(2) };
     string lastChatKey = "";
     Dictionary<string, (string Status, string Ts)> prevReports = [];
     bool first = true, polling, hidden;
     int prevDone;
+    Dictionary<string, string> prevWhy = [];
+    HashSet<string> prevPending = [];
     TrayIcon? tray;
 
     public HudHost(IClassicDesktopStyleApplicationLifetime desk)
@@ -51,6 +54,7 @@ public sealed class HudHost
         Hud = new HudWindow(this);
         Mini = new MiniWindow(this);
         Full = new FullWindow(this);
+        Approval = new ApprovalWindow(this);
         Mascot.Clicked += Toggle;
         Mascot.MenuChosen += Menu;
         timer.Tick += async (_, _) => await Poll();
@@ -86,6 +90,8 @@ public sealed class HudHost
             // "predio": Launcher de antes da v4.0 ainda manda esse nome
             else if (msg is "codigo" or "predio") { if (hidden) ShowAll(); OpenCode(); }
             else if (msg == "esconder") HideAll();
+            // App minimizado (Launcher ou tela completa): a HUD abre, o AgentC dá um olá e a HUD volta para a faixa.
+            else if (msg == "ola") Hello();
             else if (msg == "demo") { if (hidden) ShowAll(); Mascot.Celebrate(); DispatcherTimer.RunOnce(() => Mascot.Say("AgentC", "Oi! Assim eu fico quando um agente fala com você: a boca mexe e a onda sai de mim."), TimeSpan.FromSeconds(2.6)); }
         }));
         BuildTray();
@@ -125,16 +131,25 @@ public sealed class HudHost
                     if (prevReports.TryGetValue(id, out var old) && old.Ts != rep.Ts && rep.Status.StartsWith("DONE", StringComparison.OrdinalIgnoreCase))
                     {
                         var task = Snap.Agents.FirstOrDefault(a => a.Id == id).Task;
-                        Mascot.Celebrate();
+                        Mascot.Celebrate(); Mascot.Spin();
                         Mascot.Say(id, string.IsNullOrWhiteSpace(task) ? "Terminei a tarefa." : $"Terminei: {task}");
                         break;
                     }
             if (!first && prevDone < Snap.TasksTotal && Snap.TasksTotal > 0 && Snap.TasksDone == Snap.TasksTotal)
-            { Mascot.Celebrate(); Mascot.Say("AgentC!", "Goal concluído! Todas as tarefas estão DONE. 🎉"); }
+            { Mascot.Celebrate(); Mascot.Jump(); Mascot.Dance(); Mascot.Say("AgentC!", "Goal concluído! Todas as tarefas estão DONE. 🎉"); }
             if (!first)
                 foreach (var (id, rep) in Snap.Reports)
                     if (prevReports.TryGetValue(id, out var was) && was.Ts != rep.Ts && System.Text.RegularExpressions.Regex.IsMatch(rep.Status, "^(FAIL|ERRO|BLOCK)", System.Text.RegularExpressions.RegexOptions.IgnoreCase))
-                    { Mascot.Say(id, $"Travei: {rep.Status}. Dá uma olhada na tela de Agentes."); break; }
+                    { Mascot.Shake(); Mascot.Say(id, $"Travei: {rep.Status}. Dá uma olhada na tela de Agentes."); break; }
+            // Loop que passou a falhar (sem chave, CLI faltando): avisa uma vez, com o motivo.
+            if (!first)
+                foreach (var (id, why) in Snap.LoopWhy)
+                    if (!prevWhy.ContainsKey(id)) { Mascot.Shake(); Mascot.Say(id, $"Não consigo rodar: {why}"); break; }
+            prevWhy = Snap.LoopWhy;
+            // Pedido de aprovação novo: a caixinha desce da HUD e o AgentC chama atenção.
+            if (!first && Snap.PendingCmds.Any(c => !prevPending.Contains(c.Code))) { Mascot.Jump(); Mascot.Say("AgentC!", "Um agente precisa da sua aprovação. Tá na caixinha embaixo da HUD."); }
+            prevPending = Snap.PendingCmds.Select(c => c.Code).ToHashSet();
+            if (!hidden) Approval.Update(Snap.PendingCmds);
             prevDone = Snap.TasksDone;
             prevReports = Snap.Reports;
             // Primeira leitura do dia: o AgentC dá um resumo curto (quem está ligado e o que espera você).
@@ -238,6 +253,7 @@ public sealed class HudHost
     public void HideAll()
     {
         hidden = true;
+        Approval.Hide();
         Mini.CloseAnimated(); Hud.Collapse();
         Mascot.Hide(); Hud.Hide();
     }
@@ -247,6 +263,20 @@ public sealed class HudHost
         if (!hidden) { OpenHud(0); return; }
         hidden = false;
         Mascot.Show(); Hud.ShowStrip();
+    }
+
+    /// <summary>
+    /// O app foi minimizado: a HUD aparece aberta, o AgentC acena "olá" e, se você não mexer nela,
+    /// ela recolhe sozinha para a faixa do topo (a tela de sempre da HUD).
+    /// </summary>
+    public void Hello()
+    {
+        if (hidden) ShowAll();
+        Hud.Expand(0);
+        var hi = DateTime.Now.Hour switch { < 5 => "Boa madrugada", < 12 => "Bom dia", < 18 => "Boa tarde", _ => "Boa noite" };
+        var on = Snap.Agents.Count(a => a.Status is "WORKING" or "IDLE");
+        Mascot.Hello(!Snap.Online ? $"Olá! Fiquei aqui na HUD. O servidor está desligado." : Snap.Pending > 0 ? $"Olá! Fiquei aqui na HUD. Tem {Snap.Pending} aprovação esperando você." : $"{hi}! Fiquei aqui na HUD, de olho no time ({on} de {Snap.Agents.Count} prontos).");
+        DispatcherTimer.RunOnce(() => { if (!Hud.IsPointerOver) Hud.Collapse(); }, TimeSpan.FromSeconds(5));
     }
 
     void Quit()

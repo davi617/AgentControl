@@ -88,7 +88,13 @@ public sealed class FullWindow : Window
         head.Children.Add(title);
         var close = new Border { Width = 34, Height = 34, CornerRadius = new CornerRadius(10), Background = Brushes.Transparent, Child = K.Icon(K.IClose, 13, K.Muted), VerticalAlignment = VerticalAlignment.Center };
         close.Tip("Fechar (Esc)");
-        K.Pressable(close, CloseAnimated); Grid.SetColumn(close, 1); head.Children.Add(close);
+        K.Pressable(close, CloseAnimated);
+        // Minimizar: a tela vai para a barra de tarefas e a HUD do topo assume (o AgentC dá um olá).
+        var min = new Border { Width = 34, Height = 34, CornerRadius = new CornerRadius(10), Background = Brushes.Transparent, Child = K.Icon(K.IDown, 13, K.Muted), VerticalAlignment = VerticalAlignment.Center };
+        min.Tip("Minimizar (a HUD fica no topo)");
+        K.Pressable(min, () => WindowState = WindowState.Minimized);
+        var winBtns = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 2, Children = { min, close } };
+        Grid.SetColumn(winBtns, 1); head.Children.Add(winBtns);
         K.DragOrClick(this, head, null);
 
         // ---------- conversa ----------
@@ -124,6 +130,7 @@ public sealed class FullWindow : Window
         };
         Content = shell;
         KeyDown += (_, e) => { if (e.Key == Key.Escape) CloseAnimated(); };
+        PropertyChanged += (_, e) => { if (e.Property == WindowStateProperty && WindowState == WindowState.Minimized) host.Hello(); };
     }
 
     /// <summary>Desce do topo da tela, como se viesse puxada da HUD.</summary>

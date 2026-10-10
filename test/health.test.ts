@@ -4,7 +4,7 @@ import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { health, parseLoopLog } from '../src/health.ts';
+import { health, lastError, parseLoopLog } from '../src/health.ts';
 
 test('parseLoopLog: rodadas, timeouts e estado atual', () => {
   const log = ['[2026-09-26T16:00:00] START end=x', '[2026-09-26T16:00:01] RUN a.cmd', '[2026-09-26T16:45:01] TIMEOUT pid=1',
@@ -82,4 +82,25 @@ test('pausa: PAUSE para os agentes; "agora" corta a rodada; retomar apaga; saúd
   assert.equal(setPause(dir, true).agora, false, 'pausar sem "agora" deixa a rodada terminar');
   assert.equal(setPause(dir, false).paused, false);
   assert.equal(parseLoopLog('X', '[2026-09-26T16:00:00] RUN a\n[2026-09-26T16:01:00] STOPPED pelo dono pid=1\n[2026-09-26T16:01:30] PAUSED pelo dono').estado, 'pausado');
+});
+
+test('parseLoopLog: rodadas sem saída viram "falhando" e uma rodada boa zera a contagem', () => {
+  const fail = '[2026-10-10T10:48:43] START end=sempre\n[2026-10-10T10:48:43] RUN x\n[2026-10-10T10:48:43] EXIT code=2\n[2026-10-10T10:48:43] VAZIA sem saida; tenta de novo em 120 s (falha 1)\n'
+    + '[2026-10-10T10:50:43] RUN x\n[2026-10-10T10:50:43] EXIT code=2\n[2026-10-10T10:50:43] VAZIA sem saida; tenta de novo em 240 s (falha 2)';
+  const l = parseLoopLog('CLAUDE', fail);
+  assert.equal(l.estado, 'falhando');
+  assert.equal(l.falhas, 2);
+  const ok = parseLoopLog('CLAUDE', `${fail}\n[2026-10-10T10:54:43] RUN x\n[2026-10-10T10:58:00] EXIT code=0`);
+  assert.equal(ok.estado, 'terminou');
+  assert.equal(ok.falhas, undefined);
+});
+
+test('lastError: pega a linha do erro, sem cores e sem segredo', () => {
+  const dir = mkdtempSync(path.join(tmpdir(), 'ac-err-'));
+  writeFileSync(path.join(dir, 'opencode-20261010-110000.err.log'), 'velho');
+  writeFileSync(path.join(dir, 'opencode-20261010-110213.err.log'), '\x1b[0m\n> build · kimi\n\x1b[91mError: \x1b[0mMissing API key sk-abcdefghijklmnopqrstuvwxyz123456\n');
+  const why = lastError(dir, 'OPENCODE')!;
+  assert.match(why, /^Error: Missing API key/);
+  assert.doesNotMatch(why, /abcdefghijklmnop/);
+  assert.equal(lastError(dir, 'QWEN'), undefined);
 });

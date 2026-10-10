@@ -95,10 +95,11 @@ export function replyToDono(j: Jarvis, p: ProjectCfg, text: string, fetchImpl: F
 async function ask(j: Jarvis, p: ProjectCfg, text: string, fetchImpl: Fetch): Promise<string> {
   const cfg = j.cfg.summary;
   const model = cfg.models.find((m) => cfg.allowedPrefixes.some((pre) => m.startsWith(pre)));
-  if (!model || !existsSync(cfg.keyFile)) throw new Error('modelo não configurado');
+  if (!model) throw new Error('modelo não configurado');
+  if (!existsSync(cfg.keyFile)) throw new Error('falta a chave do 9Router em ~/.config/agent-control/9router.key');
   // Estado real dos loops (rodando, esperando ordem, pausado) e se o dono pausou todos.
   const h = await health(p, cfg, fetchImpl).catch(() => null);
-  const loops = h ? `${h.pausa.paused ? 'TODOS PAUSADOS pelo dono. ' : ''}${h.loops.map((l) => `${l.agent} ${l.estado}`).join(', ')}` : '';
+  const loops = h ? `${h.pausa.paused ? 'TODOS PAUSADOS pelo dono. ' : ''}${h.loops.map((l) => `${l.agent} ${l.estado}${l.motivo ? ` (${l.motivo})` : ''}`).join(', ')}` : '';
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await fetchImpl(`${cfg.routerUrl}/chat/completions`, {
       method: 'POST',
