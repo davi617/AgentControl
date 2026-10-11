@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Homologação de pagamento · Agent Control</title>
+<link rel="icon" href="../img/agentc.png">
+<link rel="stylesheet" href="../assets/sub.css">
+<style>
+.grid-demo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:28px 0 32px}
+.demo{border:1px solid var(--line-hi);background:var(--surface);padding:28px;border-radius:20px;display:flex;flex-direction:column;gap:18px}
+.demo strong{font-size:24px;letter-spacing:-.02em}
+.demo .price{font-size:30px;line-height:1.1;font-weight:800;letter-spacing:-.04em}
+.demo p{color:var(--muted)}
+.note-demo{padding:18px 22px;background:var(--brand-soft);border:1px solid #593519;border-radius:12px;color:var(--text2)}
+.demo .btn{margin-top:auto}
+@media(max-width:650px){.grid-demo{grid-template-columns:1fr}.page-head{padding-top:40px}}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+<nav><div class="wrap"><a class="logo" href="../"><img src="../img/agentc.png" alt="">Agent Control</a><span style="margin-left:auto" class="muted small">Ambiente de testes</span></div></nav>
+<main><div class="wrap">
+<header class="page-head"><span class="kicker">Stripe sandbox</span><h1>Teste os planos.<br>Sem dinheiro real.</h1>
+<p class="lead">Confira o fluxo de assinatura na Stripe antes da abertura comercial do Agent Control. Estes são links exclusivos para o ambiente de homologação.</p></header>
+<div class="note-demo"><strong>Atenção: pagamento simulado.</strong> Não utilize cartão verdadeiro. Estes links não cobram dinheiro real nem ativam licenças do Agent Control. A compra em produção continua indisponível enquanto a conta e o backend são validados.</div>
+<div class="grid-demo">
+<section class="demo"><div><span class="kicker">Plano Pro</span><h2 style="margin:7px 0">Até 5 pessoas</h2><p>Orquestrador automático, recursos avançados e colaboração.</p></div><div class="price">R$ 29 <span class="muted small">/ mês</span></div><a class="btn primary" href="https://buy.stripe.com/test_5kQ9ATaeu2DZh0E7hAdwc00" target="_blank" rel="noopener noreferrer">Testar checkout Pro ↗</a></section>
+<section class="demo"><div><span class="kicker">Plano Time</span><h2 style="margin:7px 0">Por pessoa</h2><p>Escolha entre 2 e 500 integrantes durante o teste do checkout.</p></div><div class="price">R$ 19 <span class="muted small">/ pessoa/mês</span></div><a class="btn primary" href="https://buy.stripe.com/test_7sYdR9euK92n5hW59sdwc01" target="_blank" rel="noopener noreferrer">Testar checkout Time ↗</a></section>
+</div>
+<p class="muted small" style="margin:0 0 48px">A cobrança recorrente real, entrega automática de licenças e gestão do cliente exigem a conclusão da verificação da conta e a implantação de um backend seguro. <a style="color:var(--brand-text);text-decoration:underline" href="../">Voltar ao site</a>.</p>
+</div></main>
+</body></html>
