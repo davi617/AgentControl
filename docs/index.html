@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Control · Download</title>
+<meta name="description" content="Agent Control: a sala de comando para o seu time de agentes de IA. Downloads para Windows, macOS, Linux e Android.">
+<link rel="icon" href="img/agentc.png">
+<style>
+:root{--bg:#0b0b0b;--surface:#141414;--line:#262626;--text:#f4f4f4;--muted:#a1a1aa;--brand:#f97316;--on:#1a0b00}
+@media (prefers-color-scheme:light){:root:not([data-theme=dark]){--bg:#fafafa;--surface:#fff;--line:#e4e4e7;--text:#18181b;--muted:#52525b;--on:#fff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:880px;margin:0 auto;padding:0 20px}
+header{padding:56px 0 28px;text-align:center}header img{width:84px;height:84px}
+h1{font-size:clamp(30px,6vw,46px);margin:14px 0 8px;letter-spacing:-.02em}
+.sub{color:var(--muted);max-width:620px;margin:0 auto}
+h2{font-size:22px;margin:44px 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px}
+.card h3{margin:0 0 4px;font-size:16px}.card p{margin:0 0 12px;color:var(--muted);font-size:14px}
+a.btn{display:inline-block;background:var(--brand);color:var(--on);font-weight:600;text-decoration:none;border-radius:10px;padding:9px 14px;font-size:14px}
+a.btn.alt{background:transparent;color:var(--text);border:1px solid var(--line)}
+.rel{color:var(--muted);font-size:14px;text-align:center;margin-top:18px}
+table{width:100%;border-collapse:collapse;font-size:14px}td,th{border-bottom:1px solid var(--line);padding:9px 6px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600}
+footer{margin:56px 0 32px;color:var(--muted);font-size:13px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <img src="img/agentc.png" alt="AgentC, o assistente do Agent Control">
+  <h1>Agent Control</h1>
+  <p class="sub">A sala de comando do seu time de agentes de IA: HUD, chat com o AgentC, orquestrador, limites de cada agente e aprovação do que é sensível.</p>
+</header>
+
+<h2>Baixar</h2>
+<div class="grid" id="dl"></div>
+<p class="rel" id="rel">Carregando a versão mais recente…</p>
+
+<h2>Planos</h2>
+<div class="card"><table>
+<tr><th>Plano</th><th>Inclui</th></tr>
+<tr><td><b>Grátis</b></td><td>Agentes ilimitados no seu PC, sala, chamada, HUD, app do celular, até 3 pessoas.</td></tr>
+<tr><td><b>Pro</b></td><td>Orquestrador automático do AgentC, IA de reserva entre provedores, backup e restauração, até 5 pessoas.</td></tr>
+<tr><td><b>Time</b></td><td>Tudo do Pro, pessoas ilimitadas, aprovação em dupla e auditoria de 1 ano com planilha.</td></tr>
+</table></div>
+
+<h2>Conferir o download</h2>
+<p class="sub" style="text-align:left;margin:0">Cada versão traz um <code>SHA256SUMS.txt</code>. Confira o arquivo baixado com <code>sha256sum -c SHA256SUMS.txt</code> (Linux/macOS) ou <code>Get-FileHash</code> (Windows).</p>
+
+<footer>Todos os direitos reservados. As versões até 4.3.0 foram publicadas sob licença MIT; cópias já baixadas seguem com essa licença.</footer>
+</div>
+<script>
+const repo = location.hostname.endsWith('.github.io') ? `${location.hostname.slice(0, -10)}/${location.pathname.split('/')[1] || ''}` : 'davi617/AgentControl';
+const gh = `https://github.com/${repo}`;
+const items = [
+  ['Windows', 'Windows 10/11 (64 bits)', 'AgentControl-windows-x64.zip'],
+  ['macOS', 'Apple Silicon (M1 ou mais novo)', 'AgentControl-macos-arm64.zip', 'Intel', 'AgentControl-macos-x64.zip'],
+  ['Linux', 'x64 (com X11 ou XWayland)', 'AgentControl-linux-x64.tar.gz', 'ARM64', 'AgentControl-linux-arm64.tar.gz'],
+  ['Android', 'App do celular (APK)', 'AgentControl-android.apk'],
+];
+const box = document.getElementById('dl');
+for (const [nome, nota, file, outro, outroFile] of items) {
+  const c = document.createElement('div'); c.className = 'card';
+  c.innerHTML = `<h3>${nome}</h3><p>${nota}</p><a class="btn" href="${gh}/releases/latest/download/${file}">Baixar</a>` + (outro ? ` <a class="btn alt" href="${gh}/releases/latest/download/${outroFile}">${outro}</a>` : '');
+  box.appendChild(c);
+}
+fetch(`https://api.github.com/repos/${repo}/releases/latest`).then(r => r.ok ? r.json() : null).then(j => {
+  const el = document.getElementById('rel');
+  if (!j) { el.innerHTML = `<a href="${gh}/releases">Ver todas as versões</a>`; return; }
+  el.innerHTML = `Versão ${j.tag_name.replace(/^v/, '')} · ${new Date(j.published_at).toLocaleDateString('pt-BR')} · <a href="${j.html_url}">notas da versão</a> · <a href="${gh}/releases/latest/download/SHA256SUMS.txt">SHA256SUMS.txt</a>`;
+}).catch(() => {});
+</script>
+</body>
+</html>
