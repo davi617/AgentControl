@@ -23,10 +23,18 @@ document.querySelectorAll('.code').forEach((box) => {
   box.append(b);
 });
 
-// Versão já escrita (v4.4.0); a API do GitHub só troca se saiu uma mais nova.
-const setVer = (v) => { document.querySelectorAll('[data-ver]').forEach((e) => { e.textContent = ` · versão ${v}`; }); document.querySelectorAll('[data-versao]').forEach((e) => { e.textContent = v; if (e.tagName === 'A') e.href = repo ? `${gh}/releases/tag/${v}` : gh; }); };
+// Links e versao atualizados pelo site; API de Releases nao e necessaria.
+const setVer = (v) => {
+  document.querySelectorAll('[data-ver]').forEach(e => {e.textContent = ' · versão ' + v;});
+  document.querySelectorAll('[data-versao]').forEach(e => {e.textContent = v; if (e.tagName === 'A') e.href = '../#baixar';});
+};
 setVer('v4.4.0');
-if (repo) fetch(`https://api.github.com/repos/${repo}/releases/latest`).then((r) => (r.ok ? r.json() : null)).then((j) => {
-  const v = j?.tag_name?.replace(/[^\w.\-]/g, '');
-  if (v) setVer(v);
+fetch('../assets/downloads.json', {cache: 'no-store'}).then(r => r.ok ? r.json() : null).then(j => {
+  if (!j || !j.downloads || typeof j.downloads !== 'object') return;
+  document.querySelectorAll('[data-dl]').forEach(a => {
+    const url = j.downloads[a.dataset.dl];
+    if (typeof url !== 'string') return;
+    try { const parsed = new URL(url); if (parsed.protocol === 'https:') a.href = parsed.href; } catch {}
+  });
+  if (/^v[0-9]+[.][0-9]+[.][0-9]+$/.test(j.version)) setVer(j.version);
 }).catch(() => {});

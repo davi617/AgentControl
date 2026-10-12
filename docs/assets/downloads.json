@@ -1,0 +1,14 @@
+{
+  "version": "v4.4.0",
+  "publishedAt": "2026-10-11T03:42:30Z",
+  "notes": "#novidades",
+  "downloads": {
+    "AgentControl-windows-x64.zip": "https://github.com/davi617/AgentControl/releases/download/v4.4.0/AgentControl-windows-x64.zip",
+    "AgentControl-linux-x64.tar.gz": "https://github.com/davi617/AgentControl/releases/download/v4.4.0/AgentControl-linux-x64.tar.gz",
+    "AgentControl-linux-arm64.tar.gz": "https://github.com/davi617/AgentControl/releases/download/v4.4.0/AgentControl-linux-arm64.tar.gz",
+    "AgentControl-macos-arm64.zip": "https://github.com/davi617/AgentControl/releases/download/v4.4.0/AgentControl-macos-arm64.zip",
+    "AgentControl-macos-x64.zip": "https://github.com/davi617/AgentControl/releases/download/v4.4.0/AgentControl-macos-x64.zip",
+    "AgentControl-android.apk": "https://github.com/davi617/AgentControl/releases/download/v4.4.0/AgentControl-android.apk",
+    "SHA256SUMS.txt": "https://github.com/davi617/AgentControl/releases/download/v4.4.0/SHA256SUMS.txt"
+  }
+}
