@@ -28,7 +28,7 @@ const setVer = (v) => {
   document.querySelectorAll('[data-ver]').forEach(e => {e.textContent = ' · versão ' + v;});
   document.querySelectorAll('[data-versao]').forEach(e => {e.textContent = v; if (e.tagName === 'A') e.href = '../#baixar';});
 };
-setVer('v4.4.0');
+setVer('v5.0.0');
 fetch('../assets/downloads.json', {cache: 'no-store'}).then(r => r.ok ? r.json() : null).then(j => {
   if (!j || !j.downloads || typeof j.downloads !== 'object') return;
   document.querySelectorAll('[data-dl]').forEach(a => {

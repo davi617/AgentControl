@@ -19,7 +19,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão 4.4.0" src="https://img.shields.io/badge/vers%C3%A3o-4.4.0-F97316?style=flat-square">
+  <img alt="Versão 5.0.0" src="https://img.shields.io/badge/vers%C3%A3o-5.0.0-F97316?style=flat-square">
   <img alt="Windows" src="https://img.shields.io/badge/Windows-10%2F11-18181b?style=flat-square">
   <img alt="Linux e macOS" src="https://img.shields.io/badge/PC-Linux%20%7C%20macOS-18181b?style=flat-square">
   <img alt="Android" src="https://img.shields.io/badge/Android-APK-18181b?style=flat-square">
